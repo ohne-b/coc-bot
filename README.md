@@ -7,8 +7,7 @@
 <p align="center">Clash of Clans automation for Windows and LDPlayer, built in Rust.</p>
 
 <p align="center">
-  <a href="LICENSE.md"><img src="https://img.shields.io/badge/original_code-PolyForm_Noncommercial-bb3535" alt="Original contributions: PolyForm Noncommercial"></a>
-  <a href="https://github.com/ohne-b/coc-bot/actions/workflows/validation.yml"><img src="https://github.com/ohne-b/coc-bot/actions/workflows/validation.yml/badge.svg" alt="Validation"></a>
+  <a href="LICENSE.md"><img src="https://img.shields.io/badge/license-PolyForm_Noncommercial-bb3535?style=flat-square" alt="License: PolyForm Noncommercial"></a>
 </p>
 
 ![Desktop dashboard with redacted fixture data](.github/assets/desktop.png)
