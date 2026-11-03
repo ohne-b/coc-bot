@@ -1595,6 +1595,24 @@ mod tests {
         .unwrap();
         let stuck = Fake::from_image(&visible);
         let mut stuck_adb = stuck.adb(temp.path());
+        profile
+            .screens
+            .get_mut(&Screen::Builder)
+            .unwrap()
+            .targets
+            .get_mut("cart")
+            .unwrap()
+            .region = Some(crate::calibration::Region(
+            600,
+            350,
+            icon.cols() as u32,
+            icon.rows() as u32,
+        ));
+        let vision = GameVision {
+            profile: &profile,
+            digits: &digits,
+            detector: detector.clone(),
+        };
         assert!(
             profile.screen(Screen::Builder).unwrap().targets["cart"]
                 .locate(&visible)
