@@ -11,7 +11,9 @@ use crate::{
     calibration::{Anchor, Calibration, Region, Resolution, Screen, asset_path},
 };
 
+pub mod army;
 mod digits;
+pub mod target;
 pub use digits::Digits;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]

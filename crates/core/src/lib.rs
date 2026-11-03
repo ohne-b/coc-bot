@@ -1,6 +1,7 @@
 pub mod application;
 pub mod calibration;
 pub mod device;
+pub mod gameplay;
 pub mod settings;
 pub mod storage;
 pub mod telemetry;

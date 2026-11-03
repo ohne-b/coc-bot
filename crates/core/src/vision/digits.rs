@@ -80,6 +80,34 @@ impl Digits {
         Ok(value(&digits))
     }
 
+    pub fn card_count(&self, image: &Mat, suffix: bool) -> Result<u32> {
+        let mut digits = glyphs(image)?
+            .iter()
+            .map(|glyph| self.classify(glyph, 0.75))
+            .collect::<Result<Vec<_>>>()?;
+        if !(2..=4).contains(&digits.len()) {
+            return Err(Error::Unreadable);
+        }
+        let marker = if suffix {
+            digits.pop().flatten()
+        } else {
+            digits.remove(0)
+        };
+        if marker.is_some() {
+            return Err(Error::Unreadable);
+        }
+        let number = value(
+            &digits
+                .into_iter()
+                .collect::<Option<Vec<_>>>()
+                .ok_or(Error::Unreadable)?,
+        );
+        if !(1..=300).contains(&number) {
+            return Err(Error::Unreadable);
+        }
+        Ok(number as u32)
+    }
+
     pub fn percent(&self, image: &Mat) -> Result<u8> {
         let digits = glyphs(image)?
             .iter()
