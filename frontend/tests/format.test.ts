@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { duration, fresh, number } from "../src/format";
+import { capacity, duration, fresh, number } from "../src/format";
 import type { ResourceValue } from "../src/types";
 
 describe("resource presentation", () => {
@@ -9,6 +9,15 @@ describe("resource presentation", () => {
     expect(number(0)).toBe("0");
     expect(number(26_000_000)).toBe("26,000,000");
     expect(duration(3_661_000)).toBe("01:01:01");
+  });
+  it("shortens capacities without changing balances or rounding the maximum", () => {
+    expect(capacity(26_000_000)).toBe("26m");
+    expect(capacity(12_500_000)).toBe("12.5m");
+    expect(capacity(1_234_567)).toBe("1.234567m");
+    expect(capacity(430_000)).toBe("430,000");
+    expect(capacity(null)).toBe(number(null));
+    expect(capacity(undefined)).toBe(number(undefined));
+    expect(number(12_400_000)).toBe("12,400,000");
   });
   it("never calls failed, old, future or stopped readings fresh", () => {
     const value: ResourceValue = {
