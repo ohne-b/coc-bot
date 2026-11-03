@@ -1,10 +1,18 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync, mkdirSync, readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { version, notes, verify, installerName } from "./release.mjs";
+import {
+  version,
+  notes,
+  verify,
+  installerName,
+  bump,
+  verifyTag,
+} from "./release.mjs";
 
 test("versions and release notes cannot introduce paths or unreviewed headings", () => {
   assert.equal(version("1.2.3-rc.1"), "1.2.3-rc.1");
@@ -67,4 +75,42 @@ test("artifact verification rejects tampering, foreign revisions and development
   bytes[20] = 1;
   writeFileSync(join(directory, name), bytes);
   assert.throws(() => verify(directory, "1.2.3", manifest.sha));
+});
+
+test("version preparation updates a real Cargo workspace lockfile offline", () => {
+  const directory = mkdtempSync(join(tmpdir(), "coc-version-test-"));
+  mkdirSync(join(directory, "app/src"), { recursive: true });
+  writeFileSync(
+    join(directory, "Cargo.toml"),
+    '[workspace]\nmembers=["app"]\nresolver="3"\n[workspace.package]\nversion = "0.1.0"\n',
+  );
+  writeFileSync(
+    join(directory, "app/Cargo.toml"),
+    '[package]\nname="release-regression"\nversion.workspace=true\nedition="2024"\n',
+  );
+  writeFileSync(join(directory, "app/src/lib.rs"), "");
+  execFileSync("cargo", ["generate-lockfile", "--offline"], {
+    cwd: directory,
+    stdio: "pipe",
+  });
+  bump("0.2.0", directory);
+  assert.match(
+    readFileSync(join(directory, "Cargo.lock"), "utf8"),
+    /name = "release-regression"\r?\nversion = "0.2.0"/,
+  );
+  execFileSync("cargo", ["check", "--locked", "--offline"], {
+    cwd: directory,
+    stdio: "pipe",
+  });
+});
+
+test("a release tag must resolve directly to the validated commit", () => {
+  const sha = "a".repeat(40);
+  verifyTag({ object: { type: "commit", sha } }, sha);
+  for (const record of [
+    undefined,
+    { object: { type: "tag", sha } },
+    { object: { type: "commit", sha: "b".repeat(40) } },
+  ])
+    assert.throws(() => verifyTag(record, sha));
 });

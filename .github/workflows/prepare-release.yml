@@ -36,6 +36,8 @@ jobs:
           RELEASE_VERSION: ${{ inputs.version }}
         run: |
           if (-not $env:GH_TOKEN) { throw 'Configure PUBLISHER_TOKEN so the PR can trigger validation' }
+          cargo fetch --locked
+          if ($LASTEXITCODE -ne 0) { throw 'Dependency cache preparation failed' }
           node .github/scripts/release.mjs bump $env:RELEASE_VERSION
           if ($LASTEXITCODE -ne 0) { throw 'Version preparation failed' }
           $branch = "feat/release-$env:RELEASE_VERSION"

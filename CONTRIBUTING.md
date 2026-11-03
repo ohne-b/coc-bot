@@ -80,7 +80,7 @@ The Python baseline remains an offline comparison suite during migration:
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r legacy/python/requirements.txt
 .\.venv\Scripts\python.exe -m unittest discover -s legacy/python -v
-.\.venv\Scripts\python.exe -m unittest discover -s .github/scripts -p "test_*.py" -v
+node --test .github/scripts/*.test.mjs
 Get-ChildItem legacy/python/web -Filter *.js | ForEach-Object {
     Get-Content -Raw -Encoding UTF8 $_.FullName | node --input-type=module --check
     if ($LASTEXITCODE -ne 0) { throw "JavaScript syntax check failed: $_" }

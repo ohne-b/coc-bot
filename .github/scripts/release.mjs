@@ -15,9 +15,9 @@ import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const repository = "ohne-b/coc-bot";
-const run = (command, args) =>
+const run = (command, args, directory = root) =>
   execFileSync(command, args, {
-    cwd: root,
+    cwd: directory,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "inherit"],
   }).trim();
@@ -49,15 +49,13 @@ export function version(value) {
 export const installerName = (value) =>
   `coc-bot-${version(value)}-windows-x64-setup.exe`;
 
-function currentVersion() {
+function currentVersion(directory = root) {
   const metadata = JSON.parse(
-    run("cargo", [
-      "metadata",
-      "--no-deps",
-      "--format-version",
-      "1",
-      "--locked",
-    ]),
+    run(
+      "cargo",
+      ["metadata", "--no-deps", "--format-version", "1", "--locked"],
+      directory,
+    ),
   );
   const packages = metadata.packages.filter((p) =>
     metadata.workspace_members.includes(p.id),
@@ -203,6 +201,15 @@ function prepare(value, directory) {
   writeFileSync(join(root, "artifacts/release-notes.md"), body);
 }
 
+export function verifyTag(record, sha) {
+  if (
+    !/^[a-f0-9]{40}$/.test(sha) ||
+    record?.object?.type !== "commit" ||
+    record.object.sha !== sha
+  )
+    throw Error("Release tag does not point to the validated commit");
+}
+
 function publish(value) {
   version(value);
   const sha = process.env.GITHUB_SHA;
@@ -213,6 +220,20 @@ function publish(value) {
     throw Error("Main advanced; validate the new revision before publishing");
   const directory = join(root, "artifacts/release");
   const files = [installerName(value), "latest.json", "SHA256SUMS"];
+  // Creating the ref atomically refuses an existing tag instead of reusing its target.
+  const tag = JSON.parse(
+    run("gh", [
+      "api",
+      `repos/${repository}/git/refs`,
+      "--method",
+      "POST",
+      "-f",
+      `ref=refs/tags/v${value}`,
+      "-f",
+      `sha=${sha}`,
+    ]),
+  );
+  verifyTag(tag, sha);
   run("gh", [
     "release",
     "create",
@@ -222,6 +243,7 @@ function publish(value) {
     "--target",
     sha,
     "--draft",
+    "--verify-tag",
     "--title",
     `CoC Bot v${value}`,
     "--notes-file",
@@ -245,6 +267,17 @@ function publish(value) {
     )
   )
     throw Error("Draft release verification failed; left unpublished");
+  verifyTag(
+    JSON.parse(
+      run("gh", ["api", `repos/${repository}/git/ref/tags/v${value}`]),
+    ),
+    sha,
+  );
+  if (
+    run("gh", ["api", `repos/${repository}/commits/main`, "--jq", ".sha"]) !==
+    sha
+  )
+    throw Error("Main advanced during upload; draft left unpublished");
   run("gh", [
     "release",
     "edit",
@@ -295,11 +328,11 @@ function download(value) {
   verify(directory, value, sha);
 }
 
-function bump(value) {
+export function bump(value, directory = root) {
   version(value);
-  const previous = currentVersion();
+  const previous = currentVersion(directory);
   if (value === previous) throw Error("Choose a new version");
-  const file = join(root, "Cargo.toml");
+  const file = join(directory, "Cargo.toml");
   const text = readFileSync(file, "utf8");
   const next = text.replace(
     /(\[workspace\.package\]\s*\r?\nversion\s*=\s*)"[^"]+"/,
@@ -307,11 +340,12 @@ function bump(value) {
   );
   if (next === text) throw Error("Workspace version was not found");
   writeFileSync(file, next);
-  run("cargo", ["metadata", "--no-deps", "--format-version", "1"]);
-  if (currentVersion() !== value) throw Error("Lockfile version update failed");
-  mkdirSync(join(root, ".tools"), { recursive: true });
+  run("cargo", ["metadata", "--offline", "--format-version", "1"], directory);
+  if (currentVersion(directory) !== value)
+    throw Error("Lockfile version update failed");
+  mkdirSync(join(directory, ".tools"), { recursive: true });
   writeFileSync(
-    join(root, ".tools/release-pr.md"),
+    join(directory, ".tools/release-pr.md"),
     `Prepare CoC Bot v${value}.\n\nAdd reviewed release bullets under \`## ${value}\` in CHANGELOG.md. Keep this PR in draft until validation and independent review pass. After merge, run Publish release separately; it signs and publishes the exact validated Windows installer.\n`,
   );
 }

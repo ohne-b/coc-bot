@@ -68,6 +68,16 @@ pub struct WallRun {
     since: u64,
 }
 impl WallRun {
+    #[cfg(test)]
+    pub(super) fn pending_for_test() -> Self {
+        let mut run = Self::new(Some(543), 0, Village::Home, [0, 0]);
+        run.phase = Phase::Verify {
+            resource: Resource::Gold,
+            cost: 1,
+            balance: 2,
+        };
+        run
+    }
     pub fn verification_pending(&self) -> bool {
         matches!(self.phase, Phase::Verify { .. })
     }

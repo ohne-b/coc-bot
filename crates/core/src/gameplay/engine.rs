@@ -417,6 +417,16 @@ impl Engine {
             return Ok(outcome);
         };
         self.unknown_since = None;
+        if matches!(screen, Screen::UpdateOffer | Screen::BuildersBusy)
+            && self
+                .wall
+                .as_ref()
+                .is_some_and(WallRun::verification_pending)
+        {
+            return Err(Error::Gameplay(
+                "Wall spending is unverified; stopped before changing operations".into(),
+            ));
+        }
         let popup = match screen {
             Screen::League => Some("close"),
             Screen::Welcome
@@ -1401,6 +1411,47 @@ mod tests {
         vision::Detector,
     };
     use std::{path::Path, sync::Arc};
+
+    #[tokio::test]
+    async fn pending_wall_spending_blocks_lifecycle_popups_and_recovery() {
+        let profile = Profile::load(&root()).unwrap();
+        let digits = Digits::load(&root(), Path::new("calibration/digits")).unwrap();
+        let detector = Arc::new(
+            Detector::load(
+                &Calibration::load(&root().join("config.json")).unwrap(),
+                &root(),
+            )
+            .unwrap(),
+        );
+        let vision = GameVision {
+            profile: &profile,
+            digits: &digits,
+            detector,
+        };
+        let (fake, image) = Fake::new("english-home.png");
+        let temp = tempfile::tempdir().unwrap();
+        let mut adb = fake.adb(temp.path());
+        let mut engine = Engine::new(Options::default(), SessionMode::Walls, &profile).unwrap();
+        engine.stage = Stage::Walls;
+        engine.wall = Some(WallRun::pending_for_test());
+        for screen in [Screen::UpdateOffer, Screen::BuildersBusy] {
+            let frame = FrameView {
+                image: &image,
+                detection: &Detection::Known(screen),
+                elapsed_ms: 1000,
+                captured_at_ms: 1_700_000_000_000,
+            };
+            assert!(matches!(
+                engine
+                    .tick(&vision, &mut adb, &frame, &CancellationToken::new())
+                    .await,
+                Err(Error::Gameplay(_))
+            ));
+            assert!(matches!(engine.stage, Stage::Walls));
+        }
+        assert!(matches!(engine.recover(1000), Err(Error::Gameplay(_))));
+        assert!(fake.taps.lock().unwrap().is_empty());
+    }
 
     #[tokio::test]
     async fn fast_cart_popup_waits_for_claim_and_stuck_close_never_reclaims_or_overflows() {
