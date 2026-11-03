@@ -13,9 +13,11 @@
 
 ## Get started
 
-This repository currently contains the Python [coc-auto](https://github.com/peenjeee/coc-auto)
-baseline, including its history, calibration assets, dashboard and tests. The Rust application
-has not been implemented yet; there is no desktop release to download.
+The Rust rewrite is in progress. Its core currently recognizes calibrated screens and
+digits using OpenCV and decodes ADB framebuffer images, with offline fixture tests.
+The gameplay engine and Tauri dashboard are not implemented yet; there is no desktop
+release to download. The Python [coc-auto](https://github.com/peenjeee/coc-auto) baseline,
+calibration, dashboard and tests are retained in [legacy/python/](legacy/python/).
 
 The target is a Windows application with **Rust, OpenCV, ADB, Tauri 2, React/TypeScript
 and SQLite**. It will preserve farming, troop deployment, resource collection, wall
@@ -26,18 +28,16 @@ links and optional relay/deployment instructions. Those hosted services are not 
 the Rust desktop plan. Development and offline checks are in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 > [!IMPORTANT]
-> The inherited calibration targets LDPlayer at 1280×720, DPI 240, with the game in
-> Bahasa Indonesia. Other resolutions or languages need calibration. Automation violates
+> Calibration targets LDPlayer at 1280×720, DPI 240, with the game in English.
+> Other resolutions or languages are unsupported. Automation violates
 > Supercell's rules and can result in an account ban. Not affiliated with Supercell.
 
-The separate [English profile](config.english.json) uses the same resolution and DPI;
-the Indonesian profile remains unchanged. Run it with
-`python bot.py --config config.english.json --walls home --live` and put this PC's
-device settings in ignored `config.english.local.json`. It retains 20M gold **and**
+The [English profile](legacy/python/config.json) retains 20M gold **and**
 elixir batching and 1M reserves for Home walls. The current Home price calibration
 targets green Hammer Jam discounts; revalidate it when that event ends. Screens not
 yet captured in English are listed in `calibration_pending_screens`; an unfamiliar
-dialog fails recognition and cannot be confirmed automatically.
+dialog fails recognition and cannot be confirmed automatically. Pending screens have
+no templates; the Indonesian calibration has been removed.
 Builder stage two is recognized, but surviving-camp selection and its stack deployment
 point still need correction and another live check; unattended use remains Home-only.
 
@@ -48,8 +48,8 @@ Report problems through [GitHub issues](https://github.com/ohne-b/coc-bot/issues
 redacted logs and your commit, emulator version, resolution and game language.
 See [SECURITY.md](SECURITY.md) for private vulnerability reports.
 
-The new desktop UI will be English only initially. Existing Python messages and the
-Indonesian calibration are retained alongside the English recognition profile.
+The new desktop UI will be English only. The temporary Python baseline retains its
+inherited messages while the Rust port is in progress.
 
 ## License and credits
 

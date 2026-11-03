@@ -19,16 +19,19 @@ alternate agent instruction files or links.
   Release publication is separate. Never weaken checks to make a PR appear complete.
 - Keep README a short entry point. Preserve the inherited `LEGACY.md` and `docs/` media;
   new user guides belong in the published wiki. Do not add plans or duplicate docs trees.
-- The new desktop UI is English only initially. Preserve Indonesian recognition anchors
-  until replacements are calibrated. Do not rename inherited text as cosmetic cleanup.
+- The desktop UI and calibration are English only. Indonesian profiles and text anchors
+  were removed at the maintainer's request. Keep shared icons and digits used by English;
+  missing English screens remain explicitly uncalibrated, with no language fallback.
 - Keep LICENSE, NOTICE and bundled font notices. No upstream project license was found;
   do not claim PolyForm relicenses imported code or that a translation resolves permission.
 
 ## Current baseline and target
 
-The repository currently contains Python coc-auto, its existing dashboard and offline
-tests. The Rust/Tauri application is planned, not implemented. Retain this baseline and
-its history until equivalent Rust behavior has meaningful regression coverage.
+The Rust workspace currently implements calibrated screen and digit recognition in
+`crates/core/`, with raw framebuffer decoding and offline regression tests. The Tauri
+application and gameplay engine are not implemented yet. The Python coc-auto baseline,
+dashboard, calibration and tests live in `legacy/python/`; retain them and their history
+until equivalent Rust behavior has meaningful regression coverage.
 
 The target is Windows + LDPlayer + ADB, a modular Rust backend, OpenCV recognition,
 SQLite persistence and a Tauri 2 + React/TypeScript desktop UI. No Linux server, Docker,
@@ -52,7 +55,7 @@ reset data. Keep personal app data separate from shared calibration and source.
 
 - Preserve Home Village and Builder Base farming, troop/spell/hero deployment, resource
   collection, wall upgrades and bounded crash/disconnect recovery.
-- The baseline expects 1280×720 at DPI 240 and partly Indonesian UI text. Resolution,
+- The current calibration expects English at 1280×720 and DPI 240. Resolution,
   scale, language and device coordinates are calibration inputs, not universal constants.
 - Gate input on a recognized screen. Unknown or unreadable state must not trigger blind
   taps. Keep dry-run input guards, cancellation, timeouts and bounded recovery attempts.
@@ -86,7 +89,7 @@ Avoid filler, technical implementation details and middle-dot separators in new 
 
 Use CONTRIBUTING's real commands for the current code. Automated tests use fixtures,
 temporary data and fake device/transport boundaries; never live accounts or emulators.
-Keep the legacy `web/` sources tracked until deliberately retired. Do not copy the
+Keep the legacy `legacy/python/web/` sources tracked until deliberately retired. Do not copy the
 reference project's generated-web ignore rule onto this repository.
 Add Rust and frontend checks alongside the implementation; never claim absent build
 steps passed. Preserve workflow trust boundaries, immutable action pins and read-only

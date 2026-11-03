@@ -8,11 +8,11 @@ captures/
 .pi/
 *.png
 *.log
-!calibration/**/*.png
-!calibration-legacy/**/*.png
 !docs/*.png
-!fixtures/*.png
-!web/icons/*.png
+!legacy/python/calibration/english/**/*.png
+!legacy/python/calibration/digits/*.png
+!legacy/python/fixtures/*.png
+!legacy/python/web/icons/*.png
 config.json.bak
 config.json.tmp
 config.local.json

@@ -1,0 +1,2237 @@
+{
+  "adb": "C:\\LDPlayer\\LDPlayer14\\adb.exe",
+  "serial": "emulator-5554",
+  "tesseract": "C:\\Program Files\\Tesseract-OCR\\tesseract.exe",
+  "resolution": [
+    1280,
+    720
+  ],
+  "minimum": {
+    "gold": 0,
+    "elixir": 0,
+    "dark": 0
+  },
+  "screens": {
+    "home": {
+      "anchors": [
+        {
+          "roi": [
+            45,
+            675,
+            90,
+            25
+          ],
+          "file": "calibration/english/home-0.png",
+          "margin": 6
+        },
+        {
+          "roi": [
+            1234,
+            124,
+            26,
+            26
+          ],
+          "file": "calibration/english/icons/home-be90728e938a4ad59ffaa2f69b8dcebc.png"
+        }
+      ],
+      "actions": {
+        "attack": [
+          85,
+          620
+        ]
+      },
+      "targets": {
+        "switch": {
+          "file": "calibration/english/icons/home-boat-05a72ae9974a42059aa8483c901b1359.png",
+          "max_score": 0.12,
+          "pan": [
+            [
+              500,
+              450
+            ],
+            [
+              750,
+              200
+            ]
+          ],
+          "offset": [
+            -16,
+            40
+          ],
+          "scales": [
+            0.8,
+            0.9,
+            1.0,
+            1.1,
+            1.2,
+            1.3,
+            1.4
+          ],
+          "avoid": [
+            [
+              0,
+              0,
+              1280,
+              60
+            ],
+            [
+              0,
+              0,
+              310,
+              140
+            ],
+            [
+              990,
+              0,
+              290,
+              265
+            ],
+            [
+              0,
+              140,
+              125,
+              420
+            ],
+            [
+              0,
+              530,
+              160,
+              190
+            ],
+            [
+              170,
+              620,
+              400,
+              100
+            ],
+            [
+              920,
+              620,
+              360,
+              100
+            ],
+            [
+              1155,
+              300,
+              125,
+              115
+            ],
+            [
+              1125,
+              540,
+              155,
+              180
+            ]
+          ],
+          "pan_attempts": 3
+        }
+      }
+    },
+    "home_menu": {
+      "anchors": [
+        {
+          "roi": [
+            96,
+            42,
+            145,
+            25
+          ],
+          "file": "calibration/english/home_menu-0.png",
+          "margin": 6
+        },
+        {
+          "roi": [
+            135,
+            502,
+            190,
+            26
+          ],
+          "file": "calibration/english/home_menu-1.png",
+          "margin": 6
+        }
+      ],
+      "actions": {
+        "find": [
+          218,
+          530
+        ],
+        "close": [
+          890,
+          50
+        ]
+      }
+    },
+    "home_army": {
+      "anchors": [
+        {
+          "roi": [
+            205,
+            60,
+            110,
+            26
+          ],
+          "file": "calibration/english/home_army-0.png",
+          "margin": 6
+        },
+        {
+          "roi": [
+            564,
+            60,
+            170,
+            25
+          ],
+          "file": "calibration/english/home_army-1.png",
+          "margin": 6
+        }
+      ],
+      "actions": {
+        "attack": [
+          1130,
+          641
+        ],
+        "close": [
+          1237,
+          66
+        ]
+      }
+    },
+    "home_scout": {
+      "anchors": [
+        {
+          "roi": [
+            31,
+            522,
+            130,
+            27
+          ],
+          "file": "calibration/english/home_scout-0.png",
+          "margin": 6
+        },
+        {
+          "roi": [
+            1148,
+            480,
+            105,
+            32
+          ],
+          "file": "calibration/english/home_scout-1.png",
+          "margin": 6
+        }
+      ],
+      "actions": {
+        "next": [
+          1165,
+          512
+        ]
+      },
+      "loot": {
+        "gold": [
+          62,
+          90,
+          150,
+          26
+        ],
+        "elixir": [
+          62,
+          127,
+          150,
+          26
+        ],
+        "dark": [
+          62,
+          166,
+          150,
+          26
+        ]
+      },
+      "deploy": [
+        125,
+        346
+      ],
+      "troops": [
+        {
+          "slot": [
+            132,
+            650
+          ],
+          "count": 1,
+          "hold": 10,
+          "until_empty": true
+        },
+        {
+          "slot": [
+            229,
+            650
+          ],
+          "count": 1,
+          "hold": 10,
+          "until_empty": true
+        },
+        {
+          "slot": [
+            325,
+            650
+          ],
+          "count": 1,
+          "hold": 10,
+          "until_empty": true
+        },
+        {
+          "slot": [
+            440,
+            650
+          ],
+          "count": 1
+        },
+        {
+          "slot": [
+            636,
+            650
+          ],
+          "count": 1
+        },
+        {
+          "slot": [
+            636,
+            650
+          ],
+          "count": 1,
+          "tap_only": true
+        },
+        {
+          "slot": [
+            540,
+            650
+          ],
+          "count": 1
+        },
+        {
+          "slot": [
+            540,
+            650
+          ],
+          "count": 1,
+          "tap_only": true
+        },
+        {
+          "slot": [
+            732,
+            650
+          ],
+          "count": 1
+        },
+        {
+          "slot": [
+            732,
+            650
+          ],
+          "count": 1,
+          "tap_only": true
+        },
+        {
+          "slot": [
+            830,
+            650
+          ],
+          "count": 1
+        },
+        {
+          "slot": [
+            830,
+            650
+          ],
+          "count": 1,
+          "tap_only": true
+        },
+        {
+          "slot": [
+            940,
+            650
+          ],
+          "count": 3,
+          "until_empty": true,
+          "points": [
+            [
+              450,
+              346
+            ],
+            [
+              320,
+              265
+            ],
+            [
+              320,
+              427
+            ]
+          ]
+        },
+        {
+          "slot": [
+            1036,
+            650
+          ],
+          "count": 1,
+          "until_empty": true,
+          "points": [
+            [
+              450,
+              346
+            ]
+          ]
+        },
+        {
+          "slot": [
+            1135,
+            650
+          ],
+          "count": 1,
+          "until_empty": true,
+          "points": [
+            [
+              370,
+              346
+            ]
+          ]
+        }
+      ],
+      "sweep": {
+        "slots": [
+          [
+            132,
+            650
+          ],
+          [
+            229,
+            650
+          ],
+          [
+            325,
+            650
+          ],
+          [
+            440,
+            650
+          ],
+          [
+            540,
+            650
+          ],
+          [
+            636,
+            650
+          ],
+          [
+            732,
+            650
+          ],
+          [
+            830,
+            650
+          ],
+          [
+            940,
+            650
+          ],
+          [
+            1036,
+            650
+          ],
+          [
+            1135,
+            650
+          ]
+        ],
+        "deploy": [
+          125,
+          346
+        ]
+      },
+      "auto": {
+        "bar": [
+          0,
+          598,
+          1280,
+          106
+        ],
+        "hold": 10,
+        "spells": [
+          [
+            380,
+            346
+          ],
+          [
+            290,
+            271
+          ],
+          [
+            290,
+            421
+          ],
+          [
+            500,
+            346
+          ],
+          [
+            410,
+            271
+          ],
+          [
+            410,
+            421
+          ],
+          [
+            620,
+            346
+          ],
+          [
+            530,
+            271
+          ],
+          [
+            530,
+            421
+          ],
+          [
+            740,
+            346
+          ],
+          [
+            650,
+            271
+          ],
+          [
+            650,
+            421
+          ]
+        ],
+        "ring": [
+          [
+            141,
+            299
+          ],
+          [
+            243,
+            232
+          ],
+          [
+            356,
+            156
+          ],
+          [
+            470,
+            82
+          ],
+          [
+            810,
+            82
+          ],
+          [
+            924,
+            156
+          ],
+          [
+            1037,
+            232
+          ],
+          [
+            1139,
+            299
+          ],
+          [
+            1139,
+            391
+          ],
+          [
+            1037,
+            458
+          ],
+          [
+            924,
+            534
+          ],
+          [
+            243,
+            458
+          ],
+          [
+            141,
+            391
+          ]
+        ],
+        "spell_spread": [
+          [
+            640,
+            330
+          ],
+          [
+            490,
+            321
+          ],
+          [
+            521,
+            301
+          ],
+          [
+            555,
+            278
+          ],
+          [
+            589,
+            256
+          ],
+          [
+            691,
+            256
+          ],
+          [
+            725,
+            278
+          ],
+          [
+            759,
+            301
+          ],
+          [
+            795,
+            321
+          ],
+          [
+            795,
+            348
+          ],
+          [
+            759,
+            368
+          ],
+          [
+            725,
+            391
+          ],
+          [
+            640,
+            399
+          ],
+          [
+            521,
+            368
+          ],
+          [
+            490,
+            348
+          ]
+        ],
+        "quake": [
+          [
+            640,
+            150
+          ],
+          [
+            960,
+            330
+          ],
+          [
+            640,
+            520
+          ],
+          [
+            320,
+            330
+          ]
+        ]
+      }
+    },
+    "home_battle": {
+      "anchors": [
+        {
+          "roi": [
+            35,
+            128,
+            24,
+            26
+          ],
+          "file": "calibration/english/icons/home_battle-8839b94d1a054e31ba8a928b3c88e53a.png",
+          "margin": 4
+        },
+        {
+          "roi": [
+            1084,
+            505,
+            170,
+            15
+          ],
+          "file": "calibration/english/home_battle-1.png",
+          "margin": 6
+        }
+      ],
+      "actions": {
+        "surrender": [
+          92,
+          537
+        ]
+      },
+      "damage": [
+        1170,
+        522,
+        95,
+        36
+      ]
+    },
+    "home_result": {
+      "anchors": [
+        {
+          "file": "calibration/english/icons/home_result-ee063b1fccee453f81c0b547b971a754.png",
+          "search": [
+            672,
+            306,
+            46,
+            74
+          ],
+          "scales": [
+            1.0
+          ],
+          "max_score": 0.02
+        },
+        {
+          "roi": [
+            594,
+            595,
+            95,
+            43
+          ],
+          "file": "calibration/english/home_result-1.png",
+          "margin": 6
+        }
+      ],
+      "actions": {
+        "return": [
+          640,
+          617
+        ]
+      }
+    },
+    "builder": {
+      "anchors": [
+        {
+          "roi": [
+            45,
+            675,
+            90,
+            25
+          ],
+          "file": "calibration/english/home-0.png",
+          "margin": 6
+        },
+        {
+          "roi": [
+            1236,
+            126,
+            20,
+            22
+          ],
+          "file": "calibration/english/icons/builder-gem-icon.png"
+        },
+        {
+          "roi": [
+            1244,
+            74,
+            14,
+            26
+          ],
+          "file": "calibration/english/icons/builder-elixir-bfc89b8b51fd4ccf9ea502b6929c5087.png"
+        }
+      ],
+      "trophies": [
+        94,
+        174,
+        76,
+        34
+      ],
+      "actions": {
+        "attack": [
+          85,
+          620
+        ]
+      },
+      "targets": {
+        "switch": {
+          "file": "calibration/english/icons/builder-boat-9d1a2aaa061a4c1985e316ed6e66dcf2.png",
+          "max_score": 0.1,
+          "pan": [
+            [
+              800,
+              300
+            ],
+            [
+              600,
+              450
+            ]
+          ],
+          "offset": [
+            0,
+            0
+          ],
+          "scales": [
+            0.8,
+            0.9,
+            1.0,
+            1.1,
+            1.2,
+            1.3,
+            1.4
+          ],
+          "avoid": [
+            [
+              0,
+              0,
+              1280,
+              60
+            ],
+            [
+              0,
+              0,
+              310,
+              140
+            ],
+            [
+              990,
+              0,
+              290,
+              265
+            ],
+            [
+              0,
+              140,
+              125,
+              420
+            ],
+            [
+              0,
+              530,
+              160,
+              190
+            ],
+            [
+              170,
+              620,
+              400,
+              100
+            ],
+            [
+              920,
+              620,
+              360,
+              100
+            ],
+            [
+              1155,
+              300,
+              125,
+              115
+            ],
+            [
+              1125,
+              540,
+              155,
+              180
+            ]
+          ],
+          "pan_attempts": 3
+        },
+        "cart": {
+          "file": "calibration/english/builder-cart-empty.png",
+          "max_score": 0.12,
+          "scales": [
+            0.8,
+            0.9,
+            1.0,
+            1.1,
+            1.2
+          ],
+          "avoid": [
+            [
+              0,
+              0,
+              1280,
+              60
+            ],
+            [
+              0,
+              0,
+              310,
+              140
+            ],
+            [
+              990,
+              0,
+              290,
+              265
+            ],
+            [
+              0,
+              140,
+              125,
+              420
+            ],
+            [
+              0,
+              530,
+              160,
+              190
+            ],
+            [
+              170,
+              620,
+              400,
+              100
+            ],
+            [
+              920,
+              620,
+              360,
+              100
+            ],
+            [
+              1155,
+              300,
+              125,
+              115
+            ],
+            [
+              1125,
+              540,
+              155,
+              180
+            ]
+          ],
+          "pan": [
+            [
+              640,
+              300
+            ],
+            [
+              640,
+              450
+            ]
+          ],
+          "pan_attempts": 3,
+          "alt_files": [
+            {
+              "file": "calibration/english/icons/builder-cart-full-73654d455f5c4be1bfc859ee5c2c6295.png",
+              "offset": [
+                0,
+                18
+              ]
+            },
+            {
+              "file": "calibration/english/icons/builder-cart-fullbubble-8aad1e6536344a138faf54daca1ddce5.png",
+              "offset": [
+                0,
+                18
+              ]
+            },
+            {
+              "file": "calibration/english/icons/builder-cart-heap-ef31006b4ad4463a9fccb45baafebb7a.png",
+              "offset": [
+                0,
+                18
+              ]
+            },
+            {
+              "file": "calibration/english/icons/builder-cart-axes-f8b998ea5ec24140bc7ee1ab965f6aeb.png",
+              "offset": [
+                0,
+                28
+              ]
+            }
+          ],
+          "search_first": true
+        }
+      }
+    },
+    "builder_menu": {
+      "anchors": [
+        {
+          "roi": [
+            520,
+            116,
+            271,
+            39
+          ],
+          "file": "calibration/english/builder_menu-0.png",
+          "margin": 6
+        },
+        {
+          "roi": [
+            868,
+            455,
+            166,
+            34
+          ],
+          "file": "calibration/english/builder_menu-1.png",
+          "margin": 6
+        }
+      ],
+      "actions": {
+        "find": [
+          950,
+          472
+        ],
+        "close": [
+          1088,
+          131
+        ]
+      }
+    },
+    "builder_scout": {
+      "anchors": [
+        {
+          "roi": [
+            186,
+            491,
+            132,
+            24
+          ],
+          "file": "calibration/english/builder_scout-0.png",
+          "margin": 6
+        },
+        {
+          "roi": [
+            432,
+            483,
+            84,
+            38
+          ],
+          "file": "calibration/english/builder_scout-1.png",
+          "margin": 6
+        }
+      ],
+      "actions": {},
+      "deploy": [
+        150,
+        370
+      ],
+      "troops": [
+        {
+          "slot": [
+            130,
+            650
+          ],
+          "count": 1,
+          "deploy": [
+            150,
+            370
+          ]
+        },
+        {
+          "slot": [
+            243,
+            650
+          ],
+          "count": 1,
+          "deploy": [
+            330,
+            200
+          ]
+        },
+        {
+          "slot": [
+            344,
+            650
+          ],
+          "count": 1,
+          "deploy": [
+            850,
+            140
+          ]
+        },
+        {
+          "slot": [
+            445,
+            650
+          ],
+          "count": 1,
+          "deploy": [
+            1120,
+            370
+          ]
+        },
+        {
+          "slot": [
+            546,
+            650
+          ],
+          "count": 1,
+          "deploy": [
+            1000,
+            500
+          ]
+        },
+        {
+          "slot": [
+            647,
+            650
+          ],
+          "count": 1,
+          "deploy": [
+            240,
+            445
+          ]
+        },
+        {
+          "slot": [
+            748,
+            650
+          ],
+          "count": 1,
+          "deploy": [
+            220,
+            300
+          ]
+        }
+      ],
+      "auto": {
+        "bar": [
+          0,
+          588,
+          1280,
+          120
+        ],
+        "points": [
+          [
+            345,
+            120
+          ],
+          [
+            850,
+            140
+          ],
+          [
+            1027,
+            264
+          ],
+          [
+            1000,
+            500
+          ],
+          [
+            380,
+            513
+          ],
+          [
+            238,
+            340
+          ]
+        ]
+      }
+    },
+    "builder_battle": {
+      "anchors": [
+        {
+          "roi": [
+            32,
+            488,
+            121,
+            25
+          ],
+          "file": "calibration/english/builder_battle-0.png",
+          "margin": 6
+        },
+        {
+          "roi": [
+            1084,
+            505,
+            160,
+            18
+          ],
+          "file": "calibration/english/builder_battle-1.png",
+          "margin": 6
+        }
+      ],
+      "actions": {
+        "surrender": [
+          92,
+          501
+        ]
+      },
+      "stars": [
+        [
+          1070,
+          527,
+          27,
+          26
+        ],
+        [
+          1105,
+          527,
+          27,
+          26
+        ],
+        [
+          1140,
+          527,
+          27,
+          26
+        ]
+      ]
+    },
+    "builder_stage2": {
+      "anchors": [
+        {
+          "roi": [
+            31,
+            488,
+            126,
+            24
+          ],
+          "file": "calibration/english/builder_stage2-0.png",
+          "margin": 6
+        },
+        {
+          "roi": [
+            627,
+            19,
+            80,
+            12
+          ],
+          "file": "calibration/english/builder_stage2-1.png",
+          "margin": 6
+        }
+      ],
+      "actions": {
+        "surrender": [
+          92,
+          501
+        ]
+      },
+      "deploy": [
+        73,
+        299
+      ],
+      "troops": [
+        {
+          "slot": [
+            130,
+            650
+          ],
+          "count": 1,
+          "deploy": [
+            230,
+            300
+          ]
+        },
+        {
+          "slot": [
+            243,
+            650
+          ],
+          "count": 1,
+          "deploy": [
+            400,
+            120
+          ]
+        },
+        {
+          "slot": [
+            344,
+            650
+          ],
+          "count": 1,
+          "deploy": [
+            900,
+            130
+          ]
+        },
+        {
+          "slot": [
+            445,
+            650
+          ],
+          "count": 1,
+          "deploy": [
+            1050,
+            330
+          ]
+        },
+        {
+          "slot": [
+            546,
+            650
+          ],
+          "count": 1,
+          "deploy": [
+            950,
+            500
+          ]
+        },
+        {
+          "slot": [
+            647,
+            650
+          ],
+          "count": 1,
+          "deploy": [
+            330,
+            440
+          ]
+        },
+        {
+          "slot": [
+            748,
+            650
+          ],
+          "count": 1,
+          "deploy": [
+            400,
+            120
+          ]
+        },
+        {
+          "slot": [
+            849,
+            650
+          ],
+          "count": 1,
+          "deploy": [
+            1050,
+            330
+          ]
+        },
+        {
+          "slot": [
+            950,
+            650
+          ],
+          "count": 1,
+          "deploy": [
+            330,
+            440
+          ]
+        }
+      ],
+      "overrides": [
+        "builder_battle2",
+        "builder_scout"
+      ],
+      "auto": {
+        "bar": [
+          0,
+          588,
+          1280,
+          120
+        ],
+        "points": [
+          [
+            396,
+            92
+          ],
+          [
+            830,
+            51
+          ],
+          [
+            926,
+            134
+          ],
+          [
+            921,
+            457
+          ],
+          [
+            263,
+            359
+          ],
+          [
+            254,
+            205
+          ],
+          [
+            982,
+            308
+          ],
+          [
+            413,
+            489
+          ]
+        ]
+      }
+    },
+    "builder_battle2": {
+      "anchors": [
+        {
+          "roi": [
+            31,
+            488,
+            126,
+            24
+          ],
+          "file": "calibration/english/builder_battle2-0.png",
+          "margin": 6
+        },
+        {
+          "roi": [
+            582,
+            17,
+            120,
+            16
+          ],
+          "file": "calibration/english/builder_battle2-1.png",
+          "margin": 6
+        }
+      ],
+      "actions": {
+        "surrender": [
+          92,
+          505
+        ]
+      }
+    },
+    "builder_result": {
+      "anchors": [
+        {
+          "roi": [
+            400,
+            387,
+            135,
+            18
+          ],
+          "file": "calibration/english/builder_result-0.png",
+          "margin": 6
+        },
+        {
+          "roi": [
+            594,
+            585,
+            98,
+            43
+          ],
+          "file": "calibration/english/builder_result-1.png",
+          "margin": 6
+        }
+      ],
+      "actions": {
+        "return": [
+          640,
+          607
+        ]
+      }
+    },
+    "builder_star_bonus": {
+      "anchors": [
+        {
+          "roi": [
+            510,
+            126,
+            262,
+            38
+          ],
+          "file": "calibration/english/builder_star_bonus-0.png",
+          "margin": 6
+        },
+        {
+          "roi": [
+            601,
+            544,
+            78,
+            31
+          ],
+          "file": "calibration/english/builder_star_bonus-1.png",
+          "margin": 6
+        }
+      ],
+      "actions": {
+        "ok": [
+          640,
+          559
+        ]
+      }
+    },
+    "builder_cart": {
+      "anchors": [
+        {
+          "roi": [
+            542,
+            58,
+            200,
+            37
+          ],
+          "file": "calibration/english/builder_cart-0.png",
+          "margin": 6
+        },
+        {
+          "roi": [
+            1050,
+            52,
+            44,
+            40
+          ],
+          "file": "calibration/english/icons/builder_cart-ac7ae281167a4c749254b19cd6b40367.png"
+        }
+      ],
+      "actions": {
+        "claim": [
+          941,
+          606
+        ],
+        "close": [
+          1072,
+          71
+        ]
+      }
+    },
+    "league": {
+      "anchors": [
+        {
+          "roi": [
+            136,
+            63,
+            211,
+            30
+          ],
+          "file": "calibration/english/league-0.png",
+          "margin": 6
+        },
+        {
+          "roi": [
+            1212,
+            50,
+            50,
+            46
+          ],
+          "file": "calibration/english/icons/league-dfad0514db5d4488a4d4358cf8add2a0.png"
+        }
+      ],
+      "actions": {
+        "close": [
+          1236,
+          72
+        ]
+      }
+    },
+    "build_list": {
+      "anchors": [
+        {
+          "roi": [
+            1030,
+            16,
+            155,
+            16
+          ],
+          "file": "calibration/english/build_list-0.png",
+          "margin": 6
+        },
+        {
+          "roi": [
+            1240,
+            6,
+            38,
+            34
+          ],
+          "file": "calibration/english/icons/build_list-close-9230279687b64ac497e8223c7152d496.png"
+        }
+      ],
+      "actions": {
+        "close": [
+          1258,
+          22
+        ]
+      }
+    },
+    "wall_selected": {
+      "anchors": [
+        {
+          "file": "calibration/english/wall-select-row.png",
+          "search": [
+            0,
+            380,
+            1280,
+            340
+          ],
+          "scales": [
+            1.0,
+            1.1
+          ],
+          "max_score": 0.03
+        },
+        {
+          "file": "calibration/english/icons/wall-hammer-b6fafe3a343545f4aa4989149fc91bd8.png",
+          "search": [
+            0,
+            380,
+            1280,
+            340
+          ],
+          "scales": [
+            1.0,
+            1.1
+          ],
+          "max_score": 0.03
+        }
+      ],
+      "overrides": [
+        "build_list",
+        "home",
+        "builder"
+      ],
+      "actions": {
+        "close": [
+          1258,
+          22
+        ],
+        "build": [
+          1196,
+          640
+        ]
+      }
+    },
+    "wall_confirm": {
+      "anchors": [
+        {
+          "roi": [
+            420,
+            34,
+            282,
+            32
+          ],
+          "file": "calibration/english/wall_confirm-0.png",
+          "margin": 12
+        },
+        {
+          "roi": [
+            655,
+            306,
+            450,
+            52
+          ],
+          "file": "calibration/english/wall_confirm-1.png",
+          "margin": 6
+        }
+      ],
+      "overrides": [
+        "build_list",
+        "wall_selected"
+      ],
+      "actions": {
+        "confirm": [
+          896,
+          628
+        ],
+        "close": [
+          1131,
+          56
+        ]
+      }
+    },
+    "builder_wall_confirm": {
+      "anchors": [
+        {
+          "roi": [
+            333,
+            106,
+            70,
+            30
+          ],
+          "file": "calibration/english/builder_wall_confirm-0.png",
+          "margin": 6
+        },
+        {
+          "roi": [
+            238,
+            288,
+            104,
+            51
+          ],
+          "file": "calibration/english/builder_wall_confirm-1.png",
+          "margin": 6
+        }
+      ],
+      "overrides": [
+        "build_list",
+        "wall_selected"
+      ],
+      "actions": {
+        "confirm": [
+          643,
+          630
+        ],
+        "close": [
+          1071,
+          46
+        ]
+      }
+    },
+    "surrender_confirm": {
+      "anchors": [
+        {
+          "roi": [
+            518,
+            204,
+            250,
+            35
+          ],
+          "file": "calibration/english/surrender_confirm-0.png",
+          "margin": 6
+        },
+        {
+          "roi": [
+            369,
+            297,
+            542,
+            58
+          ],
+          "file": "calibration/english/surrender_confirm-1.png",
+          "margin": 6
+        }
+      ],
+      "overrides": [
+        "home_battle",
+        "builder_battle",
+        "builder_battle2"
+      ],
+      "actions": {
+        "confirm": [
+          778,
+          462
+        ]
+      },
+      "alt_anchors": [
+        [
+          {
+            "roi": [
+              519,
+              204,
+              249,
+              35
+            ],
+            "file": "calibration/english/surrender_confirm-alt-0.png",
+            "margin": 6
+          },
+          {
+            "roi": [
+              377,
+              298,
+              527,
+              55
+            ],
+            "file": "calibration/english/surrender_confirm-alt-1.png",
+            "margin": 6
+          }
+        ]
+      ]
+    }
+  },
+  "digits": "calibration/digits",
+  "zoom_out": {
+    "device": "/dev/input/event4",
+    "pinches": 3,
+    "center": [
+      640,
+      360
+    ],
+    "gap": [
+      700,
+      150
+    ],
+    "selection": {
+      "file": "calibration/english/icons/selected-info-0f2edaacf9d84544b28cb7b2615fec77.png",
+      "max_score": 0.08
+    }
+  },
+  "touch_device": "/dev/input/event4",
+  "storage": {
+    "home": {
+      "gold": {
+        "row": 53,
+        "left": 1014,
+        "right": 1198,
+        "hue": [
+          15,
+          35
+        ],
+        "min_saturation": 150
+      },
+      "elixir": {
+        "row": 120,
+        "left": 1014,
+        "right": 1198,
+        "hue": [
+          125,
+          165
+        ],
+        "min_saturation": 120
+      }
+    },
+    "builder": {
+      "gold": {
+        "row": 53,
+        "left": 1014,
+        "right": 1198,
+        "hue": [
+          15,
+          35
+        ],
+        "min_saturation": 150
+      },
+      "elixir": {
+        "row": 120,
+        "left": 1014,
+        "right": 1198,
+        "hue": [
+          125,
+          165
+        ],
+        "min_saturation": 120
+      }
+    }
+  },
+  "cart_bar": {
+    "row": 620,
+    "left": 515,
+    "right": 808,
+    "hue": [
+      125,
+      165
+    ],
+    "min_saturation": 100,
+    "from": "left"
+  },
+  "capacity": {
+    "home": {
+      "elixir": {
+        "bar": [
+          1040,
+          74,
+          178,
+          26
+        ],
+        "tap": [
+          1120,
+          86
+        ],
+        "max": [
+          1112,
+          126,
+          138,
+          26
+        ],
+        "label": {
+          "file": "calibration/english/tooltip-max.png",
+          "region": [
+            1030,
+            122,
+            130,
+            34
+          ],
+          "max_score": 0.05
+        }
+      },
+      "gold": {
+        "bar": [
+          1040,
+          26,
+          178,
+          26
+        ],
+        "tap": [
+          1120,
+          38
+        ],
+        "max": [
+          1112,
+          78,
+          138,
+          26
+        ],
+        "label": {
+          "file": "calibration/english/tooltip-max.png",
+          "region": [
+            1030,
+            74,
+            130,
+            34
+          ],
+          "max_score": 0.05
+        }
+      },
+      "dark": {
+        "bar": [
+          1040,
+          122,
+          178,
+          26
+        ],
+        "tap": [
+          1120,
+          134
+        ],
+        "max": [
+          1146,
+          174,
+          106,
+          28
+        ],
+        "label": {
+          "file": "calibration/english/tooltip-max.png",
+          "region": [
+            1030,
+            170,
+            130,
+            34
+          ],
+          "max_score": 0.05
+        }
+      }
+    },
+    "builder": {
+      "elixir": {
+        "bar": [
+          1040,
+          74,
+          178,
+          26
+        ],
+        "tap": [
+          1120,
+          86
+        ],
+        "max": [
+          1112,
+          126,
+          138,
+          26
+        ],
+        "label": {
+          "file": "calibration/english/tooltip-max.png",
+          "region": [
+            1030,
+            122,
+            130,
+            34
+          ],
+          "max_score": 0.05
+        }
+      },
+      "gold": {
+        "bar": [
+          1040,
+          26,
+          178,
+          26
+        ],
+        "tap": [
+          1120,
+          38
+        ],
+        "max": [
+          1112,
+          78,
+          138,
+          26
+        ],
+        "label": {
+          "file": "calibration/english/tooltip-max.png",
+          "region": [
+            1030,
+            74,
+            130,
+            34
+          ],
+          "max_score": 0.05
+        }
+      }
+    }
+  },
+  "cart_text": [
+    514,
+    592,
+    220,
+    26
+  ],
+  "speed_button": {
+    "file": "calibration/english/icons/speed-1x-f61cc27faff74ea8b4a84795e4c9b98e.png",
+    "max_score": 0.05,
+    "scales": [
+      0.95,
+      1.0,
+      1.05
+    ],
+    "region": [
+      1160,
+      330,
+      120,
+      160
+    ]
+  },
+  "ldconsole": "C:\\LDPlayer\\LDPlayer14\\ldconsole.exe",
+  "ld_index": 0,
+  "walls": {
+    "home": {
+      "build": [
+        1196,
+        640
+      ],
+      "row": {
+        "file": "calibration/english/wall-row.png",
+        "region": [
+          940,
+          56,
+          340,
+          584
+        ],
+        "max_score": 0.05,
+        "tap_x": 1100,
+        "price": [
+          1120,
+          8,
+          132,
+          20
+        ],
+        "scales": [
+          1.0,
+          0.95
+        ]
+      },
+      "scroll": [
+        [
+          1110,
+          560
+        ],
+        [
+          1110,
+          300
+        ]
+      ],
+      "gems": {
+        "list": [
+          766,
+          174,
+          114,
+          26
+        ],
+        "village": [
+          1100,
+          174,
+          118,
+          26
+        ]
+      },
+      "min_white": 550,
+      "confirm": {
+        "screen": "wall_confirm",
+        "price": [
+          812,
+          616,
+          130,
+          24
+        ],
+        "icon": [
+          940,
+          604,
+          68,
+          72
+        ],
+        "min_white": 300,
+        "max_score": 0.05,
+        "icons": {
+          "gold": "calibration/english/icons/wall-icon-gold-239c7df7d5f54b5d8e5afdbd3a0caf01.png",
+          "elixir": "calibration/english/icons/wall-icon-elixir-d81a618d1ebb49f095bdb41dd5459204.png"
+        },
+        "price_color": "green"
+      },
+      "gold_reserve": 1000000,
+      "hud_gold": {
+        "list": [
+          650,
+          26,
+          230,
+          26
+        ],
+        "village": [
+          1040,
+          26,
+          178,
+          26
+        ]
+      },
+      "button": {
+        "file": "calibration/english/icons/wall-hammer-b6fafe3a343545f4aa4989149fc91bd8.png",
+        "search": [
+          0,
+          380,
+          1280,
+          340
+        ],
+        "scales": [
+          1.0,
+          1.1
+        ],
+        "max_score": 0.03,
+        "price": [
+          -32,
+          -34,
+          116,
+          26
+        ],
+        "tap": [
+          25,
+          19
+        ],
+        "icon_min": 40
+      },
+      "elixir_reserve": 1000000,
+      "farm_threshold": 20000000,
+      "hud_elixir": {
+        "list": [
+          650,
+          76,
+          230,
+          26
+        ],
+        "village": [
+          1040,
+          76,
+          178,
+          26
+        ]
+      }
+    },
+    "builder": {
+      "build": [
+        1196,
+        640
+      ],
+      "row": {
+        "file": "calibration/english/wall-row.png",
+        "region": [
+          940,
+          56,
+          340,
+          584
+        ],
+        "max_score": 0.05,
+        "tap_x": 1100,
+        "price": [
+          1120,
+          8,
+          132,
+          20
+        ],
+        "scales": [
+          1.0,
+          0.95
+        ]
+      },
+      "scroll": [
+        [
+          1110,
+          560
+        ],
+        [
+          1110,
+          300
+        ]
+      ],
+      "gems": {
+        "list": [
+          766,
+          124,
+          114,
+          26
+        ],
+        "village": [
+          1100,
+          124,
+          118,
+          26
+        ]
+      },
+      "min_white": 550,
+      "confirm": {
+        "screen": "builder_wall_confirm",
+        "price": [
+          536,
+          608,
+          158,
+          44
+        ],
+        "icon": [
+          696,
+          596,
+          68,
+          68
+        ],
+        "min_white": 300,
+        "max_score": 0.05,
+        "icons": {
+          "gold": "calibration/english/icons/wall-icon-builder-gold-aa1d2c3cfa14435e863de2fd1e1536e6.png",
+          "elixir": "calibration/english/icons/wall-icon-builder-elixir-f41855d738aa4709af5072749108d4b0.png"
+        }
+      },
+      "button": {
+        "file": "calibration/english/icons/wall-hammer-b6fafe3a343545f4aa4989149fc91bd8.png",
+        "search": [
+          0,
+          380,
+          1280,
+          340
+        ],
+        "scales": [
+          1.0,
+          1.1
+        ],
+        "max_score": 0.03,
+        "price": [
+          -32,
+          -34,
+          116,
+          26
+        ],
+        "tap": [
+          25,
+          19
+        ],
+        "icon_min": 40
+      }
+    }
+  },
+  "remote": {
+    "port": 8766
+  },
+  "calibration_language": "en",
+  "calibration_observed_screens": [
+    "home",
+    "builder",
+    "builder_menu",
+    "builder_scout",
+    "builder_battle",
+    "builder_battle2",
+    "builder_stage2",
+    "builder_result",
+    "builder_cart",
+    "builder_wall_confirm",
+    "builder_star_bonus",
+    "league",
+    "home_menu",
+    "home_army",
+    "home_scout",
+    "home_battle",
+    "surrender_confirm",
+    "home_result",
+    "build_list",
+    "wall_confirm",
+    "wall_selected"
+  ],
+  "calibration_pending_screens": [
+    "builders_busy",
+    "disconnected",
+    "gem_offer",
+    "idle",
+    "layout_blocked",
+    "other_device",
+    "reward_card",
+    "reward_chest",
+    "search_failed",
+    "star_bonus",
+    "update_offer",
+    "welcome"
+  ]
+}
