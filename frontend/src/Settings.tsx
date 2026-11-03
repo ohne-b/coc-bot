@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { Icon } from "@mdi/react";
 import { mdiMagnify } from "@mdi/js";
 import { Button, Empty, Help } from "./ui";
+import { DesktopUpdates } from "./DesktopUpdates";
 import type { Installation, Settings as Preferences } from "./types";
 
 export default function Settings({
@@ -68,6 +69,7 @@ export default function Settings({
       <header className="page-header">
         <h1>Settings</h1>
       </header>
+      <DesktopUpdates />
       <section className="content-section">
         <div className="section-heading">
           <h2>Emulator</h2>
@@ -123,7 +125,7 @@ export default function Settings({
               <Button primary type="submit">
                 Save
               </Button>
-              <span role="status" className="muted">
+              <span role="status" aria-label="Settings save" className="muted">
                 {saved ? "Saved" : ""}
               </span>
             </div>

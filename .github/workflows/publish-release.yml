@@ -49,6 +49,8 @@ jobs:
           $tag = git ls-remote origin "refs/tags/v$env:RELEASE_VERSION"
           if ($LASTEXITCODE -ne 0 -or $tag) { throw 'Tag already exists or could not be checked' }
       - run: npm ci --prefix frontend
+      - name: Prepare signature verifier
+        run: ./.github/scripts/windows-signing.ps1
       - name: Download exact successful main artifact
         env:
           GH_TOKEN: ${{ github.token }}

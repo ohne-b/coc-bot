@@ -7,6 +7,7 @@ import {
   mkdtempSync,
   readFileSync,
   readdirSync,
+  rmSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -48,6 +49,37 @@ export function version(value) {
 }
 export const installerName = (value) =>
   `coc-bot-${version(value)}-windows-x64-setup.exe`;
+
+export function verifySignature(installer, signature, publicKey, value) {
+  version(value);
+  const directory = mkdtempSync(join(tmpdir(), "coc-signature-"));
+  try {
+    const decoded = Buffer.from(signature, "base64").toString("utf8");
+    const signatureFile = join(directory, "installer.minisig");
+    const keyFile = join(directory, "updater.pub");
+    writeFileSync(signatureFile, decoded);
+    writeFileSync(keyFile, Buffer.from(publicKey, "base64"));
+    execFileSync(
+      join(root, ".tools/minisign-0.12/minisign-win64/x86_64/minisign.exe"),
+      ["-Vm", installer, "-p", keyFile, "-x", signatureFile],
+      { stdio: "pipe" },
+    );
+    if (
+      !decoded
+        .split("\n")
+        .some(
+          (line) =>
+            line.startsWith("trusted comment: ") &&
+            line.split("\t").includes(`version:${value}`),
+        )
+    )
+      throw Error("Updater signature has no matching signed version");
+  } finally {
+    // Only this freshly allocated temporary directory is owned by the verifier.
+    if (dirname(directory) === resolve(tmpdir()))
+      rmSync(directory, { recursive: true });
+  }
+}
 
 function currentVersion(directory = root) {
   const metadata = JSON.parse(
@@ -181,6 +213,10 @@ function prepare(value, directory) {
   const signature = readFileSync(`${installer}.sig`, "utf8").trim();
   if (!signature || !/^[A-Za-z0-9+/=\r\n]+$/.test(signature))
     throw Error("Updater signature was not produced");
+  const config = JSON.parse(
+    readFileSync(join(root, "desktop/tauri.conf.json"), "utf8"),
+  );
+  verifySignature(installer, signature, config.plugins.updater.pubkey, value);
   write(join(output, "latest.json"), {
     version: value,
     notes: body,

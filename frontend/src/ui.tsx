@@ -18,6 +18,7 @@ export function Button({
 export function IconButton({
   path,
   label,
+  className = "",
   ...props
 }: Omit<ComponentProps<"button">, "children"> & {
   path: string;
@@ -26,7 +27,7 @@ export function IconButton({
   return (
     <button
       type="button"
-      className="icon-button"
+      className={`icon-button ${className}`}
       aria-label={label}
       title={label}
       {...props}

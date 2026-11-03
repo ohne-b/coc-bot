@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add TDM-style desktop update controls, cancellable verified downloads and guarded
+  installer handoff, with release signature/version checks.
 - Retire Python, the old web dashboard and relay; keep English calibration in `assets/`
   and captured regression fixtures beside the Rust tests.
 - Add the Elixir Cart stopping target, bounded failed-opening handling and low-memory

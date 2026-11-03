@@ -42,6 +42,16 @@ try {
     Move-Item -LiteralPath $config -Destination $backup
     try { Invoke-CheckedProcess $exe '--check-installation' 1 }
     finally { Move-Item -LiteralPath $backup -Destination $config }
+    $exeHash = (Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash
+    $configHash = (Get-FileHash -LiteralPath $config -Algorithm SHA256).Hash
+    Set-Content -LiteralPath $config -Value '{}' -Encoding UTF8
+    [IO.File]::WriteAllBytes($exe, [byte[]](0, 1, 2, 3))
+    Invoke-CheckedProcess $installerPath "/S /NS /UPDATE /D=$installRoot"
+    if ((Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash -ne $exeHash -or
+        (Get-FileHash -LiteralPath $config -Algorithm SHA256).Hash -ne $configHash) {
+        throw 'Updater mode did not replace the executable and bundled calibration'
+    }
+    Invoke-CheckedProcess $exe '--check-installation'
     Write-Output 'Installed calibration, OpenCV and SQLite passed without development PATH entries.'
 } finally {
     $env:PATH = $previousPath
@@ -57,4 +67,4 @@ try {
     if (Test-Path -LiteralPath $uninstallKey) { throw 'Uninstaller left its registration behind' }
     if (Test-Path -LiteralPath $productKey) { Remove-Item -LiteralPath $productKey }
 }
-Write-Output 'Installation, missing-asset failure and uninstallation passed. Personal app data was not opened.'
+Write-Output 'Installation, missing-asset failure, updater replacement and uninstallation passed. Personal app data was not opened.'

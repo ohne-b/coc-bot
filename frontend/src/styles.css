@@ -295,7 +295,107 @@ nav {
 }
 @media (max-width: 1023px) {
   .sidebar-footer {
+    padding: 0;
+  }
+  .sidebar-footer .github-link {
     display: none;
+  }
+}
+.desktop-update-link {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+.desktop-update-link button {
+  background: none;
+  border: 0;
+  border-radius: 4px;
+  padding: 0 4px;
+  min-height: 36px;
+  color: var(--muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.desktop-update-link button:hover {
+  color: var(--text);
+}
+.desktop-updates {
+  display: grid;
+  gap: 16px;
+  font-size: 13px;
+  margin-bottom: 32px;
+}
+.update-check {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+.update-check p {
+  min-width: 0;
+}
+.version-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  max-width: 100%;
+  padding: 0 8px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.update-progress-space {
+  min-height: 30px;
+  max-width: 384px;
+}
+.update-progress-track {
+  height: 6px;
+}
+.update-progress-space p {
+  margin-top: 8px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+progress.update-progress {
+  height: 6px;
+  margin-top: 0;
+  --resource-color: var(--soft);
+}
+.update-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.update-actions .text-link {
+  color: var(--muted);
+}
+.update-actions .text-link:hover {
+  color: var(--text);
+}
+@keyframes update-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.update-checking svg {
+  animation: update-spin 1s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .update-checking svg {
+    animation: none;
+  }
+}
+@media (max-width: 1023px) {
+  .desktop-update-link {
+    justify-content: flex-end;
+    padding: 8px 16px;
+  }
+  .desktop-update-link button {
+    min-height: 44px;
   }
 }
 .workspace {

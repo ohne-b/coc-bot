@@ -22,6 +22,11 @@ import Settings from "./Settings";
 import History from "./History";
 import Farming from "./Farming";
 import Deployment from "./Deployment";
+import {
+  DesktopUpdates,
+  DesktopUpdateLink,
+  useUpdates,
+} from "./DesktopUpdates";
 import type { Snapshot, Village } from "./types";
 
 function Overview({
@@ -317,6 +322,9 @@ function Overview({
 
 export default function App() {
   const [page, setPage] = useState("farming");
+  const { status: update } = useUpdates();
+  const updating =
+    update?.phase === "installing" || Boolean(update?.restart_required);
   const { snapshot, error } = useSnapshot();
   const nav = [
     ["farming", "Farming", mdiEyeOutline],
@@ -359,6 +367,7 @@ export default function App() {
           >
             <Icon path={mdiGithub} aria-hidden="true" />
           </a>
+          <DesktopUpdateLink onClick={() => setPage("settings")} />
         </div>
       </aside>
       <main id="main" tabIndex={-1} className="workspace">
@@ -369,11 +378,21 @@ export default function App() {
             </p>
           )}
           {!snapshot ? (
-            <Empty>{error ? "Application unavailable" : "Loading…"}</Empty>
+            page === "settings" ? (
+              <>
+                <header className="page-header">
+                  <h1>Settings</h1>
+                </header>
+                <DesktopUpdates />
+              </>
+            ) : (
+              <Empty>{error ? "Application unavailable" : "Loading…"}</Empty>
+            )
           ) : page === "settings" ? (
             <Settings
               settings={snapshot.settings}
               running={
+                updating ||
                 snapshot.session?.state === "running" ||
                 snapshot.session?.state === "paused"
               }
@@ -381,11 +400,14 @@ export default function App() {
           ) : page === "history" ? (
             <History sessionId={snapshot.session?.id} />
           ) : page === "deployment" ? (
-            <Deployment snapshot={snapshot} offline={Boolean(error)} />
+            <Deployment
+              snapshot={snapshot}
+              offline={Boolean(error) || updating}
+            />
           ) : (
             <Overview
               snapshot={snapshot}
-              offline={Boolean(error)}
+              offline={Boolean(error) || updating}
               mode={page === "walls" ? "walls" : "farming"}
             />
           )}

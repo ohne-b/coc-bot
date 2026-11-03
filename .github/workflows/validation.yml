@@ -30,6 +30,8 @@ jobs:
           package-manager-cache: false
       - name: Check changed-file whitespace
         run: git diff --check HEAD^ HEAD
+      - name: Prepare signature verifier
+        run: ./.github/scripts/windows-signing.ps1
       - name: Test repository automation
         run: node --test .github/scripts/*.test.mjs
       - name: Check conventional PR title
