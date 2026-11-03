@@ -4,7 +4,13 @@ import { readFileSync } from "node:fs";
 
 async function mock(
   page: Page,
-  options: { error?: boolean; running?: boolean; delayFrame?: boolean } = {},
+  options: {
+    error?: boolean;
+    running?: boolean;
+    delayFrame?: boolean;
+    holdSettings?: boolean;
+    holdNextSessionFrame?: boolean;
+  } = {},
 ) {
   const frame = readFileSync(
     "../legacy/python/fixtures/english-home.png",
@@ -79,6 +85,12 @@ async function mock(
             if (options.error) throw "Unable to read the history database";
             if (command === "snapshot") return structuredClone(snapshot);
             if (command === "screenshot") {
+              if (options.holdNextSessionFrame && args.sessionId === 2)
+                await new Promise((_, reject) => {
+                  Object.assign(window, {
+                    rejectFrame: () => reject("Capture failed"),
+                  });
+                });
               if (options.delayFrame)
                 await new Promise((resolve) => setTimeout(resolve, 2000));
               (window as unknown as { completedFrames: number })
@@ -97,8 +109,13 @@ async function mock(
               return;
             }
             if (command === "save_settings") {
-              snapshot.settings = args.settings as typeof snapshot.settings;
-              snapshot.revision++;
+              const acknowledge = () => {
+                snapshot.settings = args.settings as typeof snapshot.settings;
+                snapshot.revision++;
+              };
+              if (options.holdSettings)
+                Object.assign(window, { acknowledgeSettings: acknowledge });
+              else acknowledge();
               return;
             }
             if (command === "discover")
@@ -266,4 +283,75 @@ test("late screenshot responses cannot replace the next session", async ({
     page.getByRole("img", { name: "Latest emulator screenshot" }),
   ).toHaveCount(0);
   await expect(page.getByText("No screenshot yet")).toBeVisible();
+});
+
+test("a displayed screenshot is hidden when the next session already has a frame", async ({
+  page,
+}) => {
+  await mock(page, { running: true, holdNextSessionFrame: true });
+  await page.goto("/");
+  const image = page.getByRole("img", { name: "Latest emulator screenshot" });
+  await expect(image).toBeVisible();
+  await page.evaluate(() => {
+    const snapshot = (
+      window as unknown as {
+        fixtureSnapshot: {
+          revision: number;
+          session: { id: number; active_ms: number };
+        };
+      }
+    ).fixtureSnapshot;
+    snapshot.session.id = 2;
+    snapshot.session.active_ms = 0;
+    snapshot.revision++;
+  });
+  await expect(page.getByText("00:00:00", { exact: true })).toBeVisible();
+  await expect(image).toHaveCount(0);
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          typeof (window as unknown as { rejectFrame?: () => void })
+            .rejectFrame,
+      ),
+    )
+    .toBe("function");
+  await page.evaluate(() =>
+    (window as unknown as { rejectFrame: () => void }).rejectFrame(),
+  );
+  await expect(page.getByText("Screenshot unavailable")).toBeVisible();
+  await expect(image).toHaveCount(0);
+});
+
+test("delayed settings acknowledgement preserves a newer draft", async ({
+  page,
+}) => {
+  await mock(page, { holdSettings: true });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  const instance = page.getByLabel("Instance", { exact: true });
+  await instance.fill("2");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByRole("status")).toHaveText("Saved");
+  await instance.fill("3");
+  const pollsBefore = await page.evaluate(() => {
+    const fixture = window as unknown as {
+      acknowledgeSettings: () => void;
+      calls: string[];
+    };
+    fixture.acknowledgeSettings();
+    return fixture.calls.filter((c) => c === "snapshot").length;
+  });
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (window as unknown as { calls: string[] }).calls.filter(
+            (c) => c === "snapshot",
+          ).length,
+      ),
+    )
+    .toBeGreaterThan(pollsBefore + 1);
+  await expect(instance).toHaveValue("3");
+  await expect(page.getByRole("status")).toBeEmpty();
 });

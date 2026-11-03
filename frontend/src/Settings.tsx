@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Icon } from "@mdi/react";
 import { mdiMagnify } from "@mdi/js";
@@ -18,10 +18,6 @@ export default function Settings({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [saved, setSaved] = useState(false);
-  useEffect(() => {
-    setFolder(settings.device?.folder ?? "");
-    setIndex(String(settings.device?.index ?? 0));
-  }, [settings.device?.folder, settings.device?.index]);
   async function discover() {
     setBusy(true);
     setError(undefined);

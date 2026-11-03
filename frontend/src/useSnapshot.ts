@@ -32,8 +32,12 @@ export function useSnapshot() {
 }
 
 export function useScreenshot(snapshot: Snapshot | undefined) {
-  const [image, setImage] = useState<{ url: string; at: number | null }>();
-  const [error, setError] = useState<string>();
+  const [image, setImage] = useState<{
+    session: number;
+    url: string;
+    at: number | null;
+  }>();
+  const [error, setError] = useState<{ session: number; message: string }>();
   const current = useRef<string | undefined>(undefined);
   const session = snapshot?.session?.id;
   const sequence = snapshot?.frame_sequence;
@@ -54,12 +58,12 @@ export function useScreenshot(snapshot: Snapshot | undefined) {
         );
         if (current.current) URL.revokeObjectURL(current.current);
         current.current = next;
-        setImage({ url: next, at: snapshot?.captured_at_ms ?? null });
+        setImage({ session, url: next, at: snapshot?.captured_at_ms ?? null });
         setError(undefined);
       })
       .catch((error: unknown) => {
         if (!cancelled && !String(error).includes("superseded"))
-          setError("Screenshot unavailable");
+          setError({ session, message: "Screenshot unavailable" });
       });
     return () => {
       cancelled = true;
@@ -71,5 +75,8 @@ export function useScreenshot(snapshot: Snapshot | undefined) {
     },
     [],
   );
-  return { image, error };
+  return {
+    image: image?.session === session ? image : undefined,
+    error: error?.session === session ? error?.message : undefined,
+  };
 }
