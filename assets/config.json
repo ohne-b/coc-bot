@@ -2392,7 +2392,6 @@
         },
         "price_color": "green"
       },
-      "gold_reserve": 1000000,
       "hud_gold": {
         "list": [
           650,
@@ -2432,8 +2431,6 @@
         ],
         "icon_min": 40
       },
-      "elixir_reserve": 1000000,
-      "farm_threshold": 20000000,
       "hud_elixir": {
         "list": [
           650,

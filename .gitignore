@@ -1,13 +1,10 @@
-__pycache__/
-*.pyc
 captures/
-.coverage
 .claude/
 .omc/
 .serena/
 .pi/
 *.png
-!/.github/assets/desktop-observer.png
+!/.github/assets/desktop.png
 *.log
 !docs/*.png
 !/assets/calibration/english/**/*.png
@@ -23,17 +20,12 @@ config.*.local.json.bak
 config.*.local.json.tmp
 
 # Local environments, credentials and tooling
-.venv/
-venv/
 .env
 .env.*
 !.env.example
 .vscode/
 .idea/
 .tools/
-.pytest_cache/
-.ruff_cache/
-htmlcov/
 *.pem
 *.key
 

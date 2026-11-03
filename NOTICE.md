@@ -33,9 +33,9 @@ Record any later permission grant here without erasing the original attribution.
 
 ## Bundled assets
 
-The inherited Lilita One font remains under [assets/fonts/lilita-one/](assets/fonts/lilita-one/)
-with its [SIL Open Font License 1.1](assets/fonts/lilita-one/OFL.txt), copyright and
-reserved font name. It is retained for attribution and is not used by the new dashboard.
+The retired dashboard's Lilita One font notice is retained as
+[SIL Open Font License 1.1](assets/licenses/Lilita-One-OFL.txt), including its copyright
+and reserved font name. The unused font binary is no longer included.
 Game screenshots, calibration crops and game names retain their respective owners'
 rights; the project license does not grant rights to Supercell assets or trademarks.
 

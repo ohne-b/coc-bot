@@ -21,6 +21,8 @@ gameplay compatibility is unverified and uncaptured English screens remain pendi
 There is no public desktop release yet. The runtime is entirely Rust, with no Python
 installation or sidecar required.
 
+![Desktop dashboard with redacted fixture data](.github/assets/desktop.png)
+
 The original [Python guide](LEGACY.md) is retained for reference, including its upstream
 links. The Python bot and old dashboard are preserved in Git history at `a3b3346`;
 their hosted relay is not part of the desktop app. Build instructions and offline
@@ -31,8 +33,8 @@ checks are in [CONTRIBUTING.md](CONTRIBUTING.md).
 > Other resolutions or languages are unsupported. Automation violates
 > Supercell's rules and can result in an account ban. Not affiliated with Supercell.
 
-The [English profile](assets/config.json) retains 20M gold **and**
-elixir batching and 1M reserves for Home walls. The current Home price calibration
+Default wall settings retain 20M gold **and** elixir batching and 1M reserves.
+The current Home price calibration in the [English profile](assets/config.json)
 targets green Hammer Jam discounts; revalidate it when that event ends. Screens not
 yet captured in English are listed in `calibration_pending_screens`; an unfamiliar
 dialog fails recognition and cannot be confirmed automatically. Pending screens have
