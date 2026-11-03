@@ -13,6 +13,7 @@ async function mock(
     holdPause?: boolean;
     holdNextFrame?: boolean;
     screen?: string;
+    populated?: boolean;
   } = {},
 ) {
   const frame = readFileSync(
@@ -143,6 +144,31 @@ async function mock(
         wall_gold: 0,
         wall_elixir: 0,
       };
+      if (options.populated)
+        Object.assign(snapshot, {
+          statistics: [
+            {
+              ...stats,
+              village: "home",
+              attacks: 12,
+              wall_upgrades: 4,
+              wall_gold: 24_000_000,
+              wall_elixir: 12_000_000,
+              gold: {
+                ...total,
+                amount: 2_400_000,
+                per_hour: 23_671_233,
+                measured_attacks: 8,
+              },
+              elixir: {
+                ...total,
+                amount: 1_800_000,
+                per_hour: 17_753_425,
+                measured_attacks: 8,
+              },
+            },
+          ],
+        });
       Object.assign(window, {
         calls: [],
         fixtureSnapshot: snapshot,
@@ -282,18 +308,89 @@ test("observation controls, help and history use native commands", async ({
 test("desktop layout is accessible and keeps explanations behind info buttons", async ({
   page,
 }) => {
-  await mock(page, { running: true });
+  await mock(page, { running: true, populated: true });
   await page.goto("/");
   await expect(page.getByText("12,400,000")).toBeVisible();
   await expect(
     page.getByRole("note", { name: "Resources", exact: true }),
   ).not.toBeVisible();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  const help = page.getByRole("button", {
+    name: "Help: Resources",
+    exact: true,
+  });
+  await help.hover();
+  expect(
+    await help.evaluate((button) => {
+      const style = getComputedStyle(button);
+      return style.borderRadius === "50%" && style.width === style.height;
+    }),
+  ).toBe(true);
+  await help.focus();
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByRole("note", { name: "Resources", exact: true }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.getByRole("heading", { name: "Farming", exact: true }).click();
   await page.screenshot({
     path: "../.tools/dashboard-desktop.png",
     fullPage: true,
   });
 });
+
+for (const width of [360, 800, 1200]) {
+  test(`all workspaces remain accessible at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 800 });
+    await mock(page, { populated: true });
+    await page.goto("/");
+    for (const name of [
+      "Farming",
+      "Walls",
+      "Deployment",
+      "History",
+      "Activity",
+      "Settings",
+    ]) {
+      await page
+        .getByRole("navigation")
+        .getByRole("button", { name, exact: true })
+        .click();
+      await expect(
+        page.getByRole("heading", { name, exact: true, level: 1 }),
+      ).toBeVisible();
+      if (name === "Farming" || name === "Walls") {
+        const summary = page.locator("summary");
+        if ((await page.locator("details").getAttribute("open")) === null) {
+          await summary.focus();
+          await page.keyboard.press("Enter");
+        }
+        await expect(
+          page.getByRole("button", { name: "Save", exact: true }),
+        ).toBeVisible();
+      }
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      ).toBe(true);
+      expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+      for (const help of await page.locator(".icon-button").all()) {
+        expect(
+          await help.evaluate((button) => {
+            const style = getComputedStyle(button);
+            return style.width === style.height && style.borderRadius === "50%";
+          }),
+        ).toBe(true);
+      }
+      if (width === 1200 || (width === 360 && name === "Farming"))
+        await page.screenshot({
+          path: `../.tools/layout-${name.toLowerCase()}-${width}.png`,
+          fullPage: true,
+        });
+    }
+  });
+}
 
 test("narrow layout and emulator settings remain usable", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
@@ -498,6 +595,16 @@ test("farming controls preserve settings and lock editing throughout a paused se
     page.getByRole("button", { name: "Resume", exact: true }),
   ).toBeVisible();
   await expect(page.getByLabel("Attack limit", { exact: true })).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "Save", exact: true }),
+  ).toBeDisabled();
+  await page
+    .getByRole("button", { name: "Help: Session limits", exact: true })
+    .click();
+  await expect(
+    page.getByRole("note", { name: "Session limits", exact: true }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Resume", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Pause", exact: true }),
