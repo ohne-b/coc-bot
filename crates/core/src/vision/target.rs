@@ -94,16 +94,20 @@ impl Template {
                 &mut scores,
                 imgproc::TM_SQDIFF_NORMED,
             )?;
-            for y in 0..scores.rows() {
-                for x in 0..scores.cols() {
-                    let score = f64::from(*scores.at_2d::<f32>(y, x)?);
+            for (y, row) in scores
+                .data_typed::<f32>()?
+                .chunks(scores.cols() as usize)
+                .enumerate()
+            {
+                for (x, &score) in row.iter().enumerate() {
+                    let score = f64::from(score);
                     if score.is_finite() && score <= self.threshold {
                         if hits.len() >= 16384 {
                             return Err(Error::Unreadable);
                         }
                         hits.push(Hit {
-                            x: x + region.0 as i32,
-                            y: y + region.1 as i32,
+                            x: x as i32 + region.0 as i32,
+                            y: y as i32 + region.1 as i32,
                             width: template.cols(),
                             height: template.rows(),
                             scale,
