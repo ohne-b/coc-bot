@@ -41,7 +41,7 @@ running Rust binaries so the OpenCV DLL can be found.
 From the repository root:
 
 ```powershell
-. ./scripts/windows-dependencies.ps1
+. ./.github/scripts/windows-dependencies.ps1
 cargo fmt --all -- --check
 cargo test --workspace --all-targets --locked
 cargo clippy --workspace --all-targets --locked -- -D warnings
@@ -95,8 +95,7 @@ Never commit a virtual environment, runtime captures, logs, credentials or datab
 | `desktop/` | Tauri lifecycle and scoped native commands |
 | `frontend/` | React/TypeScript dashboard and offline browser tests |
 | `assets/` | Shared English calibration, digits and retained font notices |
-| `scripts/` | Native Windows dependencies and installer build |
-| `.github/` | Repository policy, validation and supplied branding |
+| `.github/` | Repository policy, build/validation scripts and supplied branding |
 
 The desktop supports observation and development farming/wall modes: selected-instance display
 checks, screenshots, recognition, dynamic deployment, bounded recovery and session history.
@@ -145,7 +144,7 @@ controls, errors, help popovers, narrow layouts and accessibility; it never open
 For the real desktop, omit `desktop-fixture`. That app stores settings/history in its
 Windows local app-data directory and connects only after selecting an instance and clicking
 Observe or Start. Closing cancels device work and drains the owned worker. Screenshots stay in memory.
-The unbundled binary requires the OpenCV DLL on PATH. `./scripts/build-windows.ps1` builds
+The unbundled binary requires the OpenCV DLL on PATH. `./.github/scripts/build-windows.ps1` builds
 an x64 NSIS installer with OpenCV, Visual C++ runtime DLLs, calibration and applicable
 notices beside the executable. It stages the installer and a source/hash manifest in
 ignored `artifacts/windows/`. `-DebugBuild` is for local packaging checks and cannot be
@@ -154,7 +153,7 @@ does not establish clean-machine installation or live gameplay compatibility.
 The installed executable accepts `--check-installation`: it loads bundled assets and
 native libraries, opens a temporary SQLite database and drains the worker, then exits
 with status 0 on success or 1 on failure. It does not open a window, query a device or
-touch personal app data. Run `./scripts/test-windows-install.ps1 -Installer PATH_TO_SETUP_EXE` against a built installer
+touch personal app data. Run `./.github/scripts/test-windows-install.ps1 -Installer PATH_TO_SETUP_EXE` against a built installer
 to check installation, this diagnostic and uninstallation in an isolated directory.
 That script refuses an existing CoC Bot installation or running app.
 

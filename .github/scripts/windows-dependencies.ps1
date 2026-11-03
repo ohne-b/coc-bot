@@ -1,7 +1,7 @@
 $ErrorActionPreference = 'Stop'
 
 # Dot-source this file before Cargo commands so native DLLs and headers remain available.
-$repoRoot = Split-Path $PSScriptRoot -Parent
+$repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $nativeRoot = Join-Path $repoRoot '.tools'
 New-Item -ItemType Directory -Path $nativeRoot -Force | Out-Null
 

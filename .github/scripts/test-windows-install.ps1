@@ -1,7 +1,7 @@
 param([Parameter(Mandatory)][string] $Installer)
 $ErrorActionPreference = 'Stop'
 $installerPath = (Resolve-Path -LiteralPath $Installer).Path
-$repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+$repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $installRoot = [IO.Path]::GetFullPath((Join-Path $repoRoot ('.tools/install-check-' + [guid]::NewGuid().ToString('N'))))
 if (-not $installRoot.StartsWith((Join-Path $repoRoot '.tools\'), [StringComparison]::OrdinalIgnoreCase)) {
     throw 'Installation check must stay inside repository tooling storage'
