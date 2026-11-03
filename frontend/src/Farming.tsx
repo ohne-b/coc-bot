@@ -85,47 +85,56 @@ export default function Farming({
       <summary>{walls ? "Wall settings" : "Farming settings"}</summary>
       <form onSubmit={(event) => void save(event)}>
         <fieldset disabled={active || busy}>
-          <div className="form-grid">
-            <label className="field-label">
-              Village
-              <select
-                className="field"
-                value={draft.villages.length === 2 ? "both" : draft.villages[0]}
-                onChange={(e) =>
-                  change(
-                    "villages",
-                    e.target.value === "both"
-                      ? ["home", "builder"]
-                      : [e.target.value as "home" | "builder"],
-                  )
-                }
-              >
-                <option value="home">Home Village</option>
-                <option value="builder">Builder Base</option>
-                <option value="both">Both villages</option>
-              </select>
-            </label>
-            <label className="field-label">
-              Home deployment
-              <select
-                className="field"
-                value={draft.strategy}
-                onChange={(e) =>
-                  change("strategy", e.target.value as "stack" | "ring")
-                }
-              >
-                <option value="stack">Stack</option>
-                <option value="ring">Ring</option>
-              </select>
-            </label>
-          </div>
-          <div className="toggle-row">
-            {toggle("collect_cart", "Collect Elixir Cart")}
-            {toggle("builder_stack", "Stack Builder troops")}
-            {toggle("earthquake", "Earthquake groups")}
-          </div>
+          <section className="preference-section">
+            <div className="section-heading">
+              <h2>Deployment</h2>
+            </div>
+            <div className="preference-fields">
+              <div className="form-grid">
+                <label className="field-label">
+                  Village
+                  <select
+                    className="field"
+                    value={
+                      draft.villages.length === 2 ? "both" : draft.villages[0]
+                    }
+                    onChange={(e) =>
+                      change(
+                        "villages",
+                        e.target.value === "both"
+                          ? ["home", "builder"]
+                          : [e.target.value as "home" | "builder"],
+                      )
+                    }
+                  >
+                    <option value="home">Home Village</option>
+                    <option value="builder">Builder Base</option>
+                    <option value="both">Both villages</option>
+                  </select>
+                </label>
+                <label className="field-label">
+                  Home deployment
+                  <select
+                    className="field"
+                    value={draft.strategy}
+                    onChange={(e) =>
+                      change("strategy", e.target.value as "stack" | "ring")
+                    }
+                  >
+                    <option value="stack">Stack</option>
+                    <option value="ring">Ring</option>
+                  </select>
+                </label>
+              </div>
+              <div className="toggle-row">
+                {toggle("collect_cart", "Collect Elixir Cart")}
+                {toggle("builder_stack", "Stack Builder troops")}
+                {toggle("earthquake", "Earthquake groups")}
+              </div>
+            </div>
+          </section>
           {!walls && (
-            <>
+            <section className="preference-section">
               <div className="section-heading">
                 <h2>Targets</h2>
                 <Help label="Farming targets">
@@ -136,38 +145,42 @@ export default function Farming({
                   stop farming.
                 </Help>
               </div>
-              {toggle("until_full", "Stop when targets are full")}
-              <div className="toggle-row">
-                {draft.villages.includes("builder") &&
-                  toggle("cart_goal", "Elixir Cart full")}
-                {(["gold", "elixir", "dark"] as Resource[]).map((resource) => (
-                  <label className="check-field" key={resource}>
-                    <input
-                      type="checkbox"
-                      checked={draft.targets.includes(resource)}
-                      onChange={(e) =>
-                        change(
-                          "targets",
-                          e.target.checked
-                            ? [...draft.targets, resource]
-                            : draft.targets.filter(
-                                (value) => value !== resource,
-                              ),
-                        )
-                      }
-                    />
-                    {resource === "dark"
-                      ? "Dark Elixir"
-                      : resource === "gold"
-                        ? "Gold"
-                        : "Elixir"}
-                  </label>
-                ))}
+              <div className="preference-fields">
+                {toggle("until_full", "Stop when targets are full")}
+                <div className="toggle-row">
+                  {draft.villages.includes("builder") &&
+                    toggle("cart_goal", "Elixir Cart full")}
+                  {(["gold", "elixir", "dark"] as Resource[]).map(
+                    (resource) => (
+                      <label className="check-field" key={resource}>
+                        <input
+                          type="checkbox"
+                          checked={draft.targets.includes(resource)}
+                          onChange={(e) =>
+                            change(
+                              "targets",
+                              e.target.checked
+                                ? [...draft.targets, resource]
+                                : draft.targets.filter(
+                                    (value) => value !== resource,
+                                  ),
+                            )
+                          }
+                        />
+                        {resource === "dark"
+                          ? "Dark Elixir"
+                          : resource === "gold"
+                            ? "Gold"
+                            : "Elixir"}
+                      </label>
+                    ),
+                  )}
+                </div>
               </div>
-            </>
+            </section>
           )}
           {walls && (
-            <>
+            <section className="preference-section">
               <div className="section-heading">
                 <h2>Resources</h2>
                 <Help label="Wall reserves">
@@ -177,59 +190,73 @@ export default function Farming({
                   verified wall spending is counted.
                 </Help>
               </div>
-              <div className="form-grid">
-                {numeric("gold_reserve", "Gold reserve", 1_000_000_000)}
-                {numeric("elixir_reserve", "Elixir reserve", 1_000_000_000)}
-                {numeric(
-                  "wall_farm_threshold",
-                  "Farm threshold per resource",
-                  1_000_000_000,
-                )}
-                {numeric("wall_upgrades", "Upgrade limit", 1_000_000)}
+              <div className="preference-fields">
+                <div className="form-grid">
+                  {numeric("gold_reserve", "Gold reserve", 1_000_000_000)}
+                  {numeric("elixir_reserve", "Elixir reserve", 1_000_000_000)}
+                  {numeric(
+                    "wall_farm_threshold",
+                    "Farm threshold per resource",
+                    1_000_000_000,
+                  )}
+                  {numeric("wall_upgrades", "Upgrade limit", 1_000_000)}
+                </div>
               </div>
-            </>
+            </section>
           )}
-          <div className="section-heading">
-            <h2>Opponent loot</h2>
-            <Help label="Opponent loot">
-              Minimum available loot for Home Village searches. Zero disables a
-              filter. At the search limit, the currently displayed opponent is
-              attacked.
-            </Help>
-          </div>
-          <div className="form-grid">
-            {numeric("minimum_gold", "Minimum Gold", 1_000_000_000)}
-            {numeric("minimum_elixir", "Minimum Elixir", 1_000_000_000)}
-            {numeric("minimum_dark", "Minimum Dark Elixir", 1_000_000_000)}
-            {numeric("searches", "Search limit", 1_000_000)}
-          </div>
-          <div className="section-heading">
-            <h2>Battle</h2>
-            <Help label="Battle conditions">
-              Zero disables a condition. Damage and stars need consecutive
-              readings. Below the Builder trophy floor, surrender conditions are
-              ignored.
-            </Help>
-          </div>
-          <div className="form-grid">
-            {numeric("surrender_after", "Surrender after (seconds)", 240)}
-            {numeric("surrender_damage", "Home damage (%)", 100)}
-            {numeric("surrender_stars", "Builder stars", 3)}
-            {numeric("trophy_floor", "Builder trophy floor", 20_000)}
-          </div>
-          <div className="section-heading">
-            <h2>Limits</h2>
-            <Help label="Session limits">
-              Attack and time limits stop between operations. Zero means
-              unlimited. Recovery attempts are bounded and reset after a
-              completed attack or verified wall upgrade.
-            </Help>
-          </div>
-          <div className="form-grid">
-            {numeric("attacks", "Attack limit", 1_000_000)}
-            {numeric("minutes", "Time limit (minutes)", 10_080)}
-            {numeric("recoveries", "Recovery attempts", 20)}
-          </div>
+          <section className="preference-section">
+            <div className="section-heading">
+              <h2>Opponent loot</h2>
+              <Help label="Opponent loot">
+                Minimum available loot for Home Village searches. Zero disables
+                a filter. At the search limit, the currently displayed opponent
+                is attacked.
+              </Help>
+            </div>
+            <div className="preference-fields">
+              <div className="form-grid">
+                {numeric("minimum_gold", "Minimum Gold", 1_000_000_000)}
+                {numeric("minimum_elixir", "Minimum Elixir", 1_000_000_000)}
+                {numeric("minimum_dark", "Minimum Dark Elixir", 1_000_000_000)}
+                {numeric("searches", "Search limit", 1_000_000)}
+              </div>
+            </div>
+          </section>
+          <section className="preference-section">
+            <div className="section-heading">
+              <h2>Battle</h2>
+              <Help label="Battle conditions">
+                Zero disables a condition. Damage and stars need consecutive
+                readings. Below the Builder trophy floor, surrender conditions
+                are ignored.
+              </Help>
+            </div>
+            <div className="preference-fields">
+              <div className="form-grid">
+                {numeric("surrender_after", "Surrender after (seconds)", 240)}
+                {numeric("surrender_damage", "Home damage (%)", 100)}
+                {numeric("surrender_stars", "Builder stars", 3)}
+                {numeric("trophy_floor", "Builder trophy floor", 20_000)}
+              </div>
+            </div>
+          </section>
+          <section className="preference-section">
+            <div className="section-heading">
+              <h2>Limits</h2>
+              <Help label="Session limits">
+                Attack and time limits stop between operations. Zero means
+                unlimited. Recovery attempts are bounded and reset after a
+                completed attack or verified wall upgrade.
+              </Help>
+            </div>
+            <div className="preference-fields">
+              <div className="form-grid">
+                {numeric("attacks", "Attack limit", 1_000_000)}
+                {numeric("minutes", "Time limit (minutes)", 10_080)}
+                {numeric("recoveries", "Recovery attempts", 20)}
+              </div>
+            </div>
+          </section>
           <div className="form-row">
             <Button primary type="submit">
               Save

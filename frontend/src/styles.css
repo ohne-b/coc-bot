@@ -50,7 +50,7 @@ main:focus-visible {
 }
 
 .configuration {
-  margin-top: 32px;
+  margin-top: 24px;
   border-top: 1px solid var(--divider);
   padding-top: 12px;
 }
@@ -76,8 +76,26 @@ main:focus-visible {
 .configuration form {
   margin-top: 24px;
 }
-.configuration .section-heading {
-  margin-top: 32px;
+.preference-section {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 24px;
+  padding: 24px 0;
+  border-top: 1px solid var(--divider);
+}
+.preference-section:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+.preference-section > .section-heading {
+  align-self: start;
+  margin: 0;
+}
+.preference-fields {
+  min-width: 0;
+}
+.preference-fields > .toggle-row:last-child {
+  margin-bottom: 0;
 }
 .form-grid {
   display: grid;
@@ -130,8 +148,9 @@ main:focus-visible {
 .deployment-surface {
   position: relative;
   aspect-ratio: 16 / 9;
+  width: min(100%, max(480px, calc((100dvh - 330px) * 16 / 9)));
   background: #151515;
-  margin: 16px 0;
+  margin: 16px auto;
   border-radius: 8px;
 }
 .deployment-surface > img {
@@ -262,7 +281,7 @@ nav {
   font-size: 12px;
 }
 .workspace {
-  padding: 32px 40px;
+  padding: 28px 40px;
   min-width: 0;
 }
 .content {
@@ -274,7 +293,7 @@ nav {
   align-items: center;
   gap: 12px;
   min-height: 40px;
-  margin-bottom: 32px;
+  margin-bottom: 24px;
   flex-wrap: wrap;
 }
 .page-actions {
@@ -400,20 +419,24 @@ nav {
   font-size: 12px;
 }
 .capture {
+  position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
+  max-height: clamp(240px, calc(100dvh - 440px), 540px);
   background: #161616;
   border-radius: 8px;
   overflow: hidden;
   display: grid;
 }
 .capture img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: contain;
 }
 .resources-section {
-  margin-bottom: 28px;
+  margin-bottom: 16px;
 }
 .resources-section .section-heading {
   margin-bottom: 4px;
@@ -452,7 +475,7 @@ nav {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  padding: 8px 0 20px;
+  padding: 8px 0 12px;
   min-width: 0;
 }
 .resource-icon {
@@ -751,6 +774,13 @@ td {
   }
 }
 @media (max-width: 900px) {
+  .preference-section {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+  .capture {
+    max-height: none;
+  }
   .overview-grid {
     grid-template-columns: minmax(0, 1fr);
   }
