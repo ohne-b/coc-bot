@@ -94,27 +94,33 @@ impl Template {
                 &mut scores,
                 imgproc::TM_SQDIFF_NORMED,
             )?;
-            for (y, row) in scores
-                .data_typed::<f32>()?
-                .chunks(scores.cols() as usize)
-                .enumerate()
-            {
-                for (x, &score) in row.iter().enumerate() {
-                    let score = f64::from(score);
-                    if score.is_finite() && score <= self.threshold {
-                        if hits.len() >= 16384 {
-                            return Err(Error::Unreadable);
-                        }
-                        hits.push(Hit {
-                            x: x as i32 + region.0 as i32,
-                            y: y as i32 + region.1 as i32,
-                            width: template.cols(),
-                            height: template.rows(),
-                            scale,
-                            score,
-                        });
-                    }
-                }
+            let mut mask = Mat::default();
+            let threshold = self.threshold as f32;
+            let threshold = if f64::from(threshold) > self.threshold {
+                threshold.next_down()
+            } else {
+                threshold
+            };
+            core::in_range(
+                &scores,
+                &core::Scalar::all(f64::from(f32::MIN)),
+                &core::Scalar::all(f64::from(threshold)),
+                &mut mask,
+            )?;
+            if hits.len() + core::count_non_zero(&mask)? as usize > 16384 {
+                return Err(Error::Unreadable);
+            }
+            let mut points = core::Vector::<core::Point>::new();
+            core::find_non_zero(&mask, &mut points)?;
+            for point in points {
+                hits.push(Hit {
+                    x: point.x + region.0 as i32,
+                    y: point.y + region.1 as i32,
+                    width: template.cols(),
+                    height: template.rows(),
+                    scale,
+                    score: f64::from(*scores.at_2d::<f32>(point.y, point.x)?),
+                });
             }
         }
         hits.sort_by(|a, b| a.score.total_cmp(&b.score));
@@ -128,5 +134,51 @@ impl Template {
             }
         }
         Ok(found)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn native_score_filter_preserves_exact_threshold_boundaries() {
+        let mut template = Template {
+            image: Mat::from_slice_2d(&[[0_u8, 50, 100], [150, 200, 250]]).unwrap(),
+            scales: vec![1.0],
+            threshold: 0.2,
+        };
+        let source = Mat::from_slice_2d(&[[5_u8, 50, 100], [150, 200, 250]]).unwrap();
+        let region = Region(0, 0, 3, 2);
+        let score = template.find(&source, region).unwrap().unwrap().score;
+        assert!(score > 0.0 && score < 0.2);
+        template.threshold = score.next_down();
+        assert!(template.find(&source, region).unwrap().is_none());
+        template.threshold = score;
+        assert_eq!(
+            template.find(&source, region).unwrap().unwrap().score,
+            score
+        );
+    }
+
+    #[test]
+    fn repetitive_matches_still_exceed_the_hit_limit() {
+        let rows: Vec<Vec<u8>> = (0..260)
+            .map(|y| {
+                (0..260)
+                    .map(|x| if (x + y) % 2 == 0 { 0 } else { 255 })
+                    .collect()
+            })
+            .collect();
+        let source = Mat::from_slice_2d(&rows).unwrap();
+        let template = Template {
+            image: Mat::from_slice_2d(&[[0_u8, 255], [255, 0]]).unwrap(),
+            scales: vec![1.0],
+            threshold: 0.01,
+        };
+        assert!(matches!(
+            template.find_all(&source, Region(0, 0, 260, 260)),
+            Err(Error::Unreadable)
+        ));
     }
 }
