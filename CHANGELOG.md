@@ -8,6 +8,10 @@
   checks, guarded wall spending and bounded recovery into the Rust worker.
 - Add farming/wall settings, pause/resume and a keyboard-accessible deployment editor.
   Keep confirmed loot separate from storage changes and reject ambiguous result layouts.
+- Add redacted English result loot, bonus, damage and star annotations, village-aware
+  storage tooltips and wall price/balance/gem fixtures with guarded result layouts.
+- Calibrate the Builder Elixir gem-offer close action, retain unobserved screens as
+  pending, and record a known legacy HUD digit-drop limitation without relaxing OCR.
 - Add a Tauri 2/React desktop observer with TDM styling, Material Design Icons, native
   screenshot IPC, English resource readings, emulator settings and session history.
 - Keep observation off the UI thread, drain capture on stop/shutdown, and add offline

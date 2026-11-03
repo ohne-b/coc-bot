@@ -125,7 +125,129 @@
           ],
           "pan_attempts": 3
         }
-      }
+      },
+      "alt_anchors": [
+        [
+          {
+            "roi": [
+              45,
+              675,
+              90,
+              25
+            ],
+            "file": "calibration/english/home-0.png",
+            "margin": 6
+          },
+          {
+            "roi": [
+              38,
+              593,
+              93,
+              73
+            ],
+            "file": "calibration/english/icons/home-battle-weapon.png"
+          },
+          {
+            "roi": [
+              1063,
+              80,
+              42,
+              17
+            ],
+            "file": "calibration/english/tooltip-max.png",
+            "margin": 3
+          },
+          {
+            "roi": [
+              32,
+              165,
+              55,
+              54
+            ],
+            "file": "calibration/english/icons/home-village-trophy.png"
+          }
+        ],
+        [
+          {
+            "roi": [
+              45,
+              675,
+              90,
+              25
+            ],
+            "file": "calibration/english/home-0.png",
+            "margin": 6
+          },
+          {
+            "roi": [
+              38,
+              593,
+              93,
+              73
+            ],
+            "file": "calibration/english/icons/home-battle-weapon.png"
+          },
+          {
+            "roi": [
+              1063,
+              133,
+              42,
+              17
+            ],
+            "file": "calibration/english/tooltip-max.png",
+            "margin": 3
+          },
+          {
+            "roi": [
+              32,
+              165,
+              55,
+              54
+            ],
+            "file": "calibration/english/icons/home-village-trophy.png"
+          }
+        ],
+        [
+          {
+            "roi": [
+              45,
+              675,
+              90,
+              25
+            ],
+            "file": "calibration/english/home-0.png",
+            "margin": 6
+          },
+          {
+            "roi": [
+              38,
+              593,
+              93,
+              73
+            ],
+            "file": "calibration/english/icons/home-battle-weapon.png"
+          },
+          {
+            "roi": [
+              1100,
+              183,
+              42,
+              17
+            ],
+            "file": "calibration/english/tooltip-max.png",
+            "margin": 3
+          },
+          {
+            "roi": [
+              32,
+              165,
+              55,
+              54
+            ],
+            "file": "calibration/english/icons/home-village-trophy.png"
+          }
+        ]
+      ]
     },
     "home_menu": {
       "anchors": [
@@ -707,7 +829,137 @@
           640,
           617
         ]
-      }
+      },
+      "result_readings": [
+        {
+          "name": "home_two_resources",
+          "guards": [
+            {
+              "file": "calibration/english/icons/home_result-ee063b1fccee453f81c0b547b971a754.png",
+              "region": [
+                681,
+                340,
+                32,
+                29
+              ],
+              "max_score": 0.02,
+              "scales": [
+                1.0
+              ]
+            },
+            {
+              "file": "calibration/english/icons/result-elixir.png",
+              "region": [
+                683,
+                390,
+                26,
+                32
+              ],
+              "max_score": 0.02,
+              "scales": [
+                1.0
+              ]
+            }
+          ],
+          "loot": {
+            "gold": [
+              594,
+              340,
+              75,
+              31
+            ],
+            "elixir": [
+              642,
+              394,
+              26,
+              29
+            ]
+          },
+          "damage": [
+            618,
+            104,
+            42,
+            26
+          ]
+        },
+        {
+          "name": "home_three_resources",
+          "guards": [
+            {
+              "file": "calibration/english/icons/home_result-ee063b1fccee453f81c0b547b971a754.png",
+              "region": [
+                681,
+                318,
+                32,
+                29
+              ],
+              "max_score": 0.02,
+              "scales": [
+                1.0
+              ]
+            },
+            {
+              "file": "calibration/english/icons/result-elixir.png",
+              "region": [
+                683,
+                363,
+                26,
+                32
+              ],
+              "max_score": 0.02,
+              "scales": [
+                1.0
+              ]
+            }
+          ],
+          "loot": {
+            "gold": [
+              537,
+              316,
+              134,
+              31
+            ],
+            "elixir": [
+              553,
+              365,
+              118,
+              31
+            ],
+            "dark": [
+              569,
+              416,
+              102,
+              28
+            ]
+          },
+          "damage": [
+            611,
+            103,
+            60,
+            28
+          ],
+          "bonus": {
+            "gold": [
+              920,
+              350,
+              85,
+              26
+            ],
+            "elixir": [
+              920,
+              388,
+              85,
+              26
+            ],
+            "dark": [
+              951,
+              426,
+              54,
+              24
+            ]
+          }
+        }
+      ]
     },
     "builder": {
       "anchors": [
@@ -946,7 +1198,71 @@
           ],
           "search_first": true
         }
-      }
+      },
+      "alt_anchors": [
+        [
+          {
+            "roi": [
+              45,
+              675,
+              90,
+              25
+            ],
+            "file": "calibration/english/home-0.png",
+            "margin": 6
+          },
+          {
+            "roi": [
+              38,
+              593,
+              93,
+              73
+            ],
+            "file": "calibration/english/icons/builder-battle-weapon.png"
+          },
+          {
+            "roi": [
+              1080,
+              78,
+              42,
+              17
+            ],
+            "file": "calibration/english/tooltip-max.png",
+            "margin": 3
+          }
+        ],
+        [
+          {
+            "roi": [
+              45,
+              675,
+              90,
+              25
+            ],
+            "file": "calibration/english/home-0.png",
+            "margin": 6
+          },
+          {
+            "roi": [
+              38,
+              593,
+              93,
+              73
+            ],
+            "file": "calibration/english/icons/builder-battle-weapon.png"
+          },
+          {
+            "roi": [
+              1080,
+              132,
+              42,
+              17
+            ],
+            "file": "calibration/english/tooltip-max.png",
+            "margin": 3
+          }
+        ]
+      ]
     },
     "builder_menu": {
       "anchors": [
@@ -1413,7 +1729,74 @@
           640,
           607
         ]
-      }
+      },
+      "result_readings": [
+        {
+          "name": "builder_gold_rewards",
+          "guards": [
+            {
+              "file": "calibration/english/builder_result-1.png",
+              "region": [
+                591,
+                582,
+                104,
+                49
+              ],
+              "max_score": 0.02,
+              "scales": [
+                1.0
+              ]
+            },
+            {
+              "file": "calibration/english/builder-result-rewards.png",
+              "region": [
+                776,
+                385,
+                82,
+                24
+              ],
+              "max_score": 0.02,
+              "scales": [
+                1.0
+              ]
+            }
+          ],
+          "loot": {
+            "gold": [
+              769,
+              435,
+              81,
+              27
+            ]
+          },
+          "damage": [
+            584,
+            290,
+            119,
+            54
+          ],
+          "stars": [
+            [
+              435,
+              172,
+              100,
+              80
+            ],
+            [
+              592,
+              125,
+              100,
+              80
+            ],
+            [
+              746,
+              172,
+              100,
+              80
+            ]
+          ]
+        }
+      ]
     },
     "builder_star_bonus": {
       "anchors": [
@@ -1716,6 +2099,44 @@
             "margin": 6
           }
         ]
+      ]
+    },
+    "gem_offer": {
+      "anchors": [
+        {
+          "roi": [
+            481,
+            187,
+            310,
+            35
+          ],
+          "file": "calibration/english/gem_offer-0.png",
+          "margin": 3
+        },
+        {
+          "roi": [
+            412,
+            324,
+            185,
+            24
+          ],
+          "file": "calibration/english/gem_offer-1.png",
+          "margin": 3
+        }
+      ],
+      "actions": {
+        "close": [
+          900,
+          218
+        ]
+      },
+      "overrides": [
+        "home",
+        "builder",
+        "build_list",
+        "wall_selected",
+        "wall_confirm",
+        "builder_wall_confirm"
       ]
     }
   },
@@ -2218,12 +2639,12 @@
     "home_result",
     "build_list",
     "wall_confirm",
-    "wall_selected"
+    "wall_selected",
+    "gem_offer"
   ],
   "calibration_pending_screens": [
     "builders_busy",
     "disconnected",
-    "gem_offer",
     "idle",
     "layout_blocked",
     "other_device",

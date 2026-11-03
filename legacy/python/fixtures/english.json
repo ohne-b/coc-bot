@@ -130,5 +130,89 @@
   "tooltip_elixir": {
     "file": "english-tooltip_elixir.png",
     "state": null
+  },
+  "numeric_home-defeat": {
+    "file": "english-numeric-home-defeat.png",
+    "state": "home_result"
+  },
+  "numeric_home-victory": {
+    "file": "english-numeric-home-victory.png",
+    "state": "home_result"
+  },
+  "numeric_builder-two-stars": {
+    "file": "english-numeric-builder-two-stars.png",
+    "state": "builder_result"
+  },
+  "numeric_builder-zero": {
+    "file": "english-numeric-builder-zero.png",
+    "state": "builder_result"
+  },
+  "numeric_home-gold-tooltip": {
+    "file": "english-numeric-home-gold-tooltip.png",
+    "state": "home"
+  },
+  "numeric_home-elixir-tooltip": {
+    "file": "english-numeric-home-elixir-tooltip.png",
+    "state": "home"
+  },
+  "numeric_home-dark-tooltip": {
+    "file": "english-numeric-home-dark-tooltip.png",
+    "state": "home"
+  },
+  "numeric_builder-gold-tooltip": {
+    "file": "english-numeric-builder-gold-tooltip.png",
+    "state": "builder"
+  },
+  "numeric_builder-elixir-tooltip": {
+    "file": "english-numeric-builder-elixir-tooltip.png",
+    "state": "builder"
+  },
+  "numeric_gem-offer-builder-elixir": {
+    "file": "english-numeric-gem-offer-builder-elixir.png",
+    "state": "gem_offer"
+  },
+  "numeric_home-wall-selection": {
+    "file": "english-numeric-home-wall-selection.png",
+    "state": "wall_selected"
+  },
+  "numeric_builder-wall-gold": {
+    "file": "english-numeric-builder-wall-gold.png",
+    "state": "wall_selected"
+  },
+  "numeric_builder-wall-both": {
+    "file": "english-numeric-builder-wall-both.png",
+    "state": "wall_selected"
+  },
+  "numeric_home-wall-confirm-gold": {
+    "file": "english-numeric-home-wall-confirm-gold.png",
+    "state": "wall_confirm"
+  },
+  "numeric_home-wall-confirm-elixir": {
+    "file": "english-numeric-home-wall-confirm-elixir.png",
+    "state": "wall_confirm"
+  },
+  "numeric_builder-wall-confirm-gold": {
+    "file": "english-numeric-builder-wall-confirm-gold.png",
+    "state": "builder_wall_confirm"
+  },
+  "numeric_builder-wall-confirm-elixir": {
+    "file": "english-numeric-builder-wall-confirm-elixir.png",
+    "state": "builder_wall_confirm"
+  },
+  "numeric_home-scout-loot": {
+    "file": "english-numeric-home-scout-loot.png",
+    "state": "home_scout"
+  },
+  "numeric_home-clouded-storage": {
+    "file": "english-numeric-home-clouded-storage.png",
+    "state": null
+  },
+  "numeric_unrecognized-gold-pass-offer": {
+    "file": "english-numeric-unrecognized-gold-pass-offer.png",
+    "state": null
+  },
+  "numeric_unrecognized-daily-calendar": {
+    "file": "english-numeric-unrecognized-daily-calendar.png",
+    "state": null
   }
 }
