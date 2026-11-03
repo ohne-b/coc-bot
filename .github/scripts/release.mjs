@@ -340,7 +340,10 @@ export function bump(value, directory = root) {
   );
   if (next === text) throw Error("Workspace version was not found");
   writeFileSync(file, next);
-  run("cargo", ["metadata", "--offline", "--format-version", "1"], directory);
+  execFileSync("cargo", ["metadata", "--offline", "--format-version", "1"], {
+    cwd: directory,
+    stdio: ["ignore", "ignore", "inherit"],
+  });
   if (currentVersion(directory) !== value)
     throw Error("Lockfile version update failed");
   mkdirSync(join(directory, ".tools"), { recursive: true });
