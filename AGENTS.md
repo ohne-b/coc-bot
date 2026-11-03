@@ -30,7 +30,8 @@ alternate agent instruction files or links.
 The Rust workspace currently implements calibrated screen and digit recognition in
 `crates/core/`, with bounded ADB/LDPlayer processes, guarded input, framebuffer capture
 and SQLite session history with typed telemetry and offline regression tests. The Tauri
-application and gameplay engine are not implemented yet. The Python coc-auto baseline,
+application and React dashboard support read-only observation, settings and session history.
+Autonomous gameplay is not implemented yet. The Python coc-auto baseline,
 dashboard, calibration and tests live in `legacy/python/`; retain them and their history
 until equivalent Rust behavior has meaningful regression coverage.
 
@@ -39,7 +40,7 @@ SQLite persistence and a Tauri 2 + React/TypeScript desktop UI. No Linux server,
 hosted relay or game-protocol reverse engineering. The inherited relay, Netlify config
 and web dashboard are reference material, not architecture for the new application.
 
-When implementation begins, use `crates/core/` for recognition, device control, farming,
+Use `crates/core/` for recognition, device control, farming,
 application state and persistence; `desktop/` for Tauri lifecycle/IPC; and `frontend/`
 for React/TypeScript. Create modules as behavior is implemented, not as empty scaffolding.
 Use concrete Rust structs, methods, composition and typed enums. Reuse shared policies;
@@ -74,7 +75,7 @@ reset data. Keep personal app data separate from shared calibration and source.
 
 ## Dashboard contracts
 
-The planned UI provides start/stop, farming configuration, live screenshots, gold/elixir/
+The target UI provides start/stop, farming configuration, live screenshots, gold/elixir/
 dark-elixir balances and capacity, attacks, loot, resources/hour, wall upgrade counts,
 session history and errors. Wall-level distributions require additional recognition.
 Use structured Rust events/snapshots instead of parsing human-readable log text.

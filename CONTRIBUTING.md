@@ -63,8 +63,8 @@ monotonic active session time, excluding pauses and including searching/recovery
 confirmed earnings across the session, not estimates from storage changes. The engine must
 checkpoint active time and own the blocking SQLite connection off the UI thread. Startup may
 mark unfinished sessions interrupted only after acquiring the desktop single-instance lock.
-Foreign, corrupt or newer databases fail without being reset. Settings and UI integration
-are not implemented yet.
+Foreign, corrupt or newer databases fail without being reset. Schema version 2 adds
+validated emulator settings while preserving version 1 session history.
 
 Device tests replace the ADB/LDPlayer transport and use saved frames. Process tests
 start disposable PowerShell children to check binary pipes, cancellation, timeouts and
@@ -100,13 +100,39 @@ Never commit a virtual environment, runtime captures, logs, credentials or datab
 | --- | --- |
 | `crates/core/` | Rust recognition, guarded device control, typed telemetry and SQLite session history |
 | `crates/core/tests/` | Offline Rust regressions against captured fixtures |
+| `desktop/` | Tauri lifecycle and scoped native commands |
+| `frontend/` | React/TypeScript dashboard and offline browser tests |
 | `legacy/python/` | Python source, dashboard, settings examples, calibration and fixtures |
 | `scripts/` | Native Windows build dependency setup |
 | `.github/` | Repository policy, validation and supplied branding |
 
-The remaining Rust layout is described in [AGENTS.md](AGENTS.md). Tauri, the gameplay
-engine and the React frontend are not implemented yet. Do not add empty crates or
-frontend scaffolds; add their pinned toolchains, lockfiles and real checks with behavior.
+The desktop currently supports observation: selected-instance display checks, screenshots,
+screen/resource recognition, settings and session history. It does not farm or upgrade walls.
+Capacity is displayed only when both the village and its calibrated storage tooltip are
+recognized; isolated tooltip fixtures cannot identify a village. The UI uses TDM's dark
+palette, spacing, Manrope and Material Design Icons, with explanations behind info buttons.
+
+From the repository root, after preparing the native dependencies:
+
+```powershell
+npm ci --prefix frontend
+npm --prefix frontend run format:check
+npm --prefix frontend test
+npm --prefix frontend run build
+npm exec --prefix frontend -- playwright install chromium
+npm --prefix frontend run test:browser
+cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+cargo run -p coc-bot-desktop --features desktop-fixture,custom-protocol --locked
+```
+
+The fixture build uses a captured English frame, temporary settings/history and a fake
+transport. It has a separate application identifier and does not save window preferences.
+Never package `desktop-fixture` for users. The browser suite mocks native IPC and checks
+controls, errors, help popovers, narrow layouts and accessibility; it never opens an emulator.
+For manual observation, omit `desktop-fixture`. That app stores settings/history in its
+Windows local app-data directory and connects only after selecting an instance and clicking
+Observe. Closing cancels capture and drains the owned worker. Screenshots stay in memory.
+The unbundled binary requires the OpenCV DLL on PATH; installer packaging is separate work.
 
 Keep README short: logo, status, essential links, scope and attribution. `LEGACY.md`
 and inherited `docs/` media preserve the original instructions. Future user guides

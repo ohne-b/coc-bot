@@ -1,0 +1,28 @@
+[package]
+name = "coc-bot-desktop"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+default-run = "coc-bot-desktop"
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]
+desktop-fixture = ["dep:opencv", "dep:tempfile", "dep:tokio-util"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+coc-bot-core = { path = "../crates/core" }
+serde.workspace = true
+tokio.workspace = true
+tauri = { version = "2", features = [] }
+tauri-plugin-single-instance = "2"
+tauri-plugin-window-state = "2"
+opencv = { workspace = true, optional = true }
+tempfile = { version = "3", optional = true }
+tokio-util = { workspace = true, optional = true }
+
+[lints]
+workspace = true

@@ -1,5 +1,7 @@
+pub mod application;
 pub mod calibration;
 pub mod device;
+pub mod settings;
 pub mod storage;
 pub mod telemetry;
 pub mod vision;
@@ -30,7 +32,7 @@ pub enum Error {
     InputDisabled,
     #[error("The expected screen was not freshly recognized; no input was sent")]
     InputGuard,
-    #[error("Background recognition failed: {0}")]
+    #[error("Background work failed: {0}")]
     Worker(#[from] tokio::task::JoinError),
     #[error(transparent)]
     Io(#[from] std::io::Error),

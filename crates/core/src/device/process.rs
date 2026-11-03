@@ -32,7 +32,7 @@ pub trait Transport: Send + Sync {
     ) -> impl Future<Output = Result<Vec<u8>>> + Send;
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct Process;
 
 impl Transport for Process {

@@ -37,3 +37,9 @@ rights; the project license does not grant rights to Supercell assets or tradema
 
 The shield in `.github/assets/clash-shield.svg` is the artwork supplied by the project
 maintainer. Preserve its vector artwork and aspect ratio when reusing it for the app.
+
+The desktop dashboard adapts layout tokens and basic controls from
+[ohne-b/twitch-drops-miner](https://github.com/ohne-b/twitch-drops-miner), whose original
+contributions by ohne-b use PolyForm Noncommercial 1.0.0. This does not change inherited
+coc-auto licensing. Manrope and Material Design Icons notices are retained in
+[frontend/public/licenses/](frontend/public/licenses/) and bundled with the desktop app.

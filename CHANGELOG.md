@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add a Tauri 2/React desktop observer with TDM styling, Material Design Icons, native
+  screenshot IPC, English resource readings, emulator settings and session history.
+- Keep observation off the UI thread, drain capture on stop/shutdown, and add offline
+  application, browser and accessibility regressions.
 - Add SQLite session history, timestamped resource observations, confirmed-loot statistics,
   wall spending and paged error/recovery history, with offline persistence tests.
 - Add bounded, cancellable ADB/LDPlayer processes, device discovery, screenshot capture,
