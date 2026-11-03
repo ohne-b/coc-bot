@@ -303,6 +303,10 @@ test("observation controls, help and history use native commands", async ({
     page.getByRole("heading", { name: "Home Village" }),
   ).toBeVisible();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await page.screenshot({
+    path: "../.tools/review-session.png",
+    fullPage: true,
+  });
 });
 
 test("desktop layout is accessible and keeps explanations behind info buttons", async ({
@@ -349,7 +353,6 @@ for (const width of [360, 800, 1200]) {
       "Walls",
       "Deployment",
       "History",
-      "Activity",
       "Settings",
     ]) {
       await page
@@ -359,15 +362,40 @@ for (const width of [360, 800, 1200]) {
       await expect(
         page.getByRole("heading", { name, exact: true, level: 1 }),
       ).toBeVisible();
+      if (name === "History")
+        await expect(page.getByRole("button", { name: /Nov/ })).toBeVisible();
+      if (width === 1200)
+        await page.screenshot({
+          path: `../.tools/review-${name.toLowerCase()}.png`,
+          fullPage: true,
+        });
       if (name === "Farming" || name === "Walls") {
-        const summary = page.locator("summary");
-        if ((await page.locator("details").getAttribute("open")) === null) {
-          await summary.focus();
-          await page.keyboard.press("Enter");
-        }
+        const settings = page.getByRole("button", {
+          name: name === "Walls" ? "Wall settings" : "Farming settings",
+          exact: true,
+        });
+        await settings.focus();
+        await page.keyboard.press("Enter");
+        await expect(page.getByRole("dialog")).toBeVisible();
+        expect(
+          await page
+            .getByRole("dialog")
+            .evaluate((dialog) => dialog.scrollWidth <= dialog.clientWidth),
+        ).toBe(true);
         await expect(
           page.getByRole("button", { name: "Save", exact: true }),
         ).toBeVisible();
+      }
+      if (name === "History") {
+        await page
+          .getByRole("button", { name: "Activity", exact: true })
+          .click();
+        await expect(page.getByText("No recent activity")).toBeVisible();
+        if (width === 1200)
+          await page.screenshot({
+            path: "../.tools/review-activity.png",
+            fullPage: true,
+          });
       }
       expect(
         await page.evaluate(
@@ -389,6 +417,26 @@ for (const width of [360, 800, 1200]) {
           path: `../.tools/layout-${name.toLowerCase()}-${width}.png`,
           fullPage: true,
         });
+      }
+      if (name === "Farming" || name === "Walls") {
+        if (width === 1200) {
+          for (const [part, offset] of [0, 500, 1000].entries()) {
+            await page
+              .getByRole("dialog")
+              .evaluate((dialog, y) => dialog.scrollTo(0, y), offset);
+            await page.screenshot({
+              path: `../.tools/review-${name.toLowerCase()}-settings-${part + 1}.png`,
+            });
+          }
+        }
+        await page.keyboard.press("Escape");
+        await expect(page.getByRole("dialog")).not.toBeVisible();
+        await expect(
+          page.getByRole("button", {
+            name: name === "Walls" ? "Wall settings" : "Farming settings",
+            exact: true,
+          }),
+        ).toBeFocused();
       }
     }
   });
@@ -571,31 +619,47 @@ test("returning to untouched settings receives a delayed save acknowledgement", 
   await expect(instance).toHaveValue("2");
 });
 
-test("farming controls preserve settings and lock editing throughout a paused session", async ({
+test("farming dialog preserves drafts and locks editing throughout a paused session", async ({
   page,
 }) => {
   await mock(page);
   await page.goto("/");
-  await page.getByText("Farming settings", { exact: true }).click();
+  const open = () =>
+    page.getByRole("button", { name: "Farming settings", exact: true }).click();
+  const close = () =>
+    page.getByRole("button", { name: "Close settings", exact: true }).click();
+  await open();
   await page.getByLabel("Attack limit", { exact: true }).fill("4");
+  await close();
+  await open();
+  await expect(page.getByLabel("Attack limit", { exact: true })).toHaveValue(
+    "4",
+  );
   await page.getByLabel("Home deployment").selectOption("ring");
   await page.getByRole("combobox", { name: /^Village/ }).selectOption("both");
   await page.getByLabel("Stop when targets are full").check();
   await page.getByLabel("Elixir Cart full", { exact: true }).check();
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByRole("status")).toHaveText("Saved");
+  await close();
+  await expect(
+    page.getByRole("button", { name: "Start", exact: true }),
+  ).toHaveText("");
   await page.getByRole("button", { name: "Start", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Pause", exact: true }),
   ).toBeVisible();
+  await open();
   await expect(page.getByLabel("Attack limit", { exact: true })).toBeDisabled();
   await expect(
     page.getByLabel("Elixir Cart full", { exact: true }),
   ).toBeDisabled();
+  await close();
   await page.getByRole("button", { name: "Pause", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Resume", exact: true }),
   ).toBeVisible();
+  await open();
   await expect(page.getByLabel("Attack limit", { exact: true })).toBeDisabled();
   await expect(
     page.getByRole("button", { name: "Save", exact: true }),
@@ -607,11 +671,17 @@ test("farming controls preserve settings and lock editing throughout a paused se
     page.getByRole("note", { name: "Session limits", exact: true }),
   ).toBeVisible();
   await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await close();
   await page.getByRole("button", { name: "Resume", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Pause", exact: true }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Stop", exact: true }),
+  ).toHaveText("");
   await page.getByRole("button", { name: "Stop", exact: true }).click();
+  await open();
   await expect(page.getByLabel("Attack limit", { exact: true })).toBeEnabled();
   await expect(page.getByLabel("Attack limit", { exact: true })).toHaveValue(
     "4",
@@ -641,10 +711,15 @@ test("deployment points support keyboard, bounds, save and reset without replaci
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByRole("status")).toHaveText("Saved");
   await page.getByRole("button", { name: "Farming", exact: true }).click();
-  await page.getByText("Farming settings", { exact: true }).click();
+  await page
+    .getByRole("button", { name: "Farming settings", exact: true })
+    .click();
   await page.getByLabel("Attack limit", { exact: true }).fill("8");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByRole("status")).toHaveText("Saved");
+  await page
+    .getByRole("button", { name: "Close settings", exact: true })
+    .click();
   await page.getByRole("button", { name: "Deployment", exact: true }).click();
   await expect(page.getByLabel("X", { exact: true })).toHaveValue("1279");
   await page.getByRole("button", { name: "Reset", exact: true }).click();
