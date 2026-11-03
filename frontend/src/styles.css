@@ -63,6 +63,10 @@ main:focus-visible {
   background: #0009;
 }
 .dialog-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--canvas);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -397,7 +401,6 @@ nav {
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
-  max-height: clamp(240px, calc(100dvh - 440px), 540px);
   background: #161616;
   border-radius: 8px;
   overflow: hidden;
@@ -448,7 +451,7 @@ nav {
   border-bottom: 1px solid var(--divider);
   gap: 16px;
 }
-.tabs button {
+.tabs button:not(.icon-button) {
   background: none;
   border: 0;
   border-bottom: 2px solid transparent;
@@ -457,11 +460,11 @@ nav {
   font-size: 13px;
   color: var(--muted);
 }
-.tabs button[aria-pressed="true"] {
+.tabs button[aria-pressed="true"]:not(.icon-button) {
   color: var(--text);
   border-bottom-color: var(--accent);
 }
-.tabs button:hover {
+.tabs button:hover:not(.icon-button) {
   color: var(--text);
 }
 .resource-list {
@@ -776,9 +779,6 @@ td {
   .preference-section {
     grid-template-columns: minmax(0, 1fr);
     gap: 16px;
-  }
-  .capture {
-    max-height: none;
   }
   .overview-grid {
     grid-template-columns: minmax(0, 1fr);
