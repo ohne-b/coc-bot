@@ -185,7 +185,7 @@ export default function Settings({
             )}
             <div className="form-row emulator-actions">
               <Button primary type="submit">
-                {busy === "save" ? "Saving?" : "Save"}
+                {busy === "save" ? "Saving…" : "Save"}
               </Button>
               <span role="status" aria-label="Settings save" className="muted">
                 {saved ? "Saved" : edited.current ? "Unsaved changes" : ""}
