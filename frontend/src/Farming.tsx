@@ -63,7 +63,12 @@ export default function Farming({
     </label>
   );
   const toggle = (
-    key: "until_full" | "collect_cart" | "earthquake" | "builder_stack",
+    key:
+      | "until_full"
+      | "collect_cart"
+      | "cart_goal"
+      | "earthquake"
+      | "builder_stack",
     label: string,
   ) => (
     <label className="check-field">
@@ -126,11 +131,15 @@ export default function Farming({
                 <Help label="Farming targets">
                   Stop when all selected resources are full. Dark Elixir applies
                   to Home Village. Capacities must be recognized before farming
-                  can finish.
+                  can finish. The Elixir Cart target requires collection and
+                  applies to Builder Base. Five visits without finding the cart
+                  stop farming.
                 </Help>
               </div>
-              {toggle("until_full", "Stop when storages are full")}
+              {toggle("until_full", "Stop when targets are full")}
               <div className="toggle-row">
+                {draft.villages.includes("builder") &&
+                  toggle("cart_goal", "Elixir Cart full")}
                 {(["gold", "elixir", "dark"] as Resource[]).map((resource) => (
                   <label className="check-field" key={resource}>
                     <input

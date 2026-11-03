@@ -261,6 +261,7 @@ struct Running<T> {
     player: LdPlayer<T>,
     recovering: bool,
     guard_failures: u8,
+    next_memory_check: Instant,
 }
 impl<T> Running<T> {
     fn elapsed(&self) -> i64 {
@@ -504,6 +505,7 @@ impl<T: Transport + Clone> Worker<T> {
             player,
             recovering: false,
             guard_failures: 0,
+            next_memory_check: Instant::now() + Duration::from_secs(1800),
         });
         Ok(())
     }
@@ -577,20 +579,37 @@ impl<T: Transport + Clone> Worker<T> {
             }
             s.revision += 1;
         });
-        let probe = async {
-            run.adb.verify(&run.token).await?;
-            run.adb.capture(&run.token).await
+        let memory_failure = matches!(error, Error::LowMemory)
+            || matches!(error, Error::OpenCv(e) if e.code == opencv::core::StsNoMem);
+        if memory_failure {
+            tokio::select! {_ = run.token.cancelled()=>return Err(Error::Cancelled),_ = tokio::time::sleep(Duration::from_secs(30))=>{}}
         }
-        .await;
+        let probe = if memory_failure {
+            Err(Error::LowMemory)
+        } else {
+            async {
+                run.adb.verify(&run.token).await?;
+                run.adb.capture(&run.token).await
+            }
+            .await
+        };
         let capture = match probe {
             Ok(capture) => capture,
             Err(error) if !recoverable(&error) => return Err(error),
             Err(_) => {
                 if run.player.running(&run.token).await? {
                     run.player.quit(&run.token).await?;
+                    let deadline = Instant::now() + Duration::from_secs(60);
+                    while run.player.running(&run.token).await? {
+                        if Instant::now() >= deadline {
+                            return Err(Error::Timeout);
+                        }
+                        tokio::select! {_ = run.token.cancelled()=>return Err(Error::Cancelled),_ = tokio::time::sleep(Duration::from_secs(1))=>{}}
+                    }
                 }
                 tokio::select! {_ = run.token.cancelled()=>return Err(Error::Cancelled),_ = tokio::time::sleep(Duration::from_secs(3))=>{}}
                 run.player.launch(&run.token).await?;
+                run.next_memory_check = Instant::now() + Duration::from_secs(1800);
                 let deadline = Instant::now() + Duration::from_secs(90);
                 loop {
                     match run.adb.verify(&run.token).await {
@@ -706,6 +725,22 @@ impl<T: Transport + Clone> Worker<T> {
                 },
             )?;
             run.recovering = false;
+        }
+        if !run.paused
+            && matches!(detection, Detection::Known(Screen::Home | Screen::Builder))
+            && run
+                .engine
+                .as_ref()
+                .is_some_and(Engine::can_restart_between_attacks)
+            && Instant::now() >= run.next_memory_check
+        {
+            run.next_memory_check = Instant::now() + Duration::from_secs(60);
+            if ldplayer::available_memory_mb(&self.transport, &run.token)
+                .await?
+                .is_some_and(|mb| mb < 1000)
+            {
+                return Err(Error::LowMemory);
+            }
         }
         let mut observations = Vec::new();
         let village = match detection {
@@ -846,8 +881,13 @@ fn elapsed(start: Instant) -> i64 {
 fn recoverable(error: &Error) -> bool {
     matches!(
         error,
-        Error::Timeout | Error::Device(_) | Error::Io(_) | Error::Frame | Error::Unreadable
-    )
+        Error::Timeout
+            | Error::Device(_)
+            | Error::Io(_)
+            | Error::Frame
+            | Error::Unreadable
+            | Error::LowMemory
+    ) || matches!(error, Error::OpenCv(e) if e.code == opencv::core::StsNoMem)
 }
 fn now() -> Result<i64> {
     let value = SystemTime::now()
@@ -859,4 +899,117 @@ fn now() -> Result<i64> {
 }
 fn closed() -> Error {
     Error::Device("The application worker has stopped".into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        device::process::Invocation,
+        gameplay::test_device::{Fake, root},
+        settings::SelectedDevice,
+    };
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    #[derive(Clone)]
+    struct LowMemoryDevice {
+        base: Fake,
+        probes: Arc<AtomicUsize>,
+    }
+    impl Transport for LowMemoryDevice {
+        async fn run(&self, command: Invocation, cancel: &CancellationToken) -> Result<Vec<u8>> {
+            if command
+                .program
+                .file_name()
+                .is_some_and(|name| name == "powershell.exe")
+            {
+                self.probes.fetch_add(1, Ordering::SeqCst);
+                return Ok(b"512000".to_vec());
+            }
+            self.base.run(command, cancel).await
+        }
+    }
+
+    #[tokio::test]
+    async fn memory_checks_require_live_unpaused_between_attack_work_and_elapsed_cooldown() {
+        let (base, _) = Fake::new("english-home.png");
+        for (mode, paused, due, expected) in [
+            (SessionMode::Observe, false, true, false),
+            (SessionMode::Farming, true, true, false),
+            (SessionMode::Farming, false, false, false),
+            (SessionMode::Farming, false, true, true),
+        ] {
+            let data = tempfile::tempdir().unwrap();
+            for name in ["adb.exe", "ldconsole.exe"] {
+                std::fs::write(data.path().join(name), []).unwrap();
+            }
+            let (snapshot, _) = watch::channel(Snapshot {
+                revision: 0,
+                settings: Settings::default(),
+                session: None,
+                detection: Detection::Unknown,
+                captured_at_ms: None,
+                frame_sequence: None,
+                resources: vec![],
+                error: None,
+                progress: None,
+                statistics: vec![],
+                default_layouts: BTreeMap::new(),
+            });
+            let fake = LowMemoryDevice {
+                base: base.clone(),
+                probes: Arc::default(),
+            };
+            let mut worker = Worker::load(
+                data.path(),
+                &root(),
+                fake.clone(),
+                snapshot,
+                Arc::new(Mutex::new(None)),
+                CancellationToken::new(),
+            )
+            .unwrap();
+            worker
+                .store
+                .save_settings(&Settings {
+                    device: Some(SelectedDevice {
+                        folder: data.path().to_owned(),
+                        index: 0,
+                    }),
+                    ..Settings::default()
+                })
+                .unwrap();
+            worker.start(mode, CancellationToken::new()).unwrap();
+            worker.pause(paused).unwrap();
+            worker.running.as_mut().unwrap().next_memory_check =
+                Instant::now() + Duration::from_secs(if due { 0 } else { 1800 });
+            let result = worker.observe().await;
+            assert_eq!(
+                matches!(result, Err(Error::LowMemory)),
+                expected,
+                "{mode:?} paused={paused} due={due}: {result:?}"
+            );
+            if !expected {
+                result.unwrap();
+            }
+            assert_eq!(fake.probes.load(Ordering::SeqCst), usize::from(expected));
+            assert!(fake.base.taps.lock().unwrap().is_empty());
+            worker.finish(SessionState::Stopped).unwrap();
+        }
+    }
+
+    #[test]
+    fn only_memory_exhaustion_is_a_recoverable_opencv_error() {
+        assert!(recoverable(&Error::LowMemory));
+        assert!(recoverable(&Error::OpenCv(opencv::Error::new(
+            opencv::core::StsNoMem,
+            "allocation failed"
+        ))));
+        assert!(!recoverable(&Error::OpenCv(opencv::Error::new(
+            opencv::core::StsBadArg,
+            "bad input"
+        ))));
+        assert!(!recoverable(&Error::Display));
+        assert!(!recoverable(&Error::Cancelled));
+    }
 }

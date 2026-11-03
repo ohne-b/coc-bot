@@ -1,19 +1,15 @@
-__pycache__/
-*.pyc
 captures/
-.coverage
 .claude/
 .omc/
 .serena/
 .pi/
 *.png
-!/.github/assets/desktop-observer.png
+!/.github/assets/desktop.png
 *.log
 !docs/*.png
-!legacy/python/calibration/english/**/*.png
-!legacy/python/calibration/digits/*.png
-!legacy/python/fixtures/*.png
-!legacy/python/web/icons/*.png
+!/assets/calibration/english/**/*.png
+!/assets/calibration/digits/*.png
+!/crates/core/tests/fixtures/*.png
 config.json.bak
 config.json.tmp
 config.local.json
@@ -24,17 +20,12 @@ config.*.local.json.bak
 config.*.local.json.tmp
 
 # Local environments, credentials and tooling
-.venv/
-venv/
 .env
 .env.*
 !.env.example
 .vscode/
 .idea/
 .tools/
-.pytest_cache/
-.ruff_cache/
-htmlcov/
 *.pem
 *.key
 

@@ -9,15 +9,6 @@ updates:
     groups:
       actions:
         patterns: ["*"]
-  - package-ecosystem: pip
-    directory: /legacy/python
-    schedule:
-      interval: monthly
-    commit-message:
-      prefix: build
-    groups:
-      python:
-        patterns: ["*"]
   - package-ecosystem: cargo
     directory: /
     schedule:

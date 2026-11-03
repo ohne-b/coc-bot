@@ -8,7 +8,7 @@ default-run = "coc-bot-desktop"
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]
-desktop-fixture = ["dep:opencv", "dep:tempfile", "dep:tokio-util"]
+desktop-fixture = ["dep:opencv", "dep:tokio-util"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -21,7 +21,7 @@ tauri = { version = "2", features = [] }
 tauri-plugin-single-instance = "2"
 tauri-plugin-window-state = "2"
 opencv = { workspace = true, optional = true }
-tempfile = { version = "3", optional = true }
+tempfile = "3"
 tokio-util = { workspace = true, optional = true }
 
 [lints]

@@ -15,6 +15,8 @@ pub enum Error {
     Resolution,
     #[error("Set the emulator to the calibrated resolution and 240 DPI")]
     Display,
+    #[error("Available Windows memory is low; restarting the selected emulator")]
+    LowMemory,
     #[error("Screenshot data is incomplete or uses an unsupported format")]
     Frame,
     #[error("The value could not be read reliably")]

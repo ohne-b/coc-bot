@@ -23,9 +23,9 @@
     "category": "Utility",
     "icon": ["icons/icon.ico"],
     "resources": {
-      "../legacy/python/config.json": "config.json",
-      "../legacy/python/calibration/english/": "calibration/english/",
-      "../legacy/python/calibration/digits/": "calibration/digits/",
+      "../assets/config.json": "config.json",
+      "../assets/calibration/english/": "calibration/english/",
+      "../assets/calibration/digits/": "calibration/digits/",
       "../LICENSE.md": "LICENSE.md",
       "../NOTICE.md": "NOTICE.md",
       "../frontend/public/licenses/": "licenses/"

@@ -14,6 +14,7 @@ use tauri::{Manager, State};
 
 #[cfg(feature = "desktop-fixture")]
 mod fixture;
+mod installation;
 
 struct Desktop {
     application: Result<Arc<Application>, String>,
@@ -87,6 +88,16 @@ async fn session_detail(state: State<'_, Desktop>, id: i64) -> Result<SessionDet
 }
 
 fn main() {
+    if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--check-installation")) {
+        let result = std::env::current_exe()
+            .map_err(coc_bot_core::Error::from)
+            .and_then(|exe| installation::check(exe.parent().ok_or(coc_bot_core::Error::Frame)?));
+        if let Err(error) = result {
+            eprintln!("{error}");
+            std::process::exit(1);
+        }
+        return;
+    }
     let context = tauri::generate_context!();
     #[cfg(feature = "desktop-fixture")]
     let context = {
@@ -107,7 +118,7 @@ fn main() {
     builder
         .setup(|app| {
             let assets = if cfg!(debug_assertions) {
-                std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../legacy/python")
+                std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../assets")
             } else {
                 app.path().resource_dir()?
             };

@@ -4,7 +4,7 @@
 
 <h1 align="center">CoC Bot</h1>
 
-<p align="center">Clash of Clans automation for LDPlayer, being rebuilt for Windows in Rust.</p>
+<p align="center">Clash of Clans automation for Windows and LDPlayer, built in Rust.</p>
 
 <p align="center">
   <a href="LICENSE.md"><img src="https://img.shields.io/badge/original_code-PolyForm_Noncommercial-bb3535" alt="Original contributions: PolyForm Noncommercial"></a>
@@ -13,35 +13,34 @@
 
 ## Get started
 
-The Rust rewrite is in progress. Development builds include Home and Builder farming,
+Development builds include Home and Builder farming,
 dynamic army deployment, wall upgrades and bounded recovery, with a Tauri/React dashboard
 for controls, deployment editing, resources and SQLite session history. Observe mode sends
-no game input. Automated validation uses captured screenshots and fake devices; live parity,
-remaining English calibration and installer validation are unfinished. There is no desktop
-release to download. The Python [coc-auto](https://github.com/peenjeee/coc-auto) baseline
-remains in [legacy/python/](legacy/python/) until the port has equivalent regression coverage.
+no game input. Automated validation uses captured screenshots and fake devices; live
+gameplay compatibility is unverified and uncaptured English screens remain pending.
+There is no public desktop release yet. The runtime is entirely Rust, with no Python
+installation or sidecar required.
 
-The target is a Windows application with **Rust, OpenCV, ADB, Tauri 2, React/TypeScript
-and SQLite**. It will preserve farming, troop deployment, resource collection, wall
-upgrades and recovery, with a native dashboard for controls, screenshots and session statistics.
+![Desktop dashboard with redacted fixture data](.github/assets/desktop.png)
 
 The original [Python guide](LEGACY.md) is retained for reference, including its upstream
-links and optional relay/deployment instructions. Those hosted services are not part of
-the Rust desktop plan. Development and offline checks are in [CONTRIBUTING.md](CONTRIBUTING.md).
+links. The Python bot and old dashboard are preserved in Git history at `a3b3346`;
+their hosted relay is not part of the desktop app. Build instructions and offline
+checks are in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 > [!IMPORTANT]
 > Calibration targets LDPlayer at 1280×720, DPI 240, with the game in English.
 > Other resolutions or languages are unsupported. Automation violates
 > Supercell's rules and can result in an account ban. Not affiliated with Supercell.
 
-The [English profile](legacy/python/config.json) retains 20M gold **and**
-elixir batching and 1M reserves for Home walls. The current Home price calibration
+Default wall settings retain 20M gold **and** elixir batching and 1M reserves.
+The current Home price calibration in the [English profile](assets/config.json)
 targets green Hammer Jam discounts; revalidate it when that event ends. Screens not
 yet captured in English are listed in `calibration_pending_screens`; an unfamiliar
 dialog fails recognition and cannot be confirmed automatically. Pending screens have
 no templates; the Indonesian calibration has been removed.
-Builder stage two is recognized, but surviving-camp selection and its stack deployment
-point still need correction and another live check; unattended use remains Home-only.
+Both Builder stages have offline deployment regressions. Live validation is still needed
+before relying on unattended farming or wall upgrades.
 
 ## Contributing
 
@@ -50,8 +49,7 @@ Report problems through [GitHub issues](https://github.com/ohne-b/coc-bot/issues
 redacted logs and your commit, emulator version, resolution and game language.
 See [SECURITY.md](SECURITY.md) for private vulnerability reports.
 
-The new desktop UI will be English only. The temporary Python baseline retains its
-inherited messages while the Rust port is in progress.
+The desktop UI and calibration are English only.
 
 ## License and credits
 

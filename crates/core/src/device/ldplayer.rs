@@ -298,6 +298,29 @@ pub async fn installed_folders<T: Transport>(
     Ok(folders)
 }
 
+/// Win32_OperatingSystem reports free virtual memory in KiB (RAM and paging capacity).
+pub async fn available_memory_mb<T: Transport>(
+    transport: &T,
+    cancel: &CancellationToken,
+) -> Result<Option<u64>> {
+    let Some(system_root) = std::env::var_os("SystemRoot") else {
+        return Ok(None);
+    };
+    let output = transport.run(Invocation {
+        program: PathBuf::from(system_root).join("System32/WindowsPowerShell/v1.0/powershell.exe"),
+        args: ["-NoProfile", "-NonInteractive", "-Command", "(Get-CimInstance Win32_OperatingSystem -Property FreeVirtualMemory -ErrorAction Stop).FreeVirtualMemory"].map(Into::into).to_vec(),
+        input: vec![], output_limit: 4096, timeout: Duration::from_secs(10),
+    }, cancel).await;
+    match output {
+        Ok(bytes) => Ok(std::str::from_utf8(&bytes)
+            .ok()
+            .and_then(|text| text.trim().parse::<u64>().ok())
+            .map(|kb| kb / 1024)),
+        Err(Error::Cancelled) => Err(Error::Cancelled),
+        Err(_) => Ok(None),
+    }
+}
+
 impl<T: Transport> super::Adb<T> {
     pub async fn verify(&mut self, cancel: &CancellationToken) -> Result<Display> {
         self.ready = false;

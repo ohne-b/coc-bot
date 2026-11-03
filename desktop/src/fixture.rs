@@ -45,7 +45,10 @@ pub async fn open(assets: PathBuf) -> Result<(Application, tempfile::TempDir)> {
     for name in ["adb.exe", "ldconsole.exe"] {
         std::fs::write(data.path().join(name), [])?;
     }
-    let image = read_image(&assets.join("fixtures/english-home.png"))?;
+    let image = read_image(
+        &PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../crates/core/tests/fixtures/english-home.png"),
+    )?;
     let mut rgba = Mat::default();
     imgproc::cvt_color_def(&image, &mut rgba, imgproc::COLOR_BGR2RGBA)?;
     let bytes = [1280_u32, 720, 1]

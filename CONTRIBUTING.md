@@ -11,8 +11,8 @@ a derivative application; PolyForm covers only eligible original contributions.
 This is a personal Windows desktop project using LDPlayer and ADB. The target is a
 modular Rust backend with OpenCV, SQLite and a Tauri 2 + React/TypeScript dashboard.
 No Linux server, Docker service or game-protocol reverse engineering is planned.
-The Python source is the migration baseline, not a sidecar for the final application.
-Repository setup does not implement the rewrite.
+The runtime is Rust; the dashboard is React/TypeScript. No Python sidecar is required.
+The retired coc-auto baseline remains in Git history at `a3b3346` for comparison.
 
 Preserve farming, deployment, resource collection, wall upgrades and recovery. Add
 features in coherent steps, with evidence that the old behavior survives. Substantial
@@ -32,7 +32,7 @@ or unredacted logs/screenshots. Report vulnerabilities using [SECURITY.md](SECUR
 ## Development
 
 Use Windows x64 with Visual Studio 2022 or newer Build Tools (Desktop development with C++
-and a Windows SDK), Rustup, Python 3.13 and Node.js 24. Rust is pinned by
+and a Windows SDK), Rustup and Node.js 24. Rust is pinned by
 `rust-toolchain.toml`. The native dependency script downloads checksum-pinned OpenCV
 4.12.0 and portable LLVM 20.1.8 into ignored `.tools/`; it needs no administrator rights.
 The first download is about 1.1 GB. Dot-source it in each PowerShell session before
@@ -46,7 +46,7 @@ cargo fmt --all -- --check
 cargo test --workspace --all-targets --locked
 cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo run -p coc-bot-core --example inspect -- `
-    legacy/python/config.json legacy/python/fixtures/english-home.png
+    assets/config.json crates/core/tests/fixtures/english-home.png
 ```
 
 The inspection example reads a saved screenshot and prints a structured detection;
@@ -74,35 +74,27 @@ lifecycle changes. Live input requires the selected instance, calibrated display
 Multitouch validates the Android kernel and touch axes and attempts a bounded release
 after failure or cancellation. These offline checks do not establish live device compatibility.
 
-The Python baseline remains an offline comparison suite during migration:
+Repository automation is checked separately:
 
 ```powershell
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r legacy/python/requirements.txt
-.\.venv\Scripts\python.exe -m unittest discover -s legacy/python -v
 node --test .github/scripts/*.test.mjs
-Get-ChildItem legacy/python/web -Filter *.js | ForEach-Object {
-    Get-Content -Raw -Encoding UTF8 $_.FullName | node --input-type=module --check
-    if ($LASTEXITCODE -ne 0) { throw "JavaScript syntax check failed: $_" }
-}
 git diff --check
 ```
 
-Tests use fixtures, temporary storage and loopback test servers. Do not launch a real
-bot or reuse a live emulator for automated validation. The inherited bot has optional
-remote-control/relay behavior; consult [LEGACY.md](LEGACY.md) before running it manually.
-Personal legacy settings belong in ignored `legacy/python/config.local.json`, not
-the shared calibration. Existing root-level local settings and captures are not moved
-automatically; copy settings into the legacy directory only if you still run that bot.
+Tests use fixtures, temporary storage and fake device boundaries. Do not launch a real
+bot or reuse a live emulator for automated validation. The Python runtime, relay and
+old web dashboard have been retired; [LEGACY.md](LEGACY.md) is historical reference.
+Existing local settings, captures, logs and backups are never migrated or deleted
+automatically. Desktop settings belong in SQLite, separate from shared calibration.
 Never commit a virtual environment, runtime captures, logs, credentials or databases.
 
 | Location | Current purpose |
 | --- | --- |
 | `crates/core/` | Rust recognition, guarded device control, typed telemetry and SQLite session history |
-| `crates/core/tests/` | Offline Rust regressions against captured fixtures |
+| `crates/core/tests/` | Offline Rust regressions; captured frames and annotations in `fixtures/` |
 | `desktop/` | Tauri lifecycle and scoped native commands |
 | `frontend/` | React/TypeScript dashboard and offline browser tests |
-| `legacy/python/` | Python source, dashboard, settings examples, calibration and fixtures |
+| `assets/` | Shared English calibration, digits and retained font notices |
 | `scripts/` | Native Windows dependencies and installer build |
 | `.github/` | Repository policy, validation and supplied branding |
 
@@ -111,6 +103,11 @@ checks, screenshots, recognition, dynamic deployment, bounded recovery and sessi
 Start enables guarded game input; Observe never does. Pause freezes active time and dispatches
 no gameplay steps. Settings remain locked until Stop. Farming, device and deployment saves
 patch their own sections so stale forms cannot overwrite unrelated preferences.
+The Builder Elixir Cart can be a stopping target. It needs two stable post-collection
+capacity readings; five failed cart visits stop farming without treating missing data as full.
+Low available Windows memory can trigger bounded emulator recovery between attacks after
+a 30-minute cooldown. Observe and Pause never trigger memory recovery. Restart waits for
+the selected instance to stop; Stop cancels shutdown/startup polling.
 Offline attack regressions cover Home and both Builder stages. Wall replays cover both
 villages from list scanning through confirmation, reserve refusal and rejection of unchanged
 post-confirmation balances. Their HUD positions reuse captured pixels; successful spending
@@ -120,10 +117,10 @@ Captured English result layouts require two independent guards and exactly one m
 unavailable; a separately displayed bonus is added only with explicit inclusion semantics.
 The captured Home victory has unverified bonus inclusion, so its aggregate earnings remain
 unavailable. Home silver stars and uncaptured recovery screens are also unavailable rather
-than inferred. Native numeric regressions consume `fixtures/english-readings.json`, including
+than inferred. Native numeric regressions consume `crates/core/tests/fixtures/english-readings.json`, including
 the HUD balance whose leading digits the Python baseline drops. The Rust reader preserves
-that captured value without lowering confidence thresholds; the Python comparison test
-continues to document its inherited expected failure.
+that captured value without lowering confidence thresholds. Rust tests also verify fixture
+redaction, annotation geometry and unavailable values. Blacked-out stars are not zero stars.
 Capacity is displayed only when both the village and its calibrated storage tooltip are
 recognized; isolated tooltip fixtures cannot identify a village. The UI uses TDM's dark
 palette, spacing, Manrope and Material Design Icons, with explanations behind info buttons.
@@ -154,6 +151,12 @@ notices beside the executable. It stages the installer and a source/hash manifes
 ignored `artifacts/windows/`. `-DebugBuild` is for local packaging checks and cannot be
 published. Building never starts the desktop app or an emulator. An installer build alone
 does not establish clean-machine installation or live gameplay compatibility.
+The installed executable accepts `--check-installation`: it loads bundled assets and
+native libraries, opens a temporary SQLite database and drains the worker, then exits
+with status 0 on success or 1 on failure. It does not open a window, query a device or
+touch personal app data. Run `./scripts/test-windows-install.ps1 -Installer PATH_TO_SETUP_EXE` against a built installer
+to check installation, this diagnostic and uninstallation in an isolated directory.
+That script refuses an existing CoC Bot installation or running app.
 
 Keep README short: logo, status, essential links, scope and attribution. `LEGACY.md`
 and inherited `docs/` media preserve the original instructions. Future user guides
@@ -185,8 +188,8 @@ the PR policy. Never force-push shared history, rewrite published tags or bypass
 ## Validation and review
 
 The required **Validation** check runs on Windows for PRs, main pushes and manual runs.
-It checks whitespace, Rust formatting, Clippy, Rust fixture tests, the Python regression
-suite, repository automation tests and legacy JavaScript syntax. PR titles must be
+It checks whitespace, Rust formatting, Clippy, Rust fixture tests, frontend type/build,
+browser/accessibility checks and repository automation tests. PR titles must be
 conventional. CI uses read-only repository
 permissions and no secrets; it never runs the live bot or publishes an artifact.
 

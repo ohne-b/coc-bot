@@ -93,7 +93,7 @@ impl Transport for Fake {
 }
 
 fn root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../legacy/python")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets")
 }
 fn detector() -> Arc<Detector> {
     Arc::new(
@@ -110,7 +110,9 @@ fn setup() -> (tempfile::TempDir, DeviceConfig, Fake) {
     for file in ["adb.exe", "ldconsole.exe"] {
         std::fs::write(folder.path().join(file), []).unwrap();
     }
-    let image = read_image(&root().join("fixtures/english-home.png")).unwrap();
+    let image =
+        read_image(&Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/english-home.png"))
+            .unwrap();
     let mut rgba = Mat::default();
     imgproc::cvt_color_def(&image, &mut rgba, imgproc::COLOR_BGR2RGBA).unwrap();
     let fake = Fake::default();
@@ -498,4 +500,48 @@ async fn ldplayer_discovery_is_read_only_and_lifecycle_targets_one_instance() {
         .await,
         Err(Error::Cancelled)
     ));
+}
+
+#[tokio::test]
+async fn memory_probe_preserves_unknown_and_cancellation_without_device_commands() {
+    if std::env::var_os("SystemRoot").is_none() {
+        return;
+    }
+    let fake = Fake::default();
+    let key = "-NoProfile -NonInteractive -Command (Get-CimInstance Win32_OperatingSystem -Property FreeVirtualMemory -ErrorAction Stop).FreeVirtualMemory";
+    for (text, expected) in [
+        ("1024000\r\n", Some(1000)),
+        ("0", Some(0)),
+        ("", None),
+        ("-1", None),
+        ("error", None),
+    ] {
+        fake.0
+            .lock()
+            .unwrap()
+            .overrides
+            .insert(key.into(), text.as_bytes().to_vec());
+        assert_eq!(
+            ldplayer::available_memory_mb(&fake, &CancellationToken::new())
+                .await
+                .unwrap(),
+            expected
+        );
+    }
+    let cancel = CancellationToken::new();
+    cancel.cancel();
+    assert!(matches!(
+        ldplayer::available_memory_mb(&fake, &cancel).await,
+        Err(Error::Cancelled)
+    ));
+    let state = fake.0.lock().unwrap();
+    assert_eq!(state.calls.len(), 5);
+    assert!(
+        state
+            .calls
+            .iter()
+            .all(|call| call.program.ends_with("powershell.exe")
+                && call.timeout == Duration::from_secs(10)
+                && call.output_limit == 4096)
+    );
 }

@@ -87,6 +87,10 @@ enum Stage {
 enum CartPhase {
     Find,
     Claim,
+    Read {
+        previous: Option<(u64, u64)>,
+        started: u64,
+    },
     Close,
 }
 
@@ -121,10 +125,22 @@ pub struct Engine {
     unknown_since: Option<u64>,
     out_of_gold: bool,
     broke_attacks: u8,
+    cart_full: bool,
+    cart_misses: u8,
 }
 impl Engine {
     pub fn new(options: Options, mode: SessionMode, profile: &Profile) -> Result<Self> {
         options.validate(profile.resolution)?;
+        if mode == SessionMode::Farming
+            && options.until_full
+            && options.cart_goal
+            && options.villages.contains(&Village::Builder)
+            && profile.cart_text.is_none()
+        {
+            return Err(Error::Calibration(
+                "Elixir Cart capacity is not calibrated".into(),
+            ));
+        }
         if mode == SessionMode::Observe {
             return Err(Error::InputDisabled);
         }
@@ -159,10 +175,20 @@ impl Engine {
             unknown_since: None,
             out_of_gold: false,
             broke_attacks: 0,
+            cart_full: false,
+            cart_misses: 0,
         })
     }
     pub fn village(&self) -> Village {
         self.options.villages[self.village_index]
+    }
+    pub fn can_restart_between_attacks(&self) -> bool {
+        matches!(self.stage, Stage::Settle | Stage::Navigate)
+            && !self.pending_attack
+            && !self
+                .wall
+                .as_ref()
+                .is_some_and(WallRun::verification_pending)
     }
     pub fn progress(&self) -> Progress {
         let operation = match self.stage {
@@ -224,6 +250,19 @@ impl Engine {
         self.go(Stage::Settle, now);
         self.delay(now, 3000);
         Ok(self.recovery_count)
+    }
+    fn missed_cart(&mut self) -> Result<()> {
+        self.cart_misses = self.cart_misses.saturating_add(1);
+        if self.mode == SessionMode::Farming
+            && self.options.until_full
+            && self.options.cart_goal
+            && self.cart_misses >= 5
+        {
+            return Err(Error::Gameplay(
+                "Elixir Cart unavailable for five visits; farming stopped".into(),
+            ));
+        }
+        Ok(())
     }
     fn home(&self) -> Screen {
         match self.village() {
@@ -659,6 +698,7 @@ impl Engine {
                         self.stage = Stage::Zoom(count + 1);
                         self.delay(now, 1500);
                     } else {
+                        self.cart_full = false;
                         self.go(
                             if self.village() == Village::Builder && self.options.collect_cart {
                                 Stage::Cart(CartPhase::Find)
@@ -697,7 +737,7 @@ impl Engine {
                                 .action(vision, adb, screen, "cart", now, cancel)
                                 .await?
                             {
-                                self.stage = Stage::Cart(CartPhase::Claim);
+                                self.go(Stage::Cart(CartPhase::Claim), now);
                             }
                         } else if let Some([start, end]) =
                             target.pan.filter(|_| self.pans < target.pan_attempts)
@@ -706,6 +746,7 @@ impl Engine {
                             self.pans += 1;
                             self.delay(now, 2000);
                         } else {
+                            self.missed_cart()?;
                             self.go(
                                 Stage::Check {
                                     index: 0,
@@ -715,6 +756,7 @@ impl Engine {
                             );
                         }
                     } else {
+                        self.missed_cart()?;
                         self.go(
                             Stage::Check {
                                 index: 0,
@@ -724,6 +766,28 @@ impl Engine {
                         );
                     }
                 } else if screen == Screen::BuilderCart {
+                    self.cart_misses = 0;
+                    if let CartPhase::Read { previous, started } = step {
+                        let reading = profile
+                            .cart_text
+                            .and_then(|region| crop(image, region).ok())
+                            .and_then(|patch| digits.fraction(&patch).ok());
+                        if let Some((amount, capacity)) =
+                            reading.filter(|value| Some(*value) == previous)
+                        {
+                            self.cart_full = amount == capacity;
+                            self.stage = Stage::Cart(CartPhase::Close);
+                        } else if now.saturating_sub(started) >= 2000 {
+                            return Err(Error::Unreadable);
+                        } else {
+                            self.stage = Stage::Cart(CartPhase::Read {
+                                previous: reading,
+                                started,
+                            });
+                            self.delay(now, 250);
+                        }
+                        return Ok(outcome);
+                    }
                     if self
                         .action(
                             vision,
@@ -739,11 +803,29 @@ impl Engine {
                         )
                         .await?
                     {
-                        self.stage = Stage::Cart(CartPhase::Close);
+                        if !matches!(step, CartPhase::Close)
+                            && self.mode == SessionMode::Farming
+                            && self.options.until_full
+                            && self.options.cart_goal
+                        {
+                            self.go(
+                                Stage::Cart(CartPhase::Read {
+                                    previous: None,
+                                    started: now,
+                                }),
+                                now,
+                            );
+                            self.delay(now, 250);
+                        } else {
+                            self.stage = Stage::Cart(CartPhase::Close);
+                        }
                     }
                 } else if screen == Screen::Builder
                     && (matches!(step, CartPhase::Close) || now.saturating_sub(self.since) > 5000)
                 {
+                    if !matches!(step, CartPhase::Close) {
+                        self.missed_cart()?;
+                    }
                     self.go(
                         Stage::Check {
                             index: 0,
@@ -823,18 +905,25 @@ impl Engine {
                             index: index + 1,
                             opened: false,
                         };
+                        self.since = now;
                     } else if !opened {
                         adb.tap(detector, &[screen], spec.tap, cancel).await?;
                         self.stage = Stage::Check {
                             index,
                             opened: true,
                         };
+                        self.since = now;
                         self.delay(now, 500);
                     } else if now.saturating_sub(self.since) > 15_000 {
                         return Err(Error::Unreadable);
                     }
                 } else {
-                    let full = !resources.is_empty()
+                    let cart_goal = self.mode == SessionMode::Farming
+                        && self.options.until_full
+                        && self.village() == Village::Builder
+                        && self.options.cart_goal;
+                    let full = (!resources.is_empty() || cart_goal)
+                        && (!cart_goal || self.cart_full)
                         && resources.iter().all(|r| {
                             let key = resource_name(*r);
                             self.values
@@ -1411,6 +1500,195 @@ mod tests {
         vision::Detector,
     };
     use std::{path::Path, sync::Arc};
+
+    #[tokio::test]
+    async fn cart_goal_requires_stable_readings_and_stops_after_missing_visits() {
+        let mut profile = Profile::load(&root()).unwrap();
+        let digits = Digits::load(&root(), Path::new("calibration/digits")).unwrap();
+        let detector = Arc::new(
+            Detector::load(
+                &Calibration::load(&root().join("config.json")).unwrap(),
+                &root(),
+            )
+            .unwrap(),
+        );
+        let options = Options {
+            villages: vec![Village::Builder],
+            targets: vec![],
+            until_full: true,
+            cart_goal: true,
+            ..Options::default()
+        };
+        let mut engine = Engine::new(options.clone(), SessionMode::Farming, &profile).unwrap();
+        let vision = GameVision {
+            profile: &profile,
+            digits: &digits,
+            detector: detector.clone(),
+        };
+        let (fake, image) = Fake::new("english-builder_cart_empty.png");
+        let temp = tempfile::tempdir().unwrap();
+        let mut adb = fake.adb(temp.path());
+        engine.stage = Stage::Cart(CartPhase::Claim);
+        for now in [3000, 3500, 4000] {
+            let frame = FrameView {
+                image: &image,
+                detection: &Detection::Known(Screen::BuilderCart),
+                elapsed_ms: now,
+                captured_at_ms: 1_700_000_000_000,
+            };
+            engine
+                .tick(&vision, &mut adb, &frame, &CancellationToken::new())
+                .await
+                .unwrap();
+            if now < 4000 {
+                assert!(matches!(engine.stage, Stage::Cart(CartPhase::Read { .. })));
+            }
+        }
+        assert!(matches!(engine.stage, Stage::Cart(CartPhase::Close)));
+        assert!(!engine.cart_full);
+        assert_eq!(fake.taps.lock().unwrap().len(), 1);
+        assert!(!engine.can_restart_between_attacks());
+        let (fake, home) = Fake::new("english-builder.png");
+        let mut adb = fake.adb(temp.path());
+        let frame = FrameView {
+            image: &home,
+            detection: &Detection::Known(Screen::Builder),
+            elapsed_ms: 5000,
+            captured_at_ms: 1_700_000_000_000,
+        };
+        engine.stage = Stage::Check {
+            index: 0,
+            opened: false,
+        };
+        assert!(
+            !engine
+                .tick(&vision, &mut adb, &frame, &CancellationToken::new())
+                .await
+                .unwrap()
+                .completed
+        );
+        engine.stage = Stage::Check {
+            index: 0,
+            opened: false,
+        };
+        engine.cart_full = true;
+        assert!(
+            engine
+                .tick(&vision, &mut adb, &frame, &CancellationToken::new())
+                .await
+                .unwrap()
+                .completed
+        );
+        // Composite a visible calibrated cart over the redacted village; taps leave it unchanged.
+        let mut visible = home.try_clone().unwrap();
+        let icon = crate::vision::read_image(
+            &root().join(&profile.screen(Screen::Builder).unwrap().targets["cart"].file),
+        )
+        .unwrap();
+        icon.copy_to(
+            &mut Mat::roi_mut(
+                &mut visible,
+                core::Rect::new(600, 350, icon.cols(), icon.rows()),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let stuck = Fake::from_image(&visible);
+        let mut stuck_adb = stuck.adb(temp.path());
+        profile
+            .screens
+            .get_mut(&Screen::Builder)
+            .unwrap()
+            .targets
+            .get_mut("cart")
+            .unwrap()
+            .region = Some(crate::calibration::Region(
+            600,
+            350,
+            icon.cols() as u32,
+            icon.rows() as u32,
+        ));
+        let vision = GameVision {
+            profile: &profile,
+            digits: &digits,
+            detector: detector.clone(),
+        };
+        assert!(
+            profile.screen(Screen::Builder).unwrap().targets["cart"]
+                .locate(&visible)
+                .unwrap()
+                .is_some()
+        );
+        let mut failed_open = Engine::new(options.clone(), SessionMode::Farming, &profile).unwrap();
+        for visit in 1..=5 {
+            let now = visit * 10_000;
+            failed_open.go(Stage::Cart(CartPhase::Find), now);
+            failed_open
+                .tick(
+                    &vision,
+                    &mut stuck_adb,
+                    &FrameView {
+                        image: &visible,
+                        elapsed_ms: now,
+                        ..frame
+                    },
+                    &CancellationToken::new(),
+                )
+                .await
+                .unwrap();
+            assert!(matches!(failed_open.stage, Stage::Cart(CartPhase::Claim)));
+            let result = failed_open
+                .tick(
+                    &vision,
+                    &mut stuck_adb,
+                    &FrameView {
+                        image: &visible,
+                        elapsed_ms: now + 6000,
+                        ..frame
+                    },
+                    &CancellationToken::new(),
+                )
+                .await;
+            if visit < 5 {
+                assert!(result.is_ok());
+            } else {
+                assert!(
+                    matches!(result, Err(Error::Gameplay(message)) if message.contains("five visits"))
+                );
+            }
+        }
+        assert_eq!(stuck.taps.lock().unwrap().len(), 5);
+        profile
+            .screens
+            .get_mut(&Screen::Builder)
+            .unwrap()
+            .targets
+            .remove("cart");
+        let mut engine = Engine::new(options, SessionMode::Farming, &profile).unwrap();
+        let vision = GameVision {
+            profile: &profile,
+            digits: &digits,
+            detector,
+        };
+        for visit in 1..=5 {
+            engine.go(Stage::Cart(CartPhase::Find), 0);
+            let result = engine
+                .tick(&vision, &mut adb, &frame, &CancellationToken::new())
+                .await;
+            if visit < 5 {
+                assert!(result.is_ok());
+            } else {
+                assert!(
+                    matches!(result, Err(Error::Gameplay(message)) if message.contains("five visits"))
+                );
+            }
+        }
+        assert!(fake.taps.lock().unwrap().is_empty());
+        engine.stage = Stage::Navigate;
+        assert!(engine.can_restart_between_attacks());
+        engine.wall = Some(WallRun::pending_for_test());
+        assert!(!engine.can_restart_between_attacks());
+    }
 
     #[tokio::test]
     async fn pending_wall_spending_blocks_lifecycle_popups_and_recovery() {

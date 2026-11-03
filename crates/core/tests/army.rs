@@ -14,13 +14,18 @@ use opencv::{
 use std::path::{Path, PathBuf};
 
 fn root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../legacy/python")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets")
 }
 fn digits() -> Digits {
     Digits::load(&root(), Path::new("calibration/digits")).unwrap()
 }
 fn fixture(name: &str) -> Mat {
-    read_image(&root().join("fixtures").join(name)).unwrap()
+    read_image(
+        &Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/fixtures")
+            .join(name),
+    )
+    .unwrap()
 }
 fn config() -> serde_json::Value {
     serde_json::from_slice(&std::fs::read(root().join("config.json")).unwrap()).unwrap()
@@ -162,6 +167,16 @@ fn captured_hero_meters_and_stars_match_baseline() {
     }
     assert!(army::hero_ready(&fixture("builder-hero-meter-1.png"), Point(0, 0)).is_err());
     assert!(army::stars(&fixture("builder-stars-0.png"), &[Region(9999, 0, 10, 10)]).is_err());
+    let mut redacted = fixture("builder-stars-2.png");
+    let Region(x, y, w, h) = regions[0];
+    Mat::roi_mut(
+        &mut redacted,
+        Rect::new(x as i32, y as i32, w as i32, h as i32),
+    )
+    .unwrap()
+    .set_to(&Scalar::all(0.0), &core::no_array())
+    .unwrap();
+    assert!(army::stars(&redacted, &regions).is_err());
 }
 
 #[test]
