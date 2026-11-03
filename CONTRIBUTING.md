@@ -77,6 +77,7 @@ after failure or cancellation. These offline checks do not establish live device
 Repository automation is checked separately:
 
 ```powershell
+./.github/scripts/windows-signing.ps1
 node --test .github/scripts/*.test.mjs
 git diff --check
 ```
@@ -240,6 +241,17 @@ by committing the workflows, and no release has been published.
 Following TDM's release layout, published assets are `coc-bot-VERSION-windows-x64-setup.exe`,
 `latest.json` and `SHA256SUMS`. The title is `CoC Bot vVERSION`; notes use reviewed changelog
 bullets followed by compare and issue links. The signed manifest supplies update metadata;
-the current desktop does not download or install application updates automatically.
+the desktop checks quietly at startup and offers verified downloads in Settings, with a
+version link beside GitHub when an update is available. Downloading is cancellable and
+does not stop the bot. Installation requires an explicit click, drains bot/database work
+and runs the full NSIS installer before restarting. Failed installation requires a restart;
+the drained engine cannot resume in place. Development and fixture builds cannot install.
+Settings/history remain in local app data; the installer replaces the bundled program,
+native libraries and calibration. The public verification key belongs in
+`desktop/tauri.conf.json`; keep its private counterpart backed up outside this PC before
+resetting it. GitHub can use its stored secret but cannot return it for a backup.
+The checksum-pinned Minisign verifier checks publication signatures against the embedded
+public key and version before metadata is written. Offline tests use a disposable public
+signature fixture, never release credentials, a live account or a real update installation.
 Updater signatures are separate from Windows Authenticode signing. Validate installation,
 uninstallation, native dependencies and update signatures before the first public release.

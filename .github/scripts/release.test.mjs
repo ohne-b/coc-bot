@@ -12,7 +12,47 @@ import {
   installerName,
   bump,
   verifyTag,
+  verifySignature,
 } from "./release.mjs";
+
+test("release signatures match the app key, bytes and announced version", () => {
+  const fixture = JSON.parse(
+    readFileSync(
+      new URL("../../desktop/tests/fixtures/update.json", import.meta.url),
+      "utf8",
+    ),
+  );
+  const directory = mkdtempSync(join(tmpdir(), "coc-signature-test-"));
+  const file = join(directory, "payload");
+  writeFileSync(file, fixture.payload);
+  verifySignature(file, fixture.signature, fixture.pubkey, fixture.version);
+  assert.throws(() =>
+    verifySignature(file, fixture.signature, fixture.pubkey, "3.0.0"),
+  );
+  assert.throws(() =>
+    verifySignature(
+      file,
+      fixture.unversioned_signature,
+      fixture.pubkey,
+      fixture.version,
+    ),
+  );
+  const changed = Buffer.from(fixture.pubkey, "base64")
+    .toString("utf8")
+    .replace(/RW./, "RWA");
+  assert.throws(() =>
+    verifySignature(
+      file,
+      fixture.signature,
+      Buffer.from(changed).toString("base64"),
+      fixture.version,
+    ),
+  );
+  writeFileSync(file, fixture.payload + "tampered");
+  assert.throws(() =>
+    verifySignature(file, fixture.signature, fixture.pubkey, fixture.version),
+  );
+});
 
 test("versions and release notes cannot introduce paths or unreviewed headings", () => {
   assert.equal(version("1.2.3-rc.1"), "1.2.3-rc.1");
