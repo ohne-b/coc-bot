@@ -950,6 +950,7 @@ impl Engine {
                         }
                         if spec.label.locate(image)?.is_some() {
                             adb.tap(detector, &[screen], spec.tap, cancel).await?;
+                            self.delay(now, 1000);
                         }
                         self.stage = Stage::Check {
                             index: index + 1,
