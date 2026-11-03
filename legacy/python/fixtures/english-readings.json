@@ -1,0 +1,1725 @@
+{
+  "schema_version": 1,
+  "resolution": [
+    1280,
+    720
+  ],
+  "dpi": 240,
+  "language": "en",
+  "coordinates": "[x,y,width,height] in original 1280x720 pixels; black regions are privacy redactions.",
+  "statuses": {
+    "observed": "Visible exact number, including genuine zero.",
+    "unavailable": "Not displayed or semantically inapplicable; never zero.",
+    "unreadable": "Displayed region cannot reliably be read; never zero."
+  },
+  "fixtures": [
+    {
+      "id": "home-defeat",
+      "file": "english-numeric-home-defeat.png",
+      "screen": "home_result",
+      "kind": "battle_result",
+      "source_sha256": "56b412c8a6870f3eec30bfba56471f66b9dcb66690c2e14241a4023b198d2d27",
+      "retained_regions": [
+        [
+          420,
+          75,
+          440,
+          180
+        ],
+        [
+          610,
+          306,
+          67,
+          20
+        ],
+        [
+          590,
+          338,
+          127,
+          44
+        ],
+        [
+          640,
+          392,
+          77,
+          38
+        ],
+        [
+          550,
+          580,
+          180,
+          85
+        ]
+      ],
+      "readings": {
+        "loot.gold": {
+          "status": "observed",
+          "value": 1871,
+          "roi": [
+            594,
+            340,
+            75,
+            31
+          ],
+          "reader": "number"
+        },
+        "loot.elixir": {
+          "status": "observed",
+          "value": 0,
+          "roi": [
+            642,
+            394,
+            26,
+            29
+          ],
+          "reader": "number"
+        },
+        "loot.dark": {
+          "status": "unavailable",
+          "value": null,
+          "roi": null,
+          "reason": "No Dark Elixir row is displayed; absence is not zero."
+        },
+        "damage_percent": {
+          "status": "observed",
+          "value": 5,
+          "roi": [
+            618,
+            104,
+            42,
+            26
+          ],
+          "reader": "green_percent"
+        },
+        "stars": {
+          "status": "observed",
+          "value": 0,
+          "roi": [
+            420,
+            75,
+            440,
+            180
+          ],
+          "reader": "silver_stars",
+          "slots": [
+            [
+              456,
+              91,
+              128,
+              120
+            ]
+          ]
+        }
+      },
+      "layout": "home_two_resources",
+      "labels": {
+        "earned_loot": [
+          610,
+          306,
+          67,
+          20
+        ],
+        "result": [
+          570,
+          189,
+          140,
+          44
+        ]
+      },
+      "bonus_policy": "No bonus panel displayed. Only displayed You got values are annotated; no storage differences used."
+    },
+    {
+      "id": "home-victory",
+      "file": "english-numeric-home-victory.png",
+      "screen": "home_result",
+      "kind": "battle_result",
+      "source_sha256": "fd333216ca9961f2477ef62fbdc76c853d0d4c18ae23e0466e295d3e3636e597",
+      "retained_regions": [
+        [
+          420,
+          75,
+          440,
+          180
+        ],
+        [
+          610,
+          289,
+          67,
+          20
+        ],
+        [
+          535,
+          314,
+          183,
+          39
+        ],
+        [
+          551,
+          365,
+          167,
+          36
+        ],
+        [
+          568,
+          416,
+          150,
+          29
+        ],
+        [
+          864,
+          286,
+          207,
+          193
+        ],
+        [
+          550,
+          580,
+          180,
+          85
+        ]
+      ],
+      "readings": {
+        "loot.gold": {
+          "status": "observed",
+          "value": 669488,
+          "roi": [
+            537,
+            316,
+            134,
+            31
+          ],
+          "reader": "number"
+        },
+        "loot.elixir": {
+          "status": "observed",
+          "value": 533819,
+          "roi": [
+            553,
+            365,
+            118,
+            31
+          ],
+          "reader": "number"
+        },
+        "loot.dark": {
+          "status": "observed",
+          "value": 15688,
+          "roi": [
+            569,
+            416,
+            102,
+            28
+          ],
+          "reader": "number"
+        },
+        "bonus.gold": {
+          "status": "observed",
+          "value": 276000,
+          "roi": [
+            920,
+            350,
+            85,
+            26
+          ],
+          "reader": "number"
+        },
+        "bonus.elixir": {
+          "status": "observed",
+          "value": 276000,
+          "roi": [
+            920,
+            388,
+            85,
+            26
+          ],
+          "reader": "number"
+        },
+        "bonus.dark": {
+          "status": "observed",
+          "value": 1932,
+          "roi": [
+            951,
+            426,
+            54,
+            24
+          ],
+          "reader": "number"
+        },
+        "damage_percent": {
+          "status": "observed",
+          "value": 62,
+          "roi": [
+            611,
+            103,
+            60,
+            28
+          ],
+          "reader": "green_percent"
+        },
+        "stars": {
+          "status": "observed",
+          "value": 1,
+          "roi": [
+            420,
+            75,
+            440,
+            180
+          ],
+          "reader": "silver_stars",
+          "slots": [
+            [
+              456,
+              91,
+              128,
+              120
+            ]
+          ]
+        }
+      },
+      "layout": "home_three_resources",
+      "labels": {
+        "earned_loot": [
+          610,
+          289,
+          67,
+          20
+        ],
+        "separate_bonus": [
+          899,
+          317,
+          135,
+          27
+        ],
+        "result": [
+          567,
+          188,
+          142,
+          44
+        ]
+      },
+      "bonus_policy": "You got and the separately displayed + Bonus panel are separate annotated UI components. Do not sum them automatically: bonus inclusion in the main panel is not established by this fixture. No total or storage-delta estimate is asserted."
+    },
+    {
+      "id": "builder-two-stars",
+      "file": "english-numeric-builder-two-stars.png",
+      "screen": "builder_result",
+      "kind": "battle_result",
+      "source_sha256": "fa1d1501c53efd6ae292f8d8dc5fde36420530a32c29fb8809c38989303348ff",
+      "retained_regions": [
+        [
+          420,
+          75,
+          440,
+          280
+        ],
+        [
+          294,
+          372,
+          692,
+          172
+        ],
+        [
+          550,
+          575,
+          180,
+          72
+        ]
+      ],
+      "readings": {
+        "loot.gold": {
+          "status": "observed",
+          "value": 75000,
+          "roi": [
+            769,
+            435,
+            81,
+            27
+          ],
+          "reader": "number"
+        },
+        "loot.elixir": {
+          "status": "unavailable",
+          "value": null,
+          "roi": null,
+          "reason": "No earned Elixir on the result; Elixir Cart is a different observation."
+        },
+        "loot.dark": {
+          "status": "unavailable",
+          "value": null,
+          "roi": null,
+          "reason": "Dark Elixir is not a Builder Base resource."
+        },
+        "damage_percent": {
+          "status": "observed",
+          "value": 72,
+          "roi": [
+            584,
+            290,
+            119,
+            54
+          ],
+          "reader": "percent"
+        },
+        "stars": {
+          "status": "observed",
+          "value": 2,
+          "roi": [
+            420,
+            75,
+            440,
+            205
+          ],
+          "reader": "gold_stars",
+          "slots": [
+            [
+              435,
+              172,
+              100,
+              80
+            ],
+            [
+              592,
+              125,
+              100,
+              80
+            ],
+            [
+              746,
+              172,
+              100,
+              80
+            ]
+          ]
+        }
+      },
+      "layout": "builder_gold_rewards",
+      "labels": {
+        "earned_loot": [
+          778,
+          386,
+          77,
+          20
+        ],
+        "damage": [
+          555,
+          264,
+          173,
+          24
+        ]
+      },
+      "bonus_policy": "Rewards Gold only; trophy delta below it is not a resource. No cart or storage inference."
+    },
+    {
+      "id": "builder-zero",
+      "file": "english-numeric-builder-zero.png",
+      "screen": "builder_result",
+      "kind": "battle_result",
+      "source_sha256": "3d05c92ca7e53db6738cf57f1af51e40b7a965617de2fe31c575115fbc03a54c",
+      "retained_regions": [
+        [
+          420,
+          75,
+          440,
+          280
+        ],
+        [
+          294,
+          372,
+          692,
+          172
+        ],
+        [
+          550,
+          575,
+          180,
+          72
+        ]
+      ],
+      "readings": {
+        "loot.gold": {
+          "status": "observed",
+          "value": 0,
+          "roi": [
+            769,
+            435,
+            81,
+            27
+          ],
+          "reader": "number"
+        },
+        "loot.elixir": {
+          "status": "unavailable",
+          "value": null,
+          "roi": null,
+          "reason": "No earned Elixir on the result; Elixir Cart is a different observation."
+        },
+        "loot.dark": {
+          "status": "unavailable",
+          "value": null,
+          "roi": null,
+          "reason": "Dark Elixir is not a Builder Base resource."
+        },
+        "damage_percent": {
+          "status": "observed",
+          "value": 4,
+          "roi": [
+            584,
+            290,
+            119,
+            54
+          ],
+          "reader": "percent"
+        },
+        "stars": {
+          "status": "observed",
+          "value": 0,
+          "roi": [
+            420,
+            75,
+            440,
+            205
+          ],
+          "reader": "gold_stars",
+          "slots": [
+            [
+              435,
+              172,
+              100,
+              80
+            ],
+            [
+              592,
+              125,
+              100,
+              80
+            ],
+            [
+              746,
+              172,
+              100,
+              80
+            ]
+          ]
+        }
+      },
+      "layout": "builder_gold_rewards",
+      "labels": {
+        "earned_loot": [
+          778,
+          386,
+          77,
+          20
+        ],
+        "damage": [
+          555,
+          264,
+          173,
+          24
+        ]
+      },
+      "bonus_policy": "Rewards Gold only; trophy delta below it is not a resource. No cart or storage inference."
+    },
+    {
+      "id": "home-gold-tooltip",
+      "file": "english-numeric-home-gold-tooltip.png",
+      "screen": "home",
+      "kind": "storage_tooltip",
+      "source_sha256": "4f73dd45e5325937280bec12d5642abcfe8415661616a0dd4e2c42ace0e1e2a9",
+      "retained_regions": [
+        [
+          15,
+          575,
+          140,
+          135
+        ],
+        [
+          900,
+          0,
+          380,
+          270
+        ],
+        [
+          17,
+          155,
+          100,
+          76
+        ]
+      ],
+      "readings": {
+        "balance.gold": {
+          "status": "observed",
+          "value": 7099808,
+          "roi": [
+            1040,
+            26,
+            178,
+            26
+          ],
+          "reader": "trailing_number",
+          "legacy_ocr_limit": {
+            "status": "known_incorrect",
+            "actual": 99808,
+            "reason": "Connected/unaligned leading HUD digits are dropped by legacy read_trailing_number. Ground truth is 7099808; the expected-failure regression preserves this limitation without weakening confidence."
+          }
+        },
+        "capacity.gold": {
+          "status": "observed",
+          "value": 26000000,
+          "roi": [
+            1112,
+            78,
+            138,
+            26
+          ],
+          "reader": "number"
+        },
+        "production_per_hour": {
+          "status": "observed",
+          "value": 98000,
+          "roi": [
+            1110,
+            102,
+            110,
+            22
+          ],
+          "reader": "number"
+        },
+        "treasury": {
+          "status": "observed",
+          "value": 0,
+          "roi": [
+            1110,
+            126,
+            35,
+            22
+          ],
+          "reader": "number"
+        }
+      },
+      "labels": {
+        "maximum": [
+          1063,
+          80,
+          42,
+          17
+        ]
+      }
+    },
+    {
+      "id": "home-elixir-tooltip",
+      "file": "english-numeric-home-elixir-tooltip.png",
+      "screen": "home",
+      "kind": "storage_tooltip",
+      "source_sha256": "d181feb3f1d08df018ab7f444f4e6636d55e726432da094b06aee65ad87ce158",
+      "retained_regions": [
+        [
+          15,
+          575,
+          140,
+          135
+        ],
+        [
+          900,
+          0,
+          380,
+          270
+        ],
+        [
+          17,
+          155,
+          100,
+          76
+        ]
+      ],
+      "readings": {
+        "balance.elixir": {
+          "status": "observed",
+          "value": 6086651,
+          "roi": [
+            1040,
+            74,
+            178,
+            26
+          ],
+          "reader": "trailing_number"
+        },
+        "capacity.elixir": {
+          "status": "observed",
+          "value": 26000000,
+          "roi": [
+            1112,
+            126,
+            138,
+            26
+          ],
+          "reader": "number"
+        },
+        "production_per_hour": {
+          "status": "observed",
+          "value": 98000,
+          "roi": [
+            1110,
+            154,
+            110,
+            22
+          ],
+          "reader": "number"
+        },
+        "treasury": {
+          "status": "observed",
+          "value": 0,
+          "roi": [
+            1110,
+            179,
+            35,
+            22
+          ],
+          "reader": "number"
+        }
+      },
+      "labels": {
+        "maximum": [
+          1063,
+          133,
+          42,
+          17
+        ]
+      }
+    },
+    {
+      "id": "home-dark-tooltip",
+      "file": "english-numeric-home-dark-tooltip.png",
+      "screen": "home",
+      "kind": "storage_tooltip",
+      "source_sha256": "68317159e7a1f74a8f748ee534cfc8c1ec6333774d3da9e0a94fa235310d0805",
+      "retained_regions": [
+        [
+          15,
+          575,
+          140,
+          135
+        ],
+        [
+          900,
+          0,
+          380,
+          270
+        ],
+        [
+          17,
+          155,
+          100,
+          76
+        ]
+      ],
+      "readings": {
+        "balance.dark": {
+          "status": "observed",
+          "value": 430000,
+          "roi": [
+            1040,
+            122,
+            178,
+            26
+          ],
+          "reader": "trailing_number"
+        },
+        "capacity.dark": {
+          "status": "observed",
+          "value": 430000,
+          "roi": [
+            1146,
+            174,
+            106,
+            28
+          ],
+          "reader": "number"
+        },
+        "production_per_hour": {
+          "status": "observed",
+          "value": 1080,
+          "roi": [
+            1143,
+            203,
+            90,
+            22
+          ],
+          "reader": "number"
+        },
+        "treasury": {
+          "status": "observed",
+          "value": 30000,
+          "roi": [
+            1144,
+            228,
+            90,
+            22
+          ],
+          "reader": "number"
+        }
+      },
+      "labels": {
+        "maximum": [
+          1100,
+          183,
+          42,
+          17
+        ]
+      }
+    },
+    {
+      "id": "builder-gold-tooltip",
+      "file": "english-numeric-builder-gold-tooltip.png",
+      "screen": "builder",
+      "kind": "storage_tooltip",
+      "source_sha256": "def123a1e30ef900c9dd96ef54097f8af0a1b945392a938ae785e7c36d0191dd",
+      "retained_regions": [
+        [
+          15,
+          575,
+          140,
+          135
+        ],
+        [
+          900,
+          0,
+          380,
+          270
+        ]
+      ],
+      "readings": {
+        "balance.gold": {
+          "status": "observed",
+          "value": 3496915,
+          "roi": [
+            1040,
+            26,
+            178,
+            26
+          ],
+          "reader": "trailing_number"
+        },
+        "capacity.gold": {
+          "status": "observed",
+          "value": 5500000,
+          "roi": [
+            1124,
+            76,
+            126,
+            26
+          ],
+          "reader": "number"
+        },
+        "production_per_hour": {
+          "status": "observed",
+          "value": 12000,
+          "roi": [
+            1124,
+            99,
+            98,
+            25
+          ],
+          "reader": "number"
+        },
+        "treasury": {
+          "status": "unavailable",
+          "value": null,
+          "roi": null,
+          "reason": "No treasury line displayed."
+        }
+      },
+      "labels": {
+        "maximum": [
+          1080,
+          78,
+          42,
+          17
+        ]
+      }
+    },
+    {
+      "id": "builder-elixir-tooltip",
+      "file": "english-numeric-builder-elixir-tooltip.png",
+      "screen": "builder",
+      "kind": "storage_tooltip",
+      "source_sha256": "1192658d88dd76ff4bcc6b1f2a32db826e9980e8175881db8a6de8097813ed7e",
+      "retained_regions": [
+        [
+          15,
+          575,
+          140,
+          135
+        ],
+        [
+          900,
+          0,
+          380,
+          270
+        ]
+      ],
+      "readings": {
+        "balance.elixir": {
+          "status": "observed",
+          "value": 2810303,
+          "roi": [
+            1040,
+            74,
+            178,
+            26
+          ],
+          "reader": "trailing_number"
+        },
+        "capacity.elixir": {
+          "status": "observed",
+          "value": 5500000,
+          "roi": [
+            1124,
+            128,
+            126,
+            26
+          ],
+          "reader": "number"
+        },
+        "production_per_hour": {
+          "status": "observed",
+          "value": 12000,
+          "roi": [
+            1124,
+            152,
+            98,
+            25
+          ],
+          "reader": "number"
+        },
+        "treasury": {
+          "status": "unavailable",
+          "value": null,
+          "roi": null,
+          "reason": "No treasury line displayed."
+        }
+      },
+      "labels": {
+        "maximum": [
+          1080,
+          132,
+          42,
+          17
+        ]
+      }
+    },
+    {
+      "id": "home-wall-selection",
+      "file": "english-numeric-home-wall-selection.png",
+      "screen": "wall_selected",
+      "kind": "wall_selection",
+      "source_sha256": "f19454e2c975f5bca7e6254672d41483d94e63da0e3eef7bf1e273be88a98d27",
+      "retained_regions": [
+        [
+          330,
+          460,
+          280,
+          39
+        ],
+        [
+          125,
+          505,
+          685,
+          125
+        ],
+        [
+          940,
+          0,
+          340,
+          45
+        ],
+        [
+          640,
+          20,
+          290,
+          190
+        ]
+      ],
+      "readings": {
+        "wall.price.gold": {
+          "status": "observed",
+          "value": 2500000,
+          "roi": [
+            559,
+            520,
+            83,
+            21
+          ],
+          "reader": "wall_row_price"
+        },
+        "wall.price.elixir": {
+          "status": "observed",
+          "value": 2500000,
+          "roi": [
+            698,
+            520,
+            83,
+            21
+          ],
+          "reader": "wall_row_price"
+        },
+        "balance.gold": {
+          "status": "observed",
+          "value": 5048373,
+          "roi": [
+            650,
+            26,
+            230,
+            26
+          ],
+          "reader": "trailing_number"
+        },
+        "balance.elixir": {
+          "status": "observed",
+          "value": 4603138,
+          "roi": [
+            650,
+            76,
+            230,
+            26
+          ],
+          "reader": "trailing_number"
+        },
+        "balance.gems": {
+          "status": "observed",
+          "value": 1543,
+          "roi": [
+            766,
+            174,
+            114,
+            26
+          ],
+          "reader": "trailing_number"
+        }
+      },
+      "village": "home",
+      "affordability": "white: resource-affordable, reserves still require a separate check",
+      "wall_identity": [
+        330,
+        460,
+        280,
+        39
+      ],
+      "price_regions": {
+        "gold": [
+          559,
+          520,
+          83,
+          21
+        ],
+        "elixir": [
+          698,
+          520,
+          83,
+          21
+        ]
+      },
+      "currency_regions": {
+        "gold": [
+          642,
+          520,
+          20,
+          21
+        ],
+        "elixir": [
+          781,
+          520,
+          20,
+          21
+        ]
+      }
+    },
+    {
+      "id": "builder-wall-gold",
+      "file": "english-numeric-builder-wall-gold.png",
+      "screen": "wall_selected",
+      "kind": "wall_selection",
+      "source_sha256": "8a080255b57fb2cfe3624989ab2839ca3931af6baf02734c72dc8e076943b4de",
+      "retained_regions": [
+        [
+          350,
+          460,
+          240,
+          39
+        ],
+        [
+          195,
+          505,
+          545,
+          125
+        ],
+        [
+          940,
+          0,
+          340,
+          45
+        ],
+        [
+          640,
+          20,
+          290,
+          140
+        ]
+      ],
+      "readings": {
+        "wall.price.gold": {
+          "status": "observed",
+          "value": 240000,
+          "roi": [
+            630,
+            519,
+            82,
+            22
+          ],
+          "reader": "wall_row_price"
+        },
+        "balance.gold": {
+          "status": "observed",
+          "value": 2899915,
+          "roi": [
+            650,
+            26,
+            230,
+            26
+          ],
+          "reader": "trailing_number"
+        },
+        "balance.elixir": {
+          "status": "observed",
+          "value": 2555303,
+          "roi": [
+            650,
+            76,
+            230,
+            26
+          ],
+          "reader": "trailing_number"
+        },
+        "balance.gems": {
+          "status": "observed",
+          "value": 1543,
+          "roi": [
+            766,
+            124,
+            114,
+            26
+          ],
+          "reader": "trailing_number"
+        }
+      },
+      "village": "builder",
+      "affordability": "white: resource-affordable, reserves still require a separate check",
+      "wall_identity": [
+        350,
+        460,
+        240,
+        39
+      ],
+      "price_regions": {
+        "gold": [
+          630,
+          519,
+          82,
+          22
+        ]
+      },
+      "currency_regions": {
+        "gold": [
+          712,
+          519,
+          20,
+          22
+        ]
+      }
+    },
+    {
+      "id": "builder-wall-both",
+      "file": "english-numeric-builder-wall-both.png",
+      "screen": "wall_selected",
+      "kind": "wall_selection",
+      "source_sha256": "97921aa3fea82ca0d41231c43072619b7ecb5b5bd3344bcd5096f85dd1f86b72",
+      "retained_regions": [
+        [
+          350,
+          460,
+          240,
+          39
+        ],
+        [
+          125,
+          505,
+          685,
+          125
+        ],
+        [
+          940,
+          0,
+          340,
+          45
+        ],
+        [
+          640,
+          20,
+          290,
+          140
+        ]
+      ],
+      "readings": {
+        "wall.price.gold": {
+          "status": "observed",
+          "value": 400000,
+          "roi": [
+            559,
+            519,
+            82,
+            22
+          ],
+          "reader": "wall_row_price"
+        },
+        "wall.price.elixir": {
+          "status": "observed",
+          "value": 400000,
+          "roi": [
+            698,
+            519,
+            82,
+            22
+          ],
+          "reader": "wall_row_price"
+        },
+        "balance.gold": {
+          "status": "observed",
+          "value": 2899915,
+          "roi": [
+            650,
+            26,
+            230,
+            26
+          ],
+          "reader": "trailing_number"
+        },
+        "balance.elixir": {
+          "status": "observed",
+          "value": 2555303,
+          "roi": [
+            650,
+            76,
+            230,
+            26
+          ],
+          "reader": "trailing_number"
+        },
+        "balance.gems": {
+          "status": "observed",
+          "value": 1543,
+          "roi": [
+            766,
+            124,
+            114,
+            26
+          ],
+          "reader": "trailing_number"
+        }
+      },
+      "village": "builder",
+      "affordability": "white: resource-affordable, reserves still require a separate check",
+      "wall_identity": [
+        350,
+        460,
+        240,
+        39
+      ],
+      "price_regions": {
+        "gold": [
+          559,
+          519,
+          82,
+          22
+        ],
+        "elixir": [
+          698,
+          519,
+          82,
+          22
+        ]
+      },
+      "currency_regions": {
+        "gold": [
+          641,
+          519,
+          20,
+          22
+        ],
+        "elixir": [
+          780,
+          519,
+          20,
+          22
+        ]
+      }
+    },
+    {
+      "id": "home-wall-confirm-gold",
+      "file": "english-numeric-home-wall-confirm-gold.png",
+      "screen": "wall_confirm",
+      "kind": "wall_confirmation",
+      "source_sha256": "0b8067469ef3e6c34b7fe4277fa21fde186b602f978719a18d5c0668596d4c82",
+      "retained_regions": [
+        [
+          115,
+          20,
+          1058,
+          684
+        ]
+      ],
+      "readings": {
+        "wall.price": {
+          "status": "observed",
+          "value": 2500000,
+          "roi": [
+            812,
+            616,
+            130,
+            24
+          ],
+          "reader": "green_number"
+        },
+        "balance.gold": {
+          "status": "unavailable",
+          "value": null,
+          "roi": null,
+          "reason": "Full-screen confirmation covers the HUD; use the separate selection fixture."
+        },
+        "balance.elixir": {
+          "status": "unavailable",
+          "value": null,
+          "roi": null,
+          "reason": "Full-screen confirmation covers the HUD; use the separate selection fixture."
+        },
+        "balance.gems": {
+          "status": "unavailable",
+          "value": null,
+          "roi": null,
+          "reason": "Full-screen confirmation covers the HUD; use the separate selection fixture."
+        }
+      },
+      "village": "home",
+      "currency": "gold",
+      "currency_roi": [
+        940,
+        604,
+        68,
+        72
+      ],
+      "affordability": "green Hammer Jam discounted price",
+      "context_fixture": "home-wall-selection",
+      "context_rule": "Separate earlier frame, not a balance observation inside this confirmation. No upgrade performed."
+    },
+    {
+      "id": "home-wall-confirm-elixir",
+      "file": "english-numeric-home-wall-confirm-elixir.png",
+      "screen": "wall_confirm",
+      "kind": "wall_confirmation",
+      "source_sha256": "170ccad9051458640fc1e8b0afa41cc5e0bcf3b67552dfd4d04e104f1eb3aec1",
+      "retained_regions": [
+        [
+          115,
+          20,
+          1058,
+          684
+        ]
+      ],
+      "readings": {
+        "wall.price": {
+          "status": "observed",
+          "value": 2500000,
+          "roi": [
+            812,
+            616,
+            130,
+            24
+          ],
+          "reader": "green_number"
+        },
+        "balance.gold": {
+          "status": "unavailable",
+          "value": null,
+          "roi": null,
+          "reason": "Full-screen confirmation covers the HUD; use the separate selection fixture."
+        },
+        "balance.elixir": {
+          "status": "unavailable",
+          "value": null,
+          "roi": null,
+          "reason": "Full-screen confirmation covers the HUD; use the separate selection fixture."
+        },
+        "balance.gems": {
+          "status": "unavailable",
+          "value": null,
+          "roi": null,
+          "reason": "Full-screen confirmation covers the HUD; use the separate selection fixture."
+        }
+      },
+      "village": "home",
+      "currency": "elixir",
+      "currency_roi": [
+        940,
+        604,
+        68,
+        72
+      ],
+      "affordability": "green Hammer Jam discounted price",
+      "context_fixture": "home-wall-selection",
+      "context_rule": "Separate earlier frame, not a balance observation inside this confirmation. No upgrade performed."
+    },
+    {
+      "id": "builder-wall-confirm-gold",
+      "file": "english-numeric-builder-wall-confirm-gold.png",
+      "screen": "builder_wall_confirm",
+      "kind": "wall_confirmation",
+      "source_sha256": "de9a15314bf7fa6f961ff2831af6cb7092940776b469b8b56f5f7f8a075ca0e3",
+      "retained_regions": [
+        [
+          163,
+          0,
+          956,
+          715
+        ]
+      ],
+      "readings": {
+        "wall.price": {
+          "status": "observed",
+          "value": 240000,
+          "roi": [
+            536,
+            608,
+            158,
+            44
+          ],
+          "reader": "number"
+        },
+        "balance.gold": {
+          "status": "unavailable",
+          "value": null,
+          "roi": null,
+          "reason": "Full-screen confirmation covers the HUD; use the separate selection fixture."
+        },
+        "balance.elixir": {
+          "status": "unavailable",
+          "value": null,
+          "roi": null,
+          "reason": "Full-screen confirmation covers the HUD; use the separate selection fixture."
+        },
+        "balance.gems": {
+          "status": "unavailable",
+          "value": null,
+          "roi": null,
+          "reason": "Full-screen confirmation covers the HUD; use the separate selection fixture."
+        }
+      },
+      "village": "builder",
+      "currency": "gold",
+      "currency_roi": [
+        696,
+        596,
+        68,
+        68
+      ],
+      "affordability": "white affordable price",
+      "context_fixture": "builder-wall-gold",
+      "context_rule": "Separate earlier frame, not a balance observation inside this confirmation. No upgrade performed."
+    },
+    {
+      "id": "builder-wall-confirm-elixir",
+      "file": "english-numeric-builder-wall-confirm-elixir.png",
+      "screen": "builder_wall_confirm",
+      "kind": "wall_confirmation",
+      "source_sha256": "2cc12985826b301a82b0ed75732957ffb1419dbdf612e9056f569298a99d0466",
+      "retained_regions": [
+        [
+          163,
+          0,
+          956,
+          715
+        ]
+      ],
+      "readings": {
+        "wall.price": {
+          "status": "observed",
+          "value": 400000,
+          "roi": [
+            536,
+            608,
+            158,
+            44
+          ],
+          "reader": "number"
+        },
+        "balance.gold": {
+          "status": "unavailable",
+          "value": null,
+          "roi": null,
+          "reason": "Full-screen confirmation covers the HUD; use the separate selection fixture."
+        },
+        "balance.elixir": {
+          "status": "unavailable",
+          "value": null,
+          "roi": null,
+          "reason": "Full-screen confirmation covers the HUD; use the separate selection fixture."
+        },
+        "balance.gems": {
+          "status": "unavailable",
+          "value": null,
+          "roi": null,
+          "reason": "Full-screen confirmation covers the HUD; use the separate selection fixture."
+        }
+      },
+      "village": "builder",
+      "currency": "elixir",
+      "currency_roi": [
+        696,
+        596,
+        68,
+        68
+      ],
+      "affordability": "white affordable price",
+      "context_fixture": "builder-wall-both",
+      "context_rule": "Separate earlier frame, not a balance observation inside this confirmation. No upgrade performed."
+    },
+    {
+      "id": "home-scout-loot",
+      "file": "english-numeric-home-scout-loot.png",
+      "screen": "home_scout",
+      "kind": "available_loot",
+      "source_sha256": "51dc05bab4a9d62565a8bc7776db7a849abb2a637ab463218bd61100a75ed639",
+      "retained_regions": [
+        [
+          20,
+          68,
+          210,
+          126
+        ],
+        [
+          15,
+          510,
+          155,
+          55
+        ],
+        [
+          1060,
+          465,
+          210,
+          95
+        ],
+        [
+          0,
+          580,
+          1280,
+          140
+        ]
+      ],
+      "readings": {
+        "available.gold": {
+          "status": "observed",
+          "value": 1557102,
+          "roi": [
+            62,
+            90,
+            150,
+            26
+          ],
+          "reader": "number"
+        },
+        "available.elixir": {
+          "status": "observed",
+          "value": 1646314,
+          "roi": [
+            62,
+            127,
+            150,
+            26
+          ],
+          "reader": "number"
+        },
+        "available.dark": {
+          "status": "observed",
+          "value": 10150,
+          "roi": [
+            62,
+            166,
+            150,
+            26
+          ],
+          "reader": "number"
+        },
+        "loot.gold": {
+          "status": "unavailable",
+          "value": null,
+          "roi": null,
+          "reason": "Scout Available Loot is not earned loot."
+        }
+      },
+      "labels": {
+        "available_loot": [
+          65,
+          68,
+          112,
+          20
+        ]
+      }
+    },
+    {
+      "id": "home-clouded-storage",
+      "file": "english-numeric-home-clouded-storage.png",
+      "screen": null,
+      "kind": "transition",
+      "source_sha256": "71e73fd03e1594d1886bc89f5e1cb3386fb957d316551f91dd7dcb38753b25cc",
+      "retained_regions": [
+        [
+          990,
+          0,
+          290,
+          110
+        ]
+      ],
+      "readings": {
+        "balance.gold": {
+          "status": "unreadable",
+          "value": null,
+          "roi": [
+            1040,
+            26,
+            178,
+            26
+          ],
+          "reader": "trailing_number",
+          "reason": "Captured cloud transition obscures the actual digits; no artificial masking of this ROI."
+        }
+      }
+    },
+    {
+      "id": "unrecognized-gold-pass-offer",
+      "file": "english-numeric-unrecognized-gold-pass-offer.png",
+      "screen": null,
+      "kind": "uncalibrated_dialog",
+      "source_sha256": "fc3fe43cef124dcfc5ceb13c1abb039cb580676a781c50274221933736d5b9c5",
+      "retained_regions": [
+        [
+          371,
+          458,
+          541,
+          57
+        ],
+        [
+          256,
+          523,
+          771,
+          30
+        ],
+        [
+          525,
+          585,
+          219,
+          70
+        ],
+        [
+          1073,
+          53,
+          54,
+          51
+        ]
+      ],
+      "readings": {},
+      "reason": "Naturally appearing Gold Pass sales offer is not a welcome, reward-card or gem-offer screen.",
+      "safe_action": {
+        "close": [
+          1100,
+          77
+        ],
+        "verified": "Closed with X; Get Gold Pass was never pressed."
+      }
+    },
+    {
+      "id": "unrecognized-daily-calendar",
+      "file": "english-numeric-unrecognized-daily-calendar.png",
+      "screen": null,
+      "kind": "uncalibrated_dialog",
+      "source_sha256": "7f8d0e5d768d2181d68fbee52ce8cb9e87fcf9360a7d6947523df2517510849a",
+      "retained_regions": [
+        [
+          175,
+          150,
+          876,
+          405
+        ],
+        [
+          500,
+          93,
+          254,
+          42
+        ],
+        [
+          1052,
+          75,
+          51,
+          49
+        ],
+        [
+          417,
+          640,
+          315,
+          22
+        ]
+      ],
+      "readings": {},
+      "reason": "Daily login calendar has today already Claimed and the next reward time-locked; no reward-card/chest evidence.",
+      "safe_action": {
+        "close": [
+          1077,
+          104
+        ],
+        "verified": "Closed with X; no reward claimed or purchase made."
+      }
+    },
+    {
+      "id": "gem-offer-builder-elixir",
+      "file": "english-numeric-gem-offer-builder-elixir.png",
+      "screen": "gem_offer",
+      "kind": "purchase_offer",
+      "source_sha256": "95babe12425bce5a43b159f72c00757d85beda630022146ec266bef7dc739656",
+      "retained_regions": [
+        [
+          326,
+          174,
+          626,
+          376
+        ]
+      ],
+      "readings": {
+        "offered_gem_cost": {
+          "status": "observed",
+          "value": 656,
+          "roi": [
+            557,
+            429,
+            96,
+            49
+          ],
+          "reader": "number"
+        }
+      },
+      "coverage": "Builder Elixir missing-resource offer only; other currencies are not captured.",
+      "safe_action": {
+        "close": [
+          900,
+          218
+        ],
+        "verified": "Closed with X; purchase button was never pressed."
+      }
+    }
+  ]
+}
