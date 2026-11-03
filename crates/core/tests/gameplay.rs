@@ -36,14 +36,14 @@ impl Fake {
             ("home_army", "english-home_army.png"),
             ("home_scout", "english-home_scout.png"),
             ("home_battle", "english-home_battle.png"),
-            ("home_result", "english-home_result.png"),
+            ("home_result", "english-numeric-home-defeat.png"),
             ("builder", "english-builder.png"),
             ("builder_menu", "english-builder_menu.png"),
             ("builder_scout", "english-builder_current.png"),
             ("builder_battle", "english-builder_battle.png"),
             ("builder_stage2", "english-builder_fourth_current.png"),
             ("builder_battle2", "english-builder_progress.png"),
-            ("builder_result", "english-builder_result_or_stage2.png"),
+            ("builder_result", "english-numeric-builder-two-stars.png"),
         ];
         let frames = files
             .into_iter()
@@ -230,7 +230,18 @@ async fn complete_home_and_two_stage_builder_attacks_use_only_guarded_inputs() {
         assert_eq!(records.len(), 1);
         assert_eq!(records[0].village, village);
         assert_eq!(records[0].ordinal, 1);
-        assert!(records[0].loot.gold.is_none());
+        if village == Village::Home {
+            assert_eq!(records[0].loot.gold, Some(1871));
+            assert_eq!(records[0].loot.elixir, Some(0));
+            assert_eq!(records[0].damage, Some(5));
+            assert_eq!(records[0].stars, None);
+        } else {
+            assert_eq!(records[0].loot.gold, Some(75_000));
+            assert_eq!(records[0].loot.elixir, None);
+            assert_eq!(records[0].damage, Some(72));
+            assert_eq!(records[0].stars, Some(2));
+        }
+        assert_eq!(records[0].loot.dark, None);
         assert!(fake.0.lock().unwrap().inputs > 10);
         assert_eq!(stage2, village == Village::Builder);
     }

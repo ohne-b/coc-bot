@@ -622,11 +622,41 @@ mod tests {
                         captured_at_ms: 1_700_000_000_000,
                     };
                     let confirming = matches!(wall.phase, Phase::Confirm { .. });
+                    let selecting = matches!(wall.phase, Phase::Find { .. });
                     let result = wall
                         .tick(&vision, &mut adb, &frame, false, &CancellationToken::new())
                         .await;
-                    if confirming && wall.verification_pending() {
-                        confirmations += fake.taps.lock().unwrap().len();
+                    if confirming {
+                        let screen = profile.walls[name].confirm.screen;
+                        let action = if reserve == 1_000_000 {
+                            "confirm"
+                        } else {
+                            "close"
+                        };
+                        let Point(x, y) = profile.action(screen, action, image).unwrap();
+                        assert_eq!(
+                            *fake.taps.lock().unwrap(),
+                            [format!("-s emulator-5554 shell input tap {x} {y}")]
+                        );
+                        confirmations += usize::from(action == "confirm");
+                    }
+                    if selecting {
+                        let rows = profile.walls[name].rows(image, &digits).unwrap();
+                        assert_eq!(
+                            rows.iter().filter_map(|(price, _)| *price).min(),
+                            Some(cost)
+                        );
+                        let y = rows
+                            .iter()
+                            .rev()
+                            .find(|(price, _)| *price == Some(cost))
+                            .unwrap()
+                            .1;
+                        let x = profile.walls[name].row.tap_x;
+                        assert_eq!(
+                            *fake.taps.lock().unwrap(),
+                            [format!("-s emulator-5554 shell input tap {x} {y}")]
+                        );
                     }
                     match result {
                         Err(Error::Gameplay(message)) if reserve == 1_000_000 => {
