@@ -763,6 +763,31 @@ dd {
 .settings-content {
   max-width: 820px;
 }
+.emulator-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 100px;
+  gap: 16px;
+}
+.emulator-fields .field {
+  display: block;
+  margin-top: 6px;
+}
+.emulator-fields .field-label {
+  margin: 0;
+  min-width: 0;
+}
+.emulator-actions {
+  align-items: center;
+  flex-wrap: wrap;
+}
+@media (max-width: 480px) {
+  .emulator-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .emulator-fields input[type="number"] {
+    width: 100px;
+  }
+}
 .settings-content > .content-section + .content-section {
   margin-top: 40px;
   border-top: 1px solid var(--divider);
@@ -821,9 +846,7 @@ fieldset {
   margin: 0;
 }
 .installations {
-  border-top: 1px solid var(--divider);
-  margin-top: 20px;
-  padding-top: 16px;
+  margin-top: 16px;
 }
 .folder-path {
   color: var(--muted);
@@ -845,6 +868,10 @@ fieldset {
 }
 .instance-row:hover {
   background: var(--hover);
+}
+.instance-row[aria-pressed="true"] {
+  background: var(--accent-subtle);
+  color: var(--accent);
 }
 .instance-row > :last-child {
   margin-left: auto;

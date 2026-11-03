@@ -69,7 +69,7 @@ struct Frame {
 enum Command {
     Save(Settings, oneshot::Sender<Result<()>>),
     Update(SettingsUpdate, oneshot::Sender<Result<()>>),
-    Discover(oneshot::Sender<Result<Vec<Installation>>>),
+    Discover(Option<PathBuf>, oneshot::Sender<Result<Vec<Installation>>>),
     Start(SessionMode, CancellationToken, oneshot::Sender<Result<()>>),
     Pause(bool, oneshot::Sender<Result<()>>),
     Stop(oneshot::Sender<Result<()>>),
@@ -185,9 +185,9 @@ impl Application {
         response.await.map_err(|_| closed())?
     }
 
-    pub async fn discover(&self) -> Result<Vec<Installation>> {
+    pub async fn discover(&self, folder: Option<PathBuf>) -> Result<Vec<Installation>> {
         let (reply, response) = oneshot::channel();
-        self.send(Command::Discover(reply))?;
+        self.send(Command::Discover(folder, reply))?;
         response.await.map_err(|_| closed())?
     }
 
@@ -412,8 +412,8 @@ impl<T: Transport + Clone> Worker<T> {
                 };
                 let _ = reply.send(result);
             }
-            Command::Discover(reply) => {
-                let result = self.discover().await;
+            Command::Discover(folder, reply) => {
+                let result = self.discover(folder).await;
                 let _ = reply.send(result);
             }
             Command::Start(mode, token, reply) => {
@@ -684,13 +684,16 @@ impl<T: Transport + Clone> Worker<T> {
         Ok(())
     }
 
-    async fn discover(&self) -> Result<Vec<Installation>> {
+    async fn discover(&self, folder: Option<PathBuf>) -> Result<Vec<Installation>> {
         if self.running.is_some() {
             return Err(Error::Device(
                 "Stop the session before discovering emulators".into(),
             ));
         }
-        let configured = self.store.settings()?.device.map(|d| d.folder);
+        if folder.as_ref().is_some_and(|path| !path.is_absolute()) {
+            return Err(Error::Device("Choose an absolute LDPlayer folder".into()));
+        }
+        let configured = folder.or(self.store.settings()?.device.map(|d| d.folder));
         let roots = (b'C'..=b'Z')
             .map(|letter| PathBuf::from(format!("{}:\\", char::from(letter))))
             .collect();

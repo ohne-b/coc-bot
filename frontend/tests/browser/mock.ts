@@ -16,6 +16,9 @@ export async function mock(
     holdDetail?: boolean;
     updatePhase?: string;
     holdUpdate?: boolean;
+    discovery?: "multiple" | "empty" | "error";
+    extendedFolder?: boolean;
+    rejectDeviceSave?: boolean;
   } = {},
 ) {
   const frame = readFileSync(
@@ -34,7 +37,12 @@ export async function mock(
       const snapshot = {
         revision: 1,
         settings: {
-          device: { folder: "C:\\LDPlayer\\LDPlayer14", index: 0 },
+          device: {
+            folder:
+              (options.extendedFolder ? "\\\\?\\" : "") +
+              "C:\\LDPlayer\\LDPlayer14",
+            index: 0,
+          },
           farming: {
             villages: ["home"],
             minimum_gold: 0,
@@ -289,6 +297,11 @@ export async function mock(
               return;
             }
             if (command === "save_settings") {
+              if (
+                options.rejectDeviceSave &&
+                (args.update as { type: string }).type === "device"
+              )
+                throw "Choose the LDPlayer folder containing adb.exe and ldconsole.exe";
               const acknowledge = () => {
                 const update = args.update as { type: string; value: unknown };
                 if (update.type === "device")
@@ -316,10 +329,14 @@ export async function mock(
               else acknowledge();
               return;
             }
-            if (command === "discover")
+            if (command === "discover") {
+              Object.assign(window, { discoveredFolder: args.folder });
+              if (options.discovery === "error")
+                throw "Unable to read LDPlayer instances";
+              if (options.discovery === "empty") return [];
               return [
                 {
-                  folder: "C:\\LDPlayer\\LDPlayer14",
+                  folder: "\\\\?\\C:\\LDPlayer\\LDPlayer14",
                   instances: [
                     {
                       index: 0,
@@ -329,7 +346,23 @@ export async function mock(
                     },
                   ],
                 },
+                ...(options.discovery === "multiple"
+                  ? [
+                      {
+                        folder: "\\\\?\\D:\\Games\\LDPlayer9",
+                        instances: [
+                          {
+                            index: 2,
+                            name: "Farm",
+                            running: false,
+                            serial: "emulator-5558",
+                          },
+                        ],
+                      },
+                    ]
+                  : []),
               ];
+            }
             if (command === "history") return [session];
             if (command === "session_detail") {
               if (options.holdDetail) {

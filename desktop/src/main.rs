@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use std::path::PathBuf;
 use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
@@ -69,8 +70,15 @@ async fn save_settings(state: State<'_, Desktop>, update: SettingsUpdate) -> Res
         .map_err(|e| e.to_string())
 }
 #[tauri::command]
-async fn discover(state: State<'_, Desktop>) -> Result<Vec<Installation>, String> {
-    state.core()?.discover().await.map_err(|e| e.to_string())
+async fn discover(
+    state: State<'_, Desktop>,
+    folder: Option<PathBuf>,
+) -> Result<Vec<Installation>, String> {
+    state
+        .core()?
+        .discover(folder)
+        .await
+        .map_err(|e| e.to_string())
 }
 #[tauri::command]
 async fn start(state: State<'_, Desktop>, mode: Option<SessionMode>) -> Result<(), String> {

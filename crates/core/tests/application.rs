@@ -496,7 +496,8 @@ async fn a_connected_device_with_broken_capture_is_restarted_and_recovery_is_bou
         settings.farming.recoveries = 2;
         app.save_settings(settings).await.unwrap();
         app.start(SessionMode::Farming).await.unwrap();
-        tokio::time::timeout(Duration::from_secs(12), async {
+        // Two restarts include six seconds of backoff; allow CI scheduling and vision work too.
+        tokio::time::timeout(Duration::from_secs(30), async {
             loop {
                 let snapshot = app.snapshot();
                 if stays_broken {
@@ -637,6 +638,25 @@ async fn settings_patches_preserve_other_editors_and_failed_updates_are_atomic()
     let settings = preferences(folder.path());
     app.save_settings(settings.clone()).await.unwrap();
     let mut layout = app.snapshot().default_layouts[&Screen::HomeScout].clone();
+    assert!(matches!(
+        app.discover(Some(PathBuf::from("relative"))).await,
+        Err(Error::Device(_))
+    ));
+    let incomplete = folder.path().join("incomplete");
+    std::fs::create_dir(&incomplete).unwrap();
+    std::fs::write(incomplete.join("adb.exe"), []).unwrap();
+    assert!(
+        app.update_settings(SettingsUpdate::Device(Some(SelectedDevice {
+            folder: incomplete,
+            index: 0,
+        })))
+        .await
+        .is_err()
+    );
+    assert_eq!(app.snapshot().settings, settings);
+    app.update_settings(SettingsUpdate::Device(settings.device.clone()))
+        .await
+        .unwrap();
     layout.deploy = Some(coc_bot_core::device::Point(123, 456));
     app.update_settings(SettingsUpdate::Layout {
         screen: Screen::HomeScout,

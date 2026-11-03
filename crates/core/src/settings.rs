@@ -38,7 +38,17 @@ pub enum SettingsUpdate {
 impl Settings {
     pub fn apply(&mut self, update: SettingsUpdate) -> Result<()> {
         match update {
-            SettingsUpdate::Device(device) => self.device = device,
+            SettingsUpdate::Device(device) => {
+                if let Some(device) = &device
+                    && (!device.folder.join("adb.exe").is_file()
+                        || !device.folder.join("ldconsole.exe").is_file())
+                {
+                    return Err(Error::Device(
+                        "Choose the LDPlayer folder containing adb.exe and ldconsole.exe".into(),
+                    ));
+                }
+                self.device = device;
+            }
             SettingsUpdate::Farming(mut options) => {
                 options.layouts = self.farming.layouts.clone();
                 self.farming = options;

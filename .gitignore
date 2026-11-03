@@ -7,6 +7,7 @@ captures/
 !/.github/assets/desktop.png
 !/.github/assets/updater.png
 !/.github/assets/farming-settings.png
+!/.github/assets/emulator-settings.png
 *.log
 !/assets/calibration/english/**/*.png
 !/assets/calibration/digits/*.png

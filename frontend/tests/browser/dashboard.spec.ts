@@ -432,7 +432,9 @@ test("delayed settings acknowledgement preserves a newer draft", async ({
     )
     .toBeGreaterThan(pollsBefore + 1);
   await expect(instance).toHaveValue("3");
-  await expect(page.getByRole("status", { name: "Settings save" })).toBeEmpty();
+  await expect(page.getByRole("status", { name: "Settings save" })).toHaveText(
+    "Unsaved changes",
+  );
 });
 
 test("returning to untouched settings receives a delayed save acknowledgement", async ({
@@ -728,3 +730,108 @@ test("deployment never relabels an older frame after a scout screen changes", as
   await expect(reference).toHaveCount(0);
   await expect(page.getByText("No matching scout screenshot")).toBeVisible();
 });
+
+test("emulator search uses the entered folder and selection requires Save", async ({
+  page,
+}) => {
+  await mock(page, { discovery: "multiple", extendedFolder: true });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  const folder = page.getByLabel("LDPlayer folder", { exact: true });
+  await expect(folder).toHaveValue("C:\\LDPlayer\\LDPlayer14");
+  await folder.fill("D:\\Games\\LDPlayer9");
+  await page.getByRole("button", { name: "Find LDPlayer" }).click();
+  expect(
+    await page.evaluate(
+      () =>
+        (window as unknown as { discoveredFolder: string }).discoveredFolder,
+    ),
+  ).toBe("D:\\Games\\LDPlayer9");
+  const result = page.getByRole("button", { name: "Farm Instance 2 Stopped" });
+  await expect(result).toHaveAttribute("aria-pressed", "false");
+  await result.click();
+  await expect(result).toHaveAttribute("aria-pressed", "true");
+  await expect(folder).toHaveValue("D:\\Games\\LDPlayer9");
+  await expect(page.getByLabel("Instance", { exact: true })).toHaveValue("2");
+  await expect(page.getByRole("status", { name: "Settings save" })).toHaveText(
+    "Unsaved changes",
+  );
+  const savedDevice = () =>
+    page.evaluate(
+      () =>
+        (
+          window as unknown as {
+            fixtureSnapshot: {
+              settings: { device: { folder: string; index: number } };
+            };
+          }
+        ).fixtureSnapshot.settings.device,
+    );
+  expect((await savedDevice()).index).toBe(0);
+  await expect(page.locator(".folder-path")).toHaveText([
+    "C:\\LDPlayer\\LDPlayer14",
+    "D:\\Games\\LDPlayer9",
+  ]);
+  const folderBounds = await folder.boundingBox();
+  const indexBounds = await page
+    .getByLabel("Instance", { exact: true })
+    .boundingBox();
+  expect(folderBounds!.y).toBe(indexBounds!.y);
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByRole("status", { name: "Settings save" })).toHaveText(
+    "Saved",
+  );
+  expect(await savedDevice()).toEqual({
+    folder: "\\\\?\\D:\\Games\\LDPlayer9",
+    index: 2,
+  });
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await page.getByRole("heading", { name: "Settings", exact: true }).click();
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({
+    path: "../.tools/emulator-settings.png",
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "Farming", exact: true }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(folder).toHaveValue("D:\\Games\\LDPlayer9");
+});
+
+for (const discovery of ["empty", "error"] as const) {
+  test(`emulator discovery reports ${discovery} without changing saved selection`, async ({
+    page,
+  }) => {
+    await mock(page, { discovery, rejectDeviceSave: true });
+    await page.goto("/");
+    await page.getByRole("button", { name: "Settings", exact: true }).click();
+    await page.getByRole("button", { name: "Find LDPlayer" }).click();
+    if (discovery === "empty")
+      await expect(
+        page.getByText("No LDPlayer installation found"),
+      ).toBeVisible();
+    else
+      await expect(page.getByRole("alert")).toHaveText(
+        "Unable to read LDPlayer instances",
+      );
+    await page
+      .getByLabel("LDPlayer folder", { exact: true })
+      .fill("D:\\Wrong folder");
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByRole("alert")).toContainText(
+      "adb.exe and ldconsole.exe",
+    );
+    await expect(
+      page.getByRole("status", { name: "Settings save" }),
+    ).not.toHaveText("Saved");
+    expect(
+      await page.evaluate(
+        () =>
+          (
+            window as unknown as {
+              fixtureSnapshot: { settings: { device: { folder: string } } };
+            }
+          ).fixtureSnapshot.settings.device.folder,
+      ),
+    ).toBe("C:\\LDPlayer\\LDPlayer14");
+  });
+}

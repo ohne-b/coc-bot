@@ -6,6 +6,12 @@ import { Button, Empty, Help } from "./ui";
 import { DesktopUpdates } from "./DesktopUpdates";
 import type { Installation, Settings as Preferences } from "./types";
 
+// Keep the original path for IPC; only hide Windows' extended-path prefix in labels.
+function displayFolder(folder: string) {
+  if (folder.startsWith("\\\\?\\UNC\\")) return "\\\\" + folder.slice(8);
+  return /^\\\\\?\\[a-z]:\\/i.test(folder) ? folder.slice(4) : folder;
+}
+
 export default function Settings({
   settings,
   running,
@@ -16,7 +22,7 @@ export default function Settings({
   const [folder, setFolder] = useState(settings.device?.folder ?? "");
   const [index, setIndex] = useState(String(settings.device?.index ?? 0));
   const [installations, setInstallations] = useState<Installation[]>();
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<"discover" | "save" | null>(null);
   const [error, setError] = useState<string>();
   const [saved, setSaved] = useState(false);
   const edited = useRef(false);
@@ -27,19 +33,24 @@ export default function Settings({
     }
   }, [settings.device?.folder, settings.device?.index]);
   async function discover() {
-    setBusy(true);
+    setBusy("discover");
     setError(undefined);
+    setInstallations(undefined);
     try {
-      setInstallations(await invoke<Installation[]>("discover"));
+      setInstallations(
+        await invoke<Installation[]>("discover", {
+          folder: folder.trim() || null,
+        }),
+      );
     } catch (e) {
       setError(String(e));
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
   async function save(event: React.FormEvent) {
     event.preventDefault();
-    setBusy(true);
+    setBusy("save");
     setError(undefined);
     setSaved(false);
     try {
@@ -61,7 +72,7 @@ export default function Settings({
     } catch (e) {
       setError(String(e));
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
   return (
@@ -76,39 +87,40 @@ export default function Settings({
           <Help label="Emulator">
             Choose the LDPlayer installation folder containing adb.exe and
             ldconsole.exe. Stop observation before changing the selected
-            instance.
+            instance. Search checks the entered folder and common install
+            locations. Select a result, then Save. Instance status is from the
+            last search.
           </Help>
-          <Button disabled={busy || running} onClick={() => void discover()}>
+          <Button
+            disabled={Boolean(busy) || running}
+            onClick={() => void discover()}
+          >
             <Icon path={mdiMagnify} />
-            {busy ? "Searching…" : "Find LDPlayer"}
+            {busy === "discover" ? "Searching…" : "Find LDPlayer"}
           </Button>
         </div>
         <form onSubmit={(event) => void save(event)}>
-          <fieldset disabled={busy || running}>
-            <label className="field-label" htmlFor="folder">
-              LDPlayer folder
-            </label>
-            <input
-              id="folder"
-              className="field"
-              value={folder}
-              onChange={(e) => {
-                edited.current = true;
-                setFolder(e.target.value);
-                setSaved(false);
-              }}
-              autoComplete="off"
-              spellCheck={false}
-              required
-            />
-            <div className="form-row">
-              <div>
-                <label className="field-label" htmlFor="instance">
-                  Instance
-                </label>
+          <fieldset disabled={Boolean(busy) || running}>
+            <div className="emulator-fields">
+              <label className="field-label">
+                LDPlayer folder
                 <input
-                  id="instance"
-                  className="field number-field"
+                  className="field"
+                  value={displayFolder(folder)}
+                  onChange={(e) => {
+                    edited.current = true;
+                    setFolder(e.target.value);
+                    setSaved(false);
+                  }}
+                  autoComplete="off"
+                  spellCheck={false}
+                  required
+                />
+              </label>
+              <label className="field-label">
+                Instance
+                <input
+                  className="field"
                   type="number"
                   min={0}
                   max={99}
@@ -121,12 +133,62 @@ export default function Settings({
                   }}
                   required
                 />
+              </label>
+            </div>
+            {installations && (
+              <div className="installations" aria-label="Discovered instances">
+                {installations.length === 0 ? (
+                  <Empty>No LDPlayer installation found</Empty>
+                ) : (
+                  installations.map((item) => (
+                    <div key={item.folder}>
+                      {(installations.length > 1 ||
+                        displayFolder(item.folder).toLowerCase() !==
+                          displayFolder(folder).trim().toLowerCase()) && (
+                        <p className="folder-path">
+                          {displayFolder(item.folder)}
+                        </p>
+                      )}
+                      {item.instances.length === 0 && (
+                        <Empty>No instances found in this folder</Empty>
+                      )}
+                      {item.instances.map((instance) => (
+                        <button
+                          type="button"
+                          className="instance-row"
+                          key={instance.index}
+                          aria-pressed={
+                            displayFolder(item.folder).toLowerCase() ===
+                              displayFolder(folder).trim().toLowerCase() &&
+                            instance.index === Number(index)
+                          }
+                          onClick={() => {
+                            edited.current = true;
+                            setFolder(item.folder);
+                            setIndex(String(instance.index));
+                            setSaved(false);
+                          }}
+                        >
+                          <span>{instance.name}</span>
+                          <span className="muted">
+                            Instance {instance.index}
+                          </span>
+                          <span>
+                            {instance.running ? "Running" : "Stopped"}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  ))
+                )}
               </div>
+            )}
+            <div className="form-row emulator-actions">
               <Button primary type="submit">
-                Save
+                {busy === "save" ? "Saving…" : "Save"}
               </Button>
               <span role="status" aria-label="Settings save" className="muted">
-                {saved ? "Saved" : ""}
+                {saved ? "Saved" : edited.current ? "Unsaved changes" : ""}
               </span>
             </div>
           </fieldset>
@@ -135,36 +197,6 @@ export default function Settings({
           <p role="alert" className="error">
             {error}
           </p>
-        )}
-        {installations && (
-          <div className="installations">
-            {installations.length === 0 ? (
-              <Empty>No LDPlayer installation found</Empty>
-            ) : (
-              installations.map((item) => (
-                <div key={item.folder}>
-                  <p className="folder-path">{item.folder}</p>
-                  {item.instances.map((instance) => (
-                    <button
-                      className="instance-row"
-                      key={instance.index}
-                      disabled={running || busy}
-                      onClick={() => {
-                        edited.current = true;
-                        setFolder(item.folder);
-                        setIndex(String(instance.index));
-                        setSaved(false);
-                      }}
-                    >
-                      <span>{instance.name}</span>
-                      <span className="muted">Instance {instance.index}</span>
-                      <span>{instance.running ? "Running" : "Stopped"}</span>
-                    </button>
-                  ))}
-                </div>
-              ))
-            )}
-          </div>
         )}
       </section>
       <section className="content-section">
