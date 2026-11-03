@@ -94,7 +94,13 @@ impl Attack {
     pub fn validate(&self) -> Result<()> {
         timestamp(self.completed_at_ms)?;
         if self.ordinal == 0
-            || self.damage.is_some_and(|v| v > 100)
+            || self.damage.is_some_and(|v| {
+                v > if self.village == Village::Builder {
+                    200
+                } else {
+                    100
+                }
+            })
             || self.stars.is_some_and(|v| {
                 v > if self.village == Village::Builder {
                     6

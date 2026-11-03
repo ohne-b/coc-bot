@@ -222,12 +222,20 @@ fn sessions_and_villages_cannot_mix_counts_or_resume_finished_work() {
     store.record_attack(second.id, &attack(1)).unwrap();
     let mut builder = Attack {
         village: Village::Builder,
+        damage: Some(200),
         stars: Some(6),
         ..attack(2)
     };
     builder.loot.gold = Some(123);
     store.record_attack(second.id, &builder).unwrap();
+    assert_eq!(
+        store.attacks(second.id, None, 1).unwrap(),
+        vec![builder.clone()]
+    );
     builder.ordinal = 3;
+    builder.damage = Some(201);
+    assert!(store.record_attack(second.id, &builder).is_err());
+    builder.damage = Some(200);
     builder.loot.dark = Some(0);
     assert!(store.record_attack(second.id, &builder).is_err());
     assert_eq!(
