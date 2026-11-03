@@ -2,27 +2,27 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Icon } from "@mdi/react";
 import {
-  mdiPlayOutline,
+  mdiPlay,
   mdiStop,
   mdiCogOutline,
   mdiHistory,
-  mdiTextBoxOutline,
   mdiGold,
   mdiWaterOutline,
   mdiEyeOutline,
   mdiPause,
   mdiWall,
   mdiVectorPolygon,
+  mdiGithub,
 } from "@mdi/js";
 import logo from "../../.github/assets/clash-shield.svg?no-inline";
-import { Button, Empty, Help } from "./ui";
+import { Empty, Help, IconButton } from "./ui";
 import { dateTime, duration, fresh, number, time, title } from "./format";
 import { useScreenshot, useSnapshot } from "./useSnapshot";
 import Settings from "./Settings";
 import History from "./History";
 import Farming from "./Farming";
 import Deployment from "./Deployment";
-import type { SessionDetail, Snapshot, Village } from "./types";
+import type { Snapshot, Village } from "./types";
 
 function Overview({
   snapshot,
@@ -66,63 +66,82 @@ function Overview({
   }
   return (
     <>
-      <header className="page-header">
+      <header className="page-header overview-header">
         <h1>{mode === "walls" ? "Walls" : "Farming"}</h1>
-        <span className="status-label">
-          <span
-            className={`status-dot ${running && !offline ? "active" : ""}`}
-          />
-          {offline
-            ? "Disconnected"
-            : running
-              ? (snapshot.progress?.operation ?? "Observing")
-              : snapshot.session
-                ? title(snapshot.session.state)
-                : "Ready"}
-        </span>
+        <div className="header-village">
+          <Help label="Resources">
+            Balances come from recognized village screens. A last known value
+            stays visible when a read fails. Open its status for the observation
+            time. Unknown values are shown as a dash.
+          </Help>
+          <div
+            className="segmented-switch"
+            role="group"
+            aria-label="Resource village"
+          >
+            {(["home", "builder"] as const).map((item) => (
+              <button
+                key={item}
+                aria-pressed={village === item}
+                onClick={() => setVillage(item)}
+              >
+                {item === "home" ? "Home" : "Builder"}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="page-actions">
+          {snapshot.settings.farming && (
+            <Farming
+              options={snapshot.settings.farming}
+              active={active || offline}
+              walls={mode === "walls"}
+            />
+          )}
           <Help label="Observation">
             Start runs the selected mode with saved settings. Observe reads
             screenshots without sending input. Pause suspends automation; Stop
-            cancels pending work. Missing readings remain unknown.
+            cancels pending work. Missing readings remain unknown. Selected
+            instance: {snapshot.settings.device?.index ?? "none"}. Session mode:{" "}
+            {title(snapshot.session?.mode ?? mode)}. Last capture:{" "}
+            {time(screenshot?.at ?? null)}. Screen:{" "}
+            {screenshot?.screen ? title(screenshot.screen) : "unknown"}.
           </Help>
           {active ? (
             <>
               {snapshot.session?.mode !== "observe" && (
-                <Button
+                <IconButton
+                  path={paused ? mdiPlay : mdiPause}
+                  label={paused ? "Resume" : "Pause"}
                   disabled={busy || stopping || offline}
                   onClick={() => void control("pause", { paused: !paused })}
-                >
-                  <Icon path={paused ? mdiPlayOutline : mdiPause} />
-                  {paused ? "Resume" : "Pause"}
-                </Button>
+                />
               )}
-              <Button disabled={stopping} onClick={() => void control("stop")}>
-                <Icon path={mdiStop} />
-                Stop
-              </Button>
+              <IconButton
+                path={mdiStop}
+                label="Stop"
+                disabled={stopping}
+                onClick={() => void control("stop")}
+              />
             </>
           ) : (
             <>
-              <Button
+              <IconButton
+                path={mdiEyeOutline}
+                label="Observe"
                 disabled={
                   busy || stopping || offline || !snapshot.settings.device
                 }
                 onClick={() => void control("start", { mode: "observe" })}
-              >
-                <Icon path={mdiEyeOutline} />
-                Observe
-              </Button>
-              <Button
-                primary
+              />
+              <IconButton
+                path={mdiPlay}
+                label="Start"
                 disabled={
                   busy || stopping || offline || !snapshot.settings.device
                 }
                 onClick={() => void control("start", { mode })}
-              >
-                <Icon path={mdiPlayOutline} />
-                Start
-              </Button>
+              />
             </>
           )}
         </div>
@@ -132,14 +151,64 @@ function Overview({
           {error || snapshot.error}
         </p>
       )}
+      <section className="resources-section">
+        <div className="resource-list">
+          {(
+            ["gold", "elixir", ...(village === "home" ? ["dark"] : [])] as const
+          ).map((key) => {
+            const value = snapshot.resources.find(
+              (v) => v.latest.village === village && v.latest.resource === key,
+            );
+            const known = value?.last_known;
+            const live = fresh(value, Date.now(), running && !offline);
+            return (
+              <div className={`resource resource-${key}`} key={key}>
+                <Icon
+                  path={key === "gold" ? mdiGold : mdiWaterOutline}
+                  className={`resource-icon ${key}`}
+                />
+                <div className="resource-content">
+                  <div className="resource-label">
+                    {key === "dark" ? "Dark Elixir" : title(key)}
+                    {value && !live && (
+                      <Help label={`${title(key)} last read`}>
+                        Last recognized:{" "}
+                        {value.observed_at_ms === null
+                          ? "never"
+                          : dateTime(value.observed_at_ms)}
+                        . Latest read:{" "}
+                        {value.latest.reading.status === "failed"
+                          ? "failed"
+                          : live
+                            ? "current"
+                            : "last known"}
+                        .
+                      </Help>
+                    )}
+                  </div>
+                  <div className="resource-amount">
+                    <strong>{number(known?.amount)}</strong>
+                    <span className="capacity-label">
+                      / {number(known?.capacity)}
+                    </span>
+                  </div>
+                  {known?.capacity ? (
+                    <progress
+                      aria-label={`${title(key)} storage`}
+                      max={known.capacity}
+                      value={known.amount}
+                    />
+                  ) : (
+                    <div className="resource-track" aria-hidden="true" />
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
       <div className="overview-grid">
-        <section className="panel capture-panel">
-          <div className="section-heading">
-            <h2>{screenshot?.screen ? title(screenshot.screen) : "Screen"}</h2>
-            <span className="muted capture-time">
-              {time(screenshot?.at ?? null)}
-            </span>
-          </div>
+        <section className="capture-section">
           <div className="capture">
             {screenshot ? (
               <img
@@ -162,221 +231,86 @@ function Overview({
             </p>
           )}
         </section>
-        <section className="panel resource-panel">
+        <section className="session-section" aria-label="Session">
           <div className="section-heading">
-            <h2>Resources</h2>
-            <Help label="Resources">
-              Balances come from recognized village screens. A last known value
-              stays visible when a read fails. Open its status for the
-              observation time. Unknown values are shown as a dash.
-            </Help>
+            <h2>Session</h2>
           </div>
-          <div className="tabs" role="group" aria-label="Resource village">
-            {(["home", "builder"] as const).map((item) => (
-              <button
-                key={item}
-                aria-pressed={village === item}
-                onClick={() => setVillage(item)}
-              >
-                {item === "home" ? "Home" : "Builder"}
-              </button>
-            ))}
-          </div>
-          <div className="resource-list">
-            {(
-              [
-                "gold",
-                "elixir",
-                ...(village === "home" ? ["dark"] : []),
-              ] as const
-            ).map((key) => {
-              const value = snapshot.resources.find(
-                (v) =>
-                  v.latest.village === village && v.latest.resource === key,
-              );
-              const known = value?.last_known;
-              const live = fresh(value, Date.now(), running && !offline);
-              return (
-                <div className="resource" key={key}>
-                  <Icon
-                    path={key === "gold" ? mdiGold : mdiWaterOutline}
-                    className={`resource-icon ${key}`}
-                  />
-                  <div className="resource-content">
-                    <div className="resource-label">
-                      {key === "dark" ? "Dark Elixir" : title(key)}
-                      {value && !live && (
-                        <Help label={`${title(key)} last read`}>
-                          Last recognized:{" "}
-                          {value.observed_at_ms === null
-                            ? "never"
-                            : dateTime(value.observed_at_ms)}
-                          . Latest read:{" "}
-                          {value.latest.reading.status === "failed"
-                            ? "failed"
-                            : live
-                              ? "current"
-                              : "last known"}
-                          .
-                        </Help>
-                      )}
-                    </div>
-                    <strong>{number(known?.amount)}</strong>
-                    <div className="capacity-label">
-                      {known?.capacity
-                        ? `of ${number(known.capacity)}`
-                        : "Capacity —"}
-                    </div>
-                    {known?.capacity && (
-                      <progress
-                        aria-label={`${title(key)} storage`}
-                        max={known.capacity}
-                        value={known.amount}
-                      />
-                    )}
+          <dl className="session-summary">
+            <div>
+              <dt>Status</dt>
+              <dd>
+                {offline
+                  ? "Disconnected"
+                  : running
+                    ? (snapshot.progress?.operation ?? "Observing")
+                    : snapshot.session
+                      ? title(snapshot.session.state)
+                      : "Ready"}
+              </dd>
+            </div>
+            <div>
+              <dt>Active time</dt>
+              <dd>{duration(snapshot.session?.active_ms ?? 0)}</dd>
+            </div>
+            <div>
+              <dt>Attacks</dt>
+              <dd>{number(stats?.attacks)}</dd>
+            </div>
+            <div>
+              <dt>Wall upgrades</dt>
+              <dd>{number(stats?.wall_upgrades)}</dd>
+            </div>
+          </dl>
+          <section className="session-loot">
+            <div className="section-heading">
+              <h2>{mode === "walls" ? "Spending" : "Loot"}</h2>
+              <Help label="Session statistics">
+                Only confirmed result readings count as earned loot. Rates use
+                active time, including searching and recovery, excluding pauses.
+                Wall spending is separate. Unreadable results remain
+                unavailable.
+              </Help>
+            </div>
+            <dl className="summary-row">
+              {mode === "walls" ? (
+                <>
+                  <div>
+                    <dt>Gold spent</dt>
+                    <dd>{number(stats?.wall_gold)}</dd>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                  <div>
+                    <dt>Elixir spent</dt>
+                    <dd>{number(stats?.wall_elixir)}</dd>
+                  </div>
+                </>
+              ) : (
+                (
+                  [
+                    "gold",
+                    "elixir",
+                    ...(village === "home" ? ["dark"] : []),
+                  ] as const
+                ).map((key) => (
+                  <div key={key}>
+                    <dt>{key === "dark" ? "Dark Elixir" : title(key)}</dt>
+                    <dd>
+                      {number(
+                        stats?.[key as "gold" | "elixir" | "dark"].amount,
+                      )}
+                      <span className="stat-rate">
+                        {number(
+                          stats?.[key as "gold" | "elixir" | "dark"].per_hour,
+                        )}
+                        /h
+                      </span>
+                    </dd>
+                  </div>
+                ))
+              )}
+            </dl>
+          </section>
         </section>
       </div>
-      <dl className="session-summary">
-        <div>
-          <dt>Active time</dt>
-          <dd>{duration(snapshot.session?.active_ms ?? 0)}</dd>
-        </div>
-        <div>
-          <dt>Instance</dt>
-          <dd>{snapshot.settings.device?.index ?? "—"}</dd>
-        </div>
-        <div>
-          <dt>Mode</dt>
-          <dd>{title(snapshot.session?.mode ?? mode)}</dd>
-        </div>
-        <div>
-          <dt>Attacks</dt>
-          <dd>{number(stats?.attacks)}</dd>
-        </div>
-        <div>
-          <dt>Wall upgrades</dt>
-          <dd>{number(stats?.wall_upgrades)}</dd>
-        </div>
-      </dl>
-      <section className="panel">
-        <div className="section-heading">
-          <h2>{mode === "walls" ? "Spending" : "Loot"}</h2>
-          <Help label="Session statistics">
-            Only confirmed result readings count as earned loot. Rates use
-            active time, including searching and recovery, excluding pauses.
-            Wall spending is separate. Unreadable results remain unavailable.
-          </Help>
-        </div>
-        <dl className="summary-row">
-          {mode === "walls" ? (
-            <>
-              <div>
-                <dt>Gold spent</dt>
-                <dd>{number(stats?.wall_gold)}</dd>
-              </div>
-              <div>
-                <dt>Elixir spent</dt>
-                <dd>{number(stats?.wall_elixir)}</dd>
-              </div>
-            </>
-          ) : (
-            (
-              [
-                "gold",
-                "elixir",
-                ...(village === "home" ? ["dark"] : []),
-              ] as const
-            ).map((key) => (
-              <div key={key}>
-                <dt>{key === "dark" ? "Dark Elixir" : title(key)}</dt>
-                <dd>
-                  {number(stats?.[key as "gold" | "elixir" | "dark"].amount)}
-                  <span className="stat-rate">
-                    {number(
-                      stats?.[key as "gold" | "elixir" | "dark"].per_hour,
-                    )}
-                    /h
-                  </span>
-                </dd>
-              </div>
-            ))
-          )}
-        </dl>
-      </section>
-      {snapshot.settings.farming && (
-        <Farming
-          options={snapshot.settings.farming}
-          active={active || offline}
-          walls={mode === "walls"}
-        />
-      )}
-    </>
-  );
-}
-
-function Activity({ sessionId }: { sessionId?: number }) {
-  const [detail, setDetail] = useState<SessionDetail>();
-  const [error, setError] = useState<string>();
-  useEffect(() => {
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout>;
-    async function refresh() {
-      try {
-        let id = sessionId;
-        if (id === undefined) {
-          const sessions = await invoke<{ id: number }[]>("history", {
-            before: null,
-          });
-          id = sessions[0]?.id;
-        }
-        if (id !== undefined) {
-          const next = await invoke<SessionDetail>("session_detail", { id });
-          if (!cancelled) setDetail(next);
-        }
-        if (!cancelled) setError(undefined);
-      } catch (e) {
-        if (!cancelled) setError(String(e));
-      }
-      if (!cancelled) timer = setTimeout(() => void refresh(), 2000);
-    }
-    setDetail(undefined);
-    void refresh();
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [sessionId]);
-  return (
-    <>
-      <header className="page-header">
-        <h1>Activity</h1>
-        <Help label="Activity">
-          Recent errors and recovery events from the current or latest session.
-          Earlier sessions are available in History.
-        </Help>
-      </header>
-      {error && (
-        <p role="alert" className="error">
-          {error}
-        </p>
-      )}
-      <section className="panel">
-        {!detail?.activity.length ? (
-          <Empty>{error ? "Activity unavailable" : "No recent activity"}</Empty>
-        ) : (
-          detail.activity.map((item) => (
-            <div className="activity-row" key={item.sequence}>
-              <time>{time(item.at_ms)}</time>
-              <span>{item.message}</span>
-            </div>
-          ))
-        )}
-      </section>
     </>
   );
 }
@@ -389,7 +323,6 @@ export default function App() {
     ["walls", "Walls", mdiWall],
     ["deployment", "Deployment", mdiVectorPolygon],
     ["history", "History", mdiHistory],
-    ["activity", "Activity", mdiTextBoxOutline],
     ["settings", "Settings", mdiCogOutline],
   ];
   return (
@@ -415,6 +348,18 @@ export default function App() {
             </button>
           ))}
         </nav>
+        <div className="sidebar-footer">
+          <a
+            className="icon-button github-link"
+            href="https://github.com/ohne-b/coc-bot"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="GitHub repository"
+            title="GitHub"
+          >
+            <Icon path={mdiGithub} aria-hidden="true" />
+          </a>
+        </div>
       </aside>
       <main id="main" tabIndex={-1} className="workspace">
         <div className="content">
@@ -434,9 +379,7 @@ export default function App() {
               }
             />
           ) : page === "history" ? (
-            <History />
-          ) : page === "activity" ? (
-            <Activity sessionId={snapshot.session?.id} />
+            <History sessionId={snapshot.session?.id} />
           ) : page === "deployment" ? (
             <Deployment snapshot={snapshot} offline={Boolean(error)} />
           ) : (

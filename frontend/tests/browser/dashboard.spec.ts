@@ -13,6 +13,8 @@ async function mock(
     holdPause?: boolean;
     holdNextFrame?: boolean;
     screen?: string;
+    populated?: boolean;
+    holdDetail?: boolean;
   } = {},
 ) {
   const frame = readFileSync(
@@ -143,6 +145,31 @@ async function mock(
         wall_gold: 0,
         wall_elixir: 0,
       };
+      if (options.populated)
+        Object.assign(snapshot, {
+          statistics: [
+            {
+              ...stats,
+              village: "home",
+              attacks: 12,
+              wall_upgrades: 4,
+              wall_gold: 24_000_000,
+              wall_elixir: 12_000_000,
+              gold: {
+                ...total,
+                amount: 2_400_000,
+                per_hour: 23_671_233,
+                measured_attacks: 8,
+              },
+              elixir: {
+                ...total,
+                amount: 1_800_000,
+                per_hour: 17_753_425,
+                measured_attacks: 8,
+              },
+            },
+          ],
+        });
       Object.assign(window, {
         calls: [],
         fixtureSnapshot: snapshot,
@@ -228,7 +255,13 @@ async function mock(
                 },
               ];
             if (command === "history") return [session];
-            if (command === "session_detail")
+            if (command === "session_detail") {
+              if (options.holdDetail) {
+                options.holdDetail = false;
+                await new Promise<void>((resolve) =>
+                  Object.assign(window, { resolveDetail: resolve }),
+                );
+              }
               return {
                 session,
                 resources: snapshot.resources,
@@ -238,6 +271,7 @@ async function mock(
                 walls: [],
                 activity: [],
               };
+            }
             throw `Unexpected command: ${command}`;
           },
         },
@@ -277,23 +311,197 @@ test("observation controls, help and history use native commands", async ({
     page.getByRole("heading", { name: "Home Village" }),
   ).toBeVisible();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await page.screenshot({
+    path: "../.tools/review-session.png",
+    fullPage: true,
+  });
+});
+
+test("pending session details cannot relabel the Activity view", async ({
+  page,
+}) => {
+  await mock(page, { holdDetail: true });
+  await page.goto("/");
+  await page.getByRole("button", { name: "History", exact: true }).click();
+  await page.getByRole("button", { name: /Nov/ }).click();
+  await expect(
+    page.getByRole("button", { name: "Activity", exact: true }),
+  ).toBeDisabled();
+  await page.evaluate(() =>
+    (window as unknown as { resolveDetail: () => void }).resolveDetail(),
+  );
+  await expect(
+    page.getByRole("heading", { name: "Home Village" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Back to history" }).click();
+  await page.getByRole("button", { name: "Activity", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "History", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("No recent activity")).toBeVisible();
+  await expect(page.getByRole("group", { name: "History view" })).toBeVisible();
 });
 
 test("desktop layout is accessible and keeps explanations behind info buttons", async ({
   page,
 }) => {
-  await mock(page, { running: true });
+  await mock(page, { running: true, populated: true });
   await page.goto("/");
   await expect(page.getByText("12,400,000")).toBeVisible();
+  const github = page.getByRole("link", { name: "GitHub repository" });
+  await expect(github).toHaveAttribute(
+    "href",
+    "https://github.com/ohne-b/coc-bot",
+  );
+  await expect(github).toHaveAttribute("target", "_blank");
+  await expect(github).toHaveAttribute("rel", "noreferrer");
+  const bounds = await github.boundingBox();
+  expect(bounds?.width).toBe(44);
+  expect(bounds?.height).toBe(44);
+  expect(bounds?.x).toBe(16);
+  expect(bounds!.y + bounds!.height).toBe(784);
+  expect(
+    await github
+      .locator("svg")
+      .evaluate((svg) => parseFloat(getComputedStyle(svg).width)),
+  ).toBeCloseTo(38.4, 1);
   await expect(
     page.getByRole("note", { name: "Resources", exact: true }),
   ).not.toBeVisible();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  const help = page.getByRole("button", {
+    name: "Help: Resources",
+    exact: true,
+  });
+  await help.hover();
+  expect(
+    await help.evaluate((button) => {
+      const style = getComputedStyle(button);
+      return style.borderRadius === "50%" && style.width === style.height;
+    }),
+  ).toBe(true);
+  await help.focus();
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByRole("note", { name: "Resources", exact: true }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.getByRole("heading", { name: "Farming", exact: true }).click();
   await page.screenshot({
     path: "../.tools/dashboard-desktop.png",
     fullPage: true,
   });
 });
+
+for (const width of [360, 800, 1200]) {
+  test(`all workspaces remain accessible at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 800 });
+    await mock(page, { populated: true });
+    await page.goto("/");
+    for (const name of [
+      "Farming",
+      "Walls",
+      "Deployment",
+      "History",
+      "Settings",
+    ]) {
+      await page
+        .getByRole("navigation")
+        .getByRole("button", { name, exact: true })
+        .click();
+      await expect(
+        page.getByRole("heading", { name, exact: true, level: 1 }),
+      ).toBeVisible();
+      if (name === "History")
+        await expect(page.getByRole("button", { name: /Nov/ })).toBeVisible();
+      if (width === 1200)
+        await page.screenshot({
+          path: `../.tools/review-${name.toLowerCase()}.png`,
+          fullPage: true,
+        });
+      if (name === "Farming" || name === "Walls") {
+        const header = await page.locator(".overview-header").boundingBox();
+        const village = await page
+          .getByRole("group", { name: "Resource village" })
+          .boundingBox();
+        expect(header).not.toBeNull();
+        expect(village).not.toBeNull();
+        expect(
+          Math.abs(
+            village!.x + village!.width / 2 - header!.x - header!.width / 2,
+          ),
+        ).toBeLessThan(1);
+        const settings = page.getByRole("button", {
+          name: name === "Walls" ? "Wall settings" : "Farming settings",
+          exact: true,
+        });
+        await settings.focus();
+        await page.keyboard.press("Enter");
+        await expect(page.getByRole("dialog")).toBeVisible();
+        expect(
+          await page
+            .getByRole("dialog")
+            .evaluate((dialog) => dialog.scrollWidth <= dialog.clientWidth),
+        ).toBe(true);
+        await expect(
+          page.getByRole("button", { name: "Save", exact: true }),
+        ).toBeVisible();
+      }
+      if (name === "History") {
+        await page
+          .getByRole("button", { name: "Activity", exact: true })
+          .click();
+        await expect(page.getByText("No recent activity")).toBeVisible();
+        if (width === 1200)
+          await page.screenshot({
+            path: "../.tools/review-activity.png",
+            fullPage: true,
+          });
+      }
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      ).toBe(true);
+      expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+      for (const help of await page.locator(".icon-button").all()) {
+        expect(
+          await help.evaluate((button) => {
+            const style = getComputedStyle(button);
+            return style.width === style.height && style.borderRadius === "50%";
+          }),
+        ).toBe(true);
+      }
+      if (width === 1200 || (width === 360 && name === "Farming")) {
+        await page.evaluate(() => window.scrollTo(0, 0));
+        await page.screenshot({
+          path: `../.tools/layout-${name.toLowerCase()}-${width}.png`,
+          fullPage: true,
+        });
+      }
+      if (name === "Farming" || name === "Walls") {
+        if (width === 1200) {
+          for (const [part, offset] of [0, 500, 1000].entries()) {
+            await page
+              .getByRole("dialog")
+              .evaluate((dialog, y) => dialog.scrollTo(0, y), offset);
+            await page.screenshot({
+              path: `../.tools/review-${name.toLowerCase()}-settings-${part + 1}.png`,
+            });
+          }
+        }
+        await page.keyboard.press("Escape");
+        await expect(page.getByRole("dialog")).not.toBeVisible();
+        await expect(
+          page.getByRole("button", {
+            name: name === "Walls" ? "Wall settings" : "Farming settings",
+            exact: true,
+          }),
+        ).toBeFocused();
+      }
+    }
+  });
+}
 
 test("narrow layout and emulator settings remain usable", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
@@ -472,37 +680,69 @@ test("returning to untouched settings receives a delayed save acknowledgement", 
   await expect(instance).toHaveValue("2");
 });
 
-test("farming controls preserve settings and lock editing throughout a paused session", async ({
+test("farming dialog preserves drafts and locks editing throughout a paused session", async ({
   page,
 }) => {
   await mock(page);
   await page.goto("/");
-  await page.getByText("Farming settings", { exact: true }).click();
+  const open = () =>
+    page.getByRole("button", { name: "Farming settings", exact: true }).click();
+  const close = () =>
+    page.getByRole("button", { name: "Close settings", exact: true }).click();
+  await open();
   await page.getByLabel("Attack limit", { exact: true }).fill("4");
+  await close();
+  await open();
+  await expect(page.getByLabel("Attack limit", { exact: true })).toHaveValue(
+    "4",
+  );
   await page.getByLabel("Home deployment").selectOption("ring");
   await page.getByRole("combobox", { name: /^Village/ }).selectOption("both");
   await page.getByLabel("Stop when targets are full").check();
   await page.getByLabel("Elixir Cart full", { exact: true }).check();
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByRole("status")).toHaveText("Saved");
+  await close();
+  await expect(
+    page.getByRole("button", { name: "Start", exact: true }),
+  ).toHaveText("");
   await page.getByRole("button", { name: "Start", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Pause", exact: true }),
   ).toBeVisible();
+  await open();
   await expect(page.getByLabel("Attack limit", { exact: true })).toBeDisabled();
   await expect(
     page.getByLabel("Elixir Cart full", { exact: true }),
   ).toBeDisabled();
+  await close();
   await page.getByRole("button", { name: "Pause", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Resume", exact: true }),
   ).toBeVisible();
+  await open();
   await expect(page.getByLabel("Attack limit", { exact: true })).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "Save", exact: true }),
+  ).toBeDisabled();
+  await page
+    .getByRole("button", { name: "Help: Session limits", exact: true })
+    .click();
+  await expect(
+    page.getByRole("note", { name: "Session limits", exact: true }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await close();
   await page.getByRole("button", { name: "Resume", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Pause", exact: true }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Stop", exact: true }),
+  ).toHaveText("");
   await page.getByRole("button", { name: "Stop", exact: true }).click();
+  await open();
   await expect(page.getByLabel("Attack limit", { exact: true })).toBeEnabled();
   await expect(page.getByLabel("Attack limit", { exact: true })).toHaveValue(
     "4",
@@ -532,10 +772,15 @@ test("deployment points support keyboard, bounds, save and reset without replaci
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByRole("status")).toHaveText("Saved");
   await page.getByRole("button", { name: "Farming", exact: true }).click();
-  await page.getByText("Farming settings", { exact: true }).click();
+  await page
+    .getByRole("button", { name: "Farming settings", exact: true })
+    .click();
   await page.getByLabel("Attack limit", { exact: true }).fill("8");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByRole("status")).toHaveText("Saved");
+  await page
+    .getByRole("button", { name: "Close settings", exact: true })
+    .click();
   await page.getByRole("button", { name: "Deployment", exact: true }).click();
   await expect(page.getByLabel("X", { exact: true })).toHaveValue("1279");
   await page.getByRole("button", { name: "Reset", exact: true }).click();

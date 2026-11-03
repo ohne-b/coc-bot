@@ -2,12 +2,12 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { mdiArrowLeft } from "@mdi/js";
 import { Button, Empty, Help, IconButton } from "./ui";
-import { dateTime, duration, number, title } from "./format";
+import { dateTime, duration, number, time, title } from "./format";
 import type { Session, SessionDetail, Statistics } from "./types";
 
 function Totals({ stats }: { stats: Statistics }) {
   return (
-    <section className="panel">
+    <section className="content-section">
       <div className="section-heading">
         <h2>{stats.village === "home" ? "Home Village" : "Builder Base"}</h2>
         <Help label="Loot">
@@ -69,7 +69,63 @@ function Totals({ stats }: { stats: Statistics }) {
   );
 }
 
-export default function History() {
+function Activity({ sessionId }: { sessionId?: number }) {
+  const [detail, setDetail] = useState<SessionDetail>();
+  const [error, setError] = useState<string>();
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    async function refresh() {
+      try {
+        let id = sessionId;
+        if (id === undefined) {
+          const sessions = await invoke<{ id: number }[]>("history", {
+            before: null,
+          });
+          id = sessions[0]?.id;
+        }
+        if (id !== undefined) {
+          const next = await invoke<SessionDetail>("session_detail", { id });
+          if (!cancelled) setDetail(next);
+        }
+        if (!cancelled) setError(undefined);
+      } catch (e) {
+        if (!cancelled) setError(String(e));
+      }
+      if (!cancelled) timer = setTimeout(() => void refresh(), 2000);
+    }
+    setDetail(undefined);
+    void refresh();
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [sessionId]);
+  return (
+    <>
+      {error && (
+        <p role="alert" className="error">
+          {error}
+        </p>
+      )}
+      <section className="content-section">
+        {!detail?.activity.length ? (
+          <Empty>{error ? "Activity unavailable" : "No recent activity"}</Empty>
+        ) : (
+          detail.activity.map((item) => (
+            <div className="activity-row" key={item.sequence}>
+              <time>{time(item.at_ms)}</time>
+              <span>{item.message}</span>
+            </div>
+          ))
+        )}
+      </section>
+    </>
+  );
+}
+
+export default function History({ sessionId }: { sessionId?: number }) {
+  const [view, setView] = useState("sessions");
   const [sessions, setSessions] = useState<Session[]>();
   const [detail, setDetail] = useState<SessionDetail>();
   const [error, setError] = useState<string>();
@@ -131,12 +187,42 @@ export default function History() {
           <span className="status-label">{title(detail.session.state)}</span>
         )}
       </header>
-      {error && (
+      {!detail && (
+        <div
+          className="tabs history-tabs"
+          role="group"
+          aria-label="History view"
+        >
+          <button
+            aria-pressed={view === "sessions"}
+            disabled={busy}
+            onClick={() => setView("sessions")}
+          >
+            Sessions
+          </button>
+          <button
+            aria-pressed={view === "activity"}
+            disabled={busy}
+            onClick={() => setView("activity")}
+          >
+            Activity
+          </button>
+          {view === "activity" && (
+            <Help label="Activity">
+              Recent errors and recovery events from the current or latest
+              session. Earlier sessions are available under Sessions.
+            </Help>
+          )}
+        </div>
+      )}
+      {view === "sessions" && error && (
         <p className="error" role="alert">
           {error}
         </p>
       )}
-      {detail ? (
+      {view === "activity" ? (
+        <Activity sessionId={sessionId} />
+      ) : detail ? (
         <div className="section-stack">
           <dl className="summary-row">
             <div>
@@ -151,7 +237,7 @@ export default function History() {
           <Totals stats={detail.home} />
           <Totals stats={detail.builder} />
           {detail.activity.length > 0 && (
-            <section className="panel">
+            <section className="content-section">
               <h2>Activity</h2>
               {detail.activity.map((item) => (
                 <div className="activity-row" key={item.sequence}>
@@ -163,7 +249,7 @@ export default function History() {
           )}
         </div>
       ) : (
-        <section className="panel history-panel">
+        <section className="content-section history-section">
           {!sessions ? (
             <Empty>{error ? "History unavailable" : "Loading…"}</Empty>
           ) : sessions.length === 0 ? (

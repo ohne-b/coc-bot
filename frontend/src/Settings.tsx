@@ -68,7 +68,7 @@ export default function Settings({
       <header className="page-header">
         <h1>Settings</h1>
       </header>
-      <section className="panel">
+      <section className="content-section">
         <div className="section-heading">
           <h2>Emulator</h2>
           <Help label="Emulator">
@@ -165,7 +165,7 @@ export default function Settings({
           </div>
         )}
       </section>
-      <section className="panel">
+      <section className="content-section">
         <div className="section-heading">
           <h2>Recognition</h2>
           <Help label="Recognition">

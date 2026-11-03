@@ -90,7 +90,7 @@ function Editor({
   }
   return (
     <>
-      <section className="panel">
+      <section className="content-section">
         <div className="section-heading">
           <h2>Placement</h2>
           <Help label="Deployment points">
@@ -146,6 +146,53 @@ function Editor({
           >
             Remove
           </Button>
+          <label className="field-label">
+            Point
+            <select
+              className="field"
+              value={selected}
+              disabled={!points.length}
+              onChange={(e) => setSelected(Number(e.target.value))}
+            >
+              {points.map((_, index) => (
+                <option key={index} value={index}>
+                  {index + 1}
+                </option>
+              ))}
+            </select>
+          </label>
+          {([0, 1] as const).map((axis) => (
+            <label className="field-label" key={axis}>
+              {axis === 0 ? "X" : "Y"}
+              <input
+                className="field number-field"
+                type="number"
+                min={0}
+                max={axis === 0 ? 1279 : 719}
+                step={1}
+                disabled={locked || !points[selected]}
+                value={points[selected]?.[axis] ?? ""}
+                onChange={(e) => {
+                  const point = points[selected];
+                  if (point)
+                    move(
+                      selected,
+                      axis === 0 ? e.target.valueAsNumber : point[0],
+                      axis === 1 ? e.target.valueAsNumber : point[1],
+                    );
+                }}
+              />
+            </label>
+          ))}
+          <Button primary disabled={locked} onClick={() => void save()}>
+            Save
+          </Button>
+          <Button disabled={locked} onClick={() => void save(true)}>
+            Reset
+          </Button>
+          <span role="status" className="muted">
+            {saved ? "Saved" : edited.current ? "Unsaved changes" : ""}
+          </span>
         </div>
         <div ref={surface} className="deployment-surface">
           {image ? (
@@ -215,55 +262,6 @@ function Editor({
               {index + 1}
             </button>
           ))}
-        </div>
-        <div className="editor-toolbar">
-          <label className="field-label">
-            Point
-            <select
-              className="field"
-              value={selected}
-              disabled={!points.length}
-              onChange={(e) => setSelected(Number(e.target.value))}
-            >
-              {points.map((_, index) => (
-                <option key={index} value={index}>
-                  {index + 1}
-                </option>
-              ))}
-            </select>
-          </label>
-          {([0, 1] as const).map((axis) => (
-            <label className="field-label" key={axis}>
-              {axis === 0 ? "X" : "Y"}
-              <input
-                className="field number-field"
-                type="number"
-                min={0}
-                max={axis === 0 ? 1279 : 719}
-                step={1}
-                disabled={locked || !points[selected]}
-                value={points[selected]?.[axis] ?? ""}
-                onChange={(e) => {
-                  const point = points[selected];
-                  if (point)
-                    move(
-                      selected,
-                      axis === 0 ? e.target.valueAsNumber : point[0],
-                      axis === 1 ? e.target.valueAsNumber : point[1],
-                    );
-                }}
-              />
-            </label>
-          ))}
-          <Button primary disabled={locked} onClick={() => void save()}>
-            Save
-          </Button>
-          <Button disabled={locked} onClick={() => void save(true)}>
-            Reset
-          </Button>
-          <span role="status" className="muted">
-            {saved ? "Saved" : edited.current ? "Unsaved changes" : ""}
-          </span>
         </div>
         {error && (
           <p role="alert" className="error">
