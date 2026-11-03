@@ -86,6 +86,115 @@ fn failed_readings_preserve_last_known_values_and_age_without_becoming_zero() {
 }
 
 #[test]
+fn capacity_survives_closed_tooltips_but_not_conflicting_balances_or_other_sessions() {
+    let folder = tempfile::tempdir().unwrap();
+    let path = folder.path().join("history.sqlite3");
+    let mut store = Store::open(&path).unwrap();
+    let id = store.begin_session(SessionMode::Observe, 100).unwrap().id;
+    for (at, amount, capacity, expected) in [
+        (110, 10, Some(100), Some(100)),
+        (120, 20, None, Some(100)),
+        (130, 20, Some(200), Some(200)),
+        (140, 30, None, Some(200)),
+        (150, 201, None, None),
+        (160, 20, None, None),
+    ] {
+        let reading = Reading::Known(Balance { amount, capacity });
+        store.observe(id, observation(at, reading)).unwrap();
+        let values = store.resources(id).unwrap();
+        assert_eq!(values[0].latest.reading, reading);
+        assert_eq!(
+            values[0].last_known,
+            Some(Balance {
+                amount,
+                capacity: expected
+            })
+        );
+        assert_eq!(values[0].observed_at_ms, Some(at));
+    }
+    store
+        .observe(
+            id,
+            observation(
+                170,
+                Reading::Known(Balance {
+                    amount: 20,
+                    capacity: Some(200),
+                }),
+            ),
+        )
+        .unwrap();
+    drop(store);
+    let mut store = Store::open(&path).unwrap();
+    store
+        .observe(
+            id,
+            observation(
+                180,
+                Reading::Known(Balance {
+                    amount: 21,
+                    capacity: None,
+                }),
+            ),
+        )
+        .unwrap();
+    assert_eq!(
+        store.resources(id).unwrap()[0].last_known.unwrap().capacity,
+        Some(200)
+    );
+    store
+        .observe(
+            id,
+            ResourceObservation {
+                village: Village::Builder,
+                ..observation(
+                    190,
+                    Reading::Known(Balance {
+                        amount: 21,
+                        capacity: None,
+                    }),
+                )
+            },
+        )
+        .unwrap();
+    assert!(
+        store
+            .resources(id)
+            .unwrap()
+            .iter()
+            .find(|v| v.latest.village == Village::Builder)
+            .unwrap()
+            .last_known
+            .unwrap()
+            .capacity
+            .is_none()
+    );
+    store
+        .update_session(id, SessionState::Stopped, 90, 195)
+        .unwrap();
+    let second = store.begin_session(SessionMode::Observe, 200).unwrap().id;
+    store
+        .observe(
+            second,
+            observation(
+                210,
+                Reading::Known(Balance {
+                    amount: 21,
+                    capacity: None,
+                }),
+            ),
+        )
+        .unwrap();
+    assert_eq!(
+        store.resources(second).unwrap()[0]
+            .last_known
+            .unwrap()
+            .capacity,
+        None
+    );
+}
+
+#[test]
 fn statistics_use_confirmed_results_with_partial_coverage_and_separate_wall_spending() {
     let folder = tempfile::tempdir().unwrap();
     let mut store = Store::open(&folder.path().join("history.sqlite3")).unwrap();

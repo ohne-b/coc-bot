@@ -124,8 +124,11 @@ than inferred. Native numeric regressions consume `crates/core/tests/fixtures/en
 the HUD balance whose leading digits the Python baseline drops. The Rust reader preserves
 that captured value without lowering confidence thresholds. Rust tests also verify fixture
 redaction, annotation geometry and unavailable values. Blacked-out stars are not zero stars.
-Capacity is displayed only when both the village and its calibrated storage tooltip are
-recognized; isolated tooltip fixtures cannot identify a village. The UI follows TDM's
+Capacity is first read only when both the village and its calibrated storage tooltip are
+recognized; isolated tooltip fixtures cannot identify a village. Normal farming checks all
+available storages, while only selected stopping targets require a successful reading.
+Observation never opens tooltips. Closing a tooltip preserves the session's last known
+capacity; a newer maximum replaces it and a balance exceeding it invalidates it. The UI follows TDM's
 spacing, Manrope and Material Design Icons with a neutral dark palette, muted gold accents,
 open sections and explanations behind round info buttons.
 

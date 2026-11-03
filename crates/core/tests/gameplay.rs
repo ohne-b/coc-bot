@@ -104,6 +104,8 @@ impl Transport for Fake {
                 ("builder", a) if a.ends_with("85 620") => "builder_menu",
                 ("builder_menu", a) if a.ends_with("950 472") => "builder_scout",
                 ("builder_result", a) if a.ends_with("640 607") => "builder",
+                ("home", a) if a.contains("tap 1120 ") => "home",
+                ("builder", a) if a.contains("tap 1120 ") => "builder",
                 _ => panic!("Unexpected tap on {}: {args}", state.screen),
             };
             state.screen = next.into();
