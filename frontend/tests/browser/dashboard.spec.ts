@@ -158,11 +158,27 @@ for (const width of [360, 800, 1200]) {
         });
         await settings.focus();
         await page.keyboard.press("Enter");
-        await expect(page.getByRole("dialog")).toBeVisible();
+        await expect(page.getByRole("dialog")).toHaveCount(0);
+        await expect(page.locator(".overview-header")).not.toBeVisible();
+        await expect(
+          page.getByRole("heading", {
+            name: name === "Walls" ? "Wall settings" : "Farming settings",
+            level: 1,
+          }),
+        ).toBeFocused();
+        await expect(page.getByRole("navigation")).toBeVisible();
+        await expect(
+          page.getByRole("navigation").getByRole("button"),
+        ).toHaveCount(5);
+        await expect(
+          page
+            .getByRole("navigation")
+            .getByRole("button", { name, exact: true }),
+        ).toHaveAttribute("aria-current", "page");
         expect(
           await page
-            .getByRole("dialog")
-            .evaluate((dialog) => dialog.scrollWidth <= dialog.clientWidth),
+            .locator("main form:visible")
+            .evaluate((form) => form.scrollWidth <= form.clientWidth),
         ).toBe(true);
         await expect(
           page.getByRole("button", { name: "Save", exact: true }),
@@ -185,7 +201,7 @@ for (const width of [360, 800, 1200]) {
         ),
       ).toBe(true);
       expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
-      for (const help of await page.locator(".icon-button").all()) {
+      for (const help of await page.locator(".icon-button:visible").all()) {
         expect(
           await help.evaluate((button) => {
             const style = getComputedStyle(button);
@@ -203,16 +219,21 @@ for (const width of [360, 800, 1200]) {
       if (name === "Farming" || name === "Walls") {
         if (width === 1200) {
           for (const [part, offset] of [0, 500, 1000].entries()) {
-            await page
-              .getByRole("dialog")
-              .evaluate((dialog, y) => dialog.scrollTo(0, y), offset);
+            await page.evaluate((y) => window.scrollTo(0, y), offset);
             await page.screenshot({
               path: `../.tools/review-${name.toLowerCase()}-settings-${part + 1}.png`,
             });
           }
         }
-        await page.keyboard.press("Escape");
-        await expect(page.getByRole("dialog")).not.toBeVisible();
+        await page
+          .getByRole("button", {
+            name: name === "Walls" ? "Back to walls" : "Back to farming",
+            exact: true,
+          })
+          .click();
+        await expect(
+          page.getByRole("heading", { name, exact: true, level: 1 }),
+        ).toBeVisible();
         await expect(
           page.getByRole("button", {
             name: name === "Walls" ? "Wall settings" : "Farming settings",
@@ -407,7 +428,7 @@ test("returning to untouched settings receives a delayed save acknowledgement", 
   await expect(instance).toHaveValue("2");
 });
 
-test("farming dialog preserves drafts and locks editing throughout a paused session", async ({
+test("full-page farming settings preserve drafts and lock editing throughout a paused session", async ({
   page,
 }) => {
   await mock(page);
@@ -415,9 +436,32 @@ test("farming dialog preserves drafts and locks editing throughout a paused sess
   const open = () =>
     page.getByRole("button", { name: "Farming settings", exact: true }).click();
   const close = () =>
-    page.getByRole("button", { name: "Close settings", exact: true }).click();
+    page.getByRole("button", { name: "Back to farming", exact: true }).click();
   await open();
   await page.getByLabel("Attack limit", { exact: true }).fill("4");
+  await page
+    .getByRole("navigation")
+    .getByRole("button", { name: "Walls", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Wall settings", exact: true })
+    .click();
+  await page.getByLabel("Gold reserve", { exact: true }).fill("2000000");
+  await page
+    .getByRole("navigation")
+    .getByRole("button", { name: "History", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "History", level: 1 }),
+  ).toBeVisible();
+  await page
+    .getByRole("navigation")
+    .getByRole("button", { name: "Farming", exact: true })
+    .click();
+  await open();
+  await expect(page.getByLabel("Attack limit", { exact: true })).toHaveValue(
+    "4",
+  );
   await close();
   await open();
   await expect(page.getByLabel("Attack limit", { exact: true })).toHaveValue(
@@ -459,7 +503,9 @@ test("farming dialog preserves drafts and locks editing throughout a paused sess
     page.getByRole("note", { name: "Session limits", exact: true }),
   ).toBeVisible();
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Farming settings", level: 1 }),
+  ).toBeVisible();
   await close();
   await page.getByRole("button", { name: "Resume", exact: true }).click();
   await expect(
@@ -506,7 +552,7 @@ test("deployment points support keyboard, bounds, save and reset without replaci
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByRole("status")).toHaveText("Saved");
   await page
-    .getByRole("button", { name: "Close settings", exact: true })
+    .getByRole("button", { name: "Back to farming", exact: true })
     .click();
   await page.getByRole("button", { name: "Deployment", exact: true }).click();
   await expect(page.getByLabel("X", { exact: true })).toHaveValue("1279");

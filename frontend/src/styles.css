@@ -52,31 +52,6 @@ main:focus-visible {
   outline-offset: 3px;
 }
 
-.settings-dialog {
-  width: min(940px, calc(100vw - 32px));
-  max-height: calc(100dvh - 32px);
-  padding: 24px;
-  border: 1px solid var(--divider);
-  border-radius: 8px;
-  background: var(--canvas);
-  color: var(--text);
-  overflow: auto;
-}
-.settings-dialog::backdrop {
-  background: #0009;
-}
-.dialog-header {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background: var(--canvas);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.settings-dialog form {
-  margin-top: 24px;
-}
 .preference-section {
   display: grid;
   grid-template-columns: 180px minmax(0, 1fr);
@@ -413,6 +388,9 @@ progress.update-progress {
   min-height: 40px;
   margin-bottom: 24px;
   flex-wrap: wrap;
+}
+.page-header h1:focus {
+  outline: none;
 }
 .page-actions {
   margin-left: auto;

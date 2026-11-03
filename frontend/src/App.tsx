@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Icon } from "@mdi/react";
 import {
@@ -33,11 +33,22 @@ function Overview({
   snapshot,
   offline,
   mode = "farming",
+  preferences,
+  onPreferencesChange,
 }: {
   snapshot: Snapshot;
   offline: boolean;
   mode?: "farming" | "walls";
+  preferences: boolean;
+  onPreferencesChange: (open: boolean) => void;
 }) {
+  const settingsButton = useRef<HTMLButtonElement>(null);
+  const wasPreferencesOpen = useRef(false);
+  useEffect(() => {
+    if (wasPreferencesOpen.current && !preferences)
+      settingsButton.current?.focus();
+    wasPreferencesOpen.current = preferences;
+  }, [preferences]);
   const { image: screenshot, error: screenshotError } = useScreenshot(snapshot);
   const [village, setVillage] = useState<Village>("home");
   const [busy, setBusy] = useState(false);
@@ -97,10 +108,11 @@ function Overview({
         </div>
         <div className="page-actions">
           {snapshot.settings.farming && (
-            <Farming
-              options={snapshot.settings.farming}
-              active={active || offline}
-              walls={mode === "walls"}
+            <IconButton
+              ref={settingsButton}
+              path={mdiCogOutline}
+              label={mode === "walls" ? "Wall settings" : "Farming settings"}
+              onClick={() => onPreferencesChange(true)}
             />
           )}
           <Help label="Observation">
@@ -322,10 +334,19 @@ function Overview({
 
 export default function App() {
   const [page, setPage] = useState("farming");
+  const [preferences, setPreferences] = useState(false);
+  function navigate(next: string) {
+    setPage(next);
+    setPreferences(false);
+  }
   const { status: update } = useUpdates();
   const updating =
     update?.phase === "installing" || Boolean(update?.restart_required);
   const { snapshot, error } = useSnapshot();
+  const active =
+    updating ||
+    snapshot?.session?.state === "running" ||
+    snapshot?.session?.state === "paused";
   const nav = [
     ["farming", "Farming", mdiEyeOutline],
     ["walls", "Walls", mdiWall],
@@ -349,7 +370,7 @@ export default function App() {
               className={`nav-item ${page === id ? "active" : ""}`}
               aria-current={page === id ? "page" : undefined}
               key={id}
-              onClick={() => setPage(id)}
+              onClick={() => navigate(id)}
             >
               <Icon path={icon} aria-hidden="true" />
               <span>{label}</span>
@@ -367,7 +388,7 @@ export default function App() {
           >
             <Icon path={mdiGithub} aria-hidden="true" />
           </a>
-          <DesktopUpdateLink onClick={() => setPage("settings")} />
+          <DesktopUpdateLink onClick={() => navigate("settings")} />
         </div>
       </aside>
       <main id="main" tabIndex={-1} className="workspace">
@@ -377,40 +398,46 @@ export default function App() {
               {error}
             </p>
           )}
-          {!snapshot ? (
-            page === "settings" ? (
-              <>
-                <header className="page-header">
-                  <h1>Settings</h1>
-                </header>
-                <DesktopUpdates />
-              </>
-            ) : (
-              <Empty>{error ? "Application unavailable" : "Loading…"}</Empty>
-            )
-          ) : page === "settings" ? (
-            <Settings
-              settings={snapshot.settings}
-              running={
-                updating ||
-                snapshot.session?.state === "running" ||
-                snapshot.session?.state === "paused"
-              }
-            />
-          ) : page === "history" ? (
-            <History sessionId={snapshot.session?.id} />
-          ) : page === "deployment" ? (
-            <Deployment
-              snapshot={snapshot}
-              offline={Boolean(error) || updating}
-            />
-          ) : (
-            <Overview
-              snapshot={snapshot}
-              offline={Boolean(error) || updating}
-              mode={page === "walls" ? "walls" : "farming"}
+          {snapshot?.settings.farming && (
+            <Farming
+              options={snapshot.settings.farming}
+              active={active || Boolean(error)}
+              walls={page === "walls"}
+              open={preferences}
+              onBack={() => setPreferences(false)}
             />
           )}
+          <div hidden={preferences}>
+            {!snapshot ? (
+              page === "settings" ? (
+                <>
+                  <header className="page-header">
+                    <h1>Settings</h1>
+                  </header>
+                  <DesktopUpdates />
+                </>
+              ) : (
+                <Empty>{error ? "Application unavailable" : "Loading…"}</Empty>
+              )
+            ) : page === "settings" ? (
+              <Settings settings={snapshot.settings} running={active} />
+            ) : page === "history" ? (
+              <History sessionId={snapshot.session?.id} />
+            ) : page === "deployment" ? (
+              <Deployment
+                snapshot={snapshot}
+                offline={Boolean(error) || updating}
+              />
+            ) : (
+              <Overview
+                snapshot={snapshot}
+                offline={Boolean(error) || updating}
+                mode={page === "walls" ? "walls" : "farming"}
+                preferences={preferences}
+                onPreferencesChange={setPreferences}
+              />
+            )}
+          </div>
         </div>
       </main>
     </div>
