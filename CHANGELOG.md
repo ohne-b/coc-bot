@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Integrate captured English result layouts and green damage readings, and preserve HUD
+  digits joined to tooltip borders without weakening recognition confidence.
+- Add an x64 Windows installer with native dependencies and TDM-style release staging,
+  checksums, signed update metadata and separate manual preparation/publication workflows.
+- Port Home and two-stage Builder farming, dynamic troop/hero/spell deployment, resource
+  checks, guarded wall spending and bounded recovery into the Rust worker.
+- Add farming/wall settings, pause/resume and a keyboard-accessible deployment editor.
+  Keep confirmed loot separate from storage changes and reject ambiguous result layouts.
 - Add redacted English result loot, bonus, damage and star annotations, village-aware
   storage tooltips and wall price/balance/gem fixtures with guarded result layouts.
 - Calibrate the Builder Elixir gem-offer close action, retain unobserved screens as

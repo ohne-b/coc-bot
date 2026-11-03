@@ -10,6 +10,9 @@ async function mock(
     delayFrame?: boolean;
     holdSettings?: boolean;
     holdNextSessionFrame?: boolean;
+    holdPause?: boolean;
+    holdNextFrame?: boolean;
+    screen?: string;
   } = {},
 ) {
   const frame = readFileSync(
@@ -27,9 +30,36 @@ async function mock(
       };
       const snapshot = {
         revision: 1,
-        settings: { device: { folder: "C:\\LDPlayer\\LDPlayer14", index: 0 } },
+        settings: {
+          device: { folder: "C:\\LDPlayer\\LDPlayer14", index: 0 },
+          farming: {
+            villages: ["home"],
+            minimum_gold: 0,
+            minimum_elixir: 0,
+            minimum_dark: 0,
+            targets: ["gold", "elixir"],
+            until_full: false,
+            collect_cart: true,
+            attacks: 0,
+            minutes: 0,
+            searches: 50,
+            strategy: "stack",
+            earthquake: false,
+            builder_stack: false,
+            surrender_after: 0,
+            surrender_damage: 0,
+            surrender_stars: 0,
+            trophy_floor: 0,
+            recoveries: 3,
+            wall_upgrades: 0,
+            gold_reserve: 1000000,
+            elixir_reserve: 1000000,
+            wall_farm_threshold: 20000000,
+            layouts: {} as Record<string, unknown>,
+          },
+        },
         session,
-        detection: { status: "known", screens: "home" },
+        detection: { status: "known", screens: options.screen ?? "home" },
         captured_at_ms: Date.now(),
         frame_sequence: 1,
         resources: [
@@ -58,6 +88,43 @@ async function mock(
           },
         ],
         error: null,
+        progress: null,
+        statistics: [],
+        default_layouts: {
+          home_scout: {
+            bar: [0, 598, 1280, 106],
+            deploy: [100, 300],
+            hold: 10,
+            points: [],
+            spells: [[400, 300]],
+            ring: [
+              [100, 100],
+              [1100, 100],
+            ],
+            spell_spread: [[600, 300]],
+            quake: [[600, 400]],
+          },
+          builder_scout: {
+            bar: [0, 588, 1280, 120],
+            deploy: [100, 300],
+            hold: 0,
+            points: [[200, 200]],
+            spells: [],
+            ring: [],
+            spell_spread: [],
+            quake: [],
+          },
+          builder_stage2: {
+            bar: [0, 588, 1280, 120],
+            deploy: [100, 300],
+            hold: 0,
+            points: [[300, 300]],
+            spells: [],
+            ring: [],
+            spell_spread: [],
+            quake: [],
+          },
+        },
       };
       const total = {
         amount: null,
@@ -85,6 +152,8 @@ async function mock(
             if (options.error) throw "Unable to read the history database";
             if (command === "snapshot") return structuredClone(snapshot);
             if (command === "screenshot") {
+              if (options.holdNextFrame && Number(args.sequence) > 1)
+                await new Promise(() => {});
               if (options.holdNextSessionFrame && args.sessionId === 2)
                 await new Promise((_, reject) => {
                   Object.assign(window, {
@@ -100,6 +169,7 @@ async function mock(
             }
             if (command === "start") {
               snapshot.session.state = "running";
+              snapshot.session.mode = String(args.mode ?? "observe");
               snapshot.revision++;
               return;
             }
@@ -108,9 +178,33 @@ async function mock(
               snapshot.revision++;
               return;
             }
+            if (command === "pause") {
+              if (options.holdPause) await new Promise(() => {});
+              snapshot.session.state = args.paused ? "paused" : "running";
+              snapshot.revision++;
+              return;
+            }
             if (command === "save_settings") {
               const acknowledge = () => {
-                snapshot.settings = args.settings as typeof snapshot.settings;
+                const update = args.update as { type: string; value: unknown };
+                if (update.type === "device")
+                  snapshot.settings.device =
+                    update.value as typeof snapshot.settings.device;
+                else if (update.type === "farming")
+                  snapshot.settings.farming = {
+                    ...(update.value as typeof snapshot.settings.farming),
+                    layouts: snapshot.settings.farming.layouts,
+                  };
+                else {
+                  const value = update.value as {
+                    screen: string;
+                    layout: unknown;
+                  };
+                  if (value.layout)
+                    snapshot.settings.farming.layouts[value.screen] =
+                      value.layout;
+                  else delete snapshot.settings.farming.layouts[value.screen];
+                }
                 snapshot.revision++;
               };
               if (options.holdSettings)
@@ -375,4 +469,124 @@ test("returning to untouched settings receives a delayed save acknowledgement", 
     ).acknowledgeSettings(),
   );
   await expect(instance).toHaveValue("2");
+});
+
+test("farming controls preserve settings and lock editing throughout a paused session", async ({
+  page,
+}) => {
+  await mock(page);
+  await page.goto("/");
+  await page.getByText("Farming settings", { exact: true }).click();
+  await page.getByLabel("Attack limit", { exact: true }).fill("4");
+  await page.getByLabel("Home deployment").selectOption("ring");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByRole("status")).toHaveText("Saved");
+  await page.getByRole("button", { name: "Start", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Pause", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Attack limit", { exact: true })).toBeDisabled();
+  await page.getByRole("button", { name: "Pause", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Resume", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Attack limit", { exact: true })).toBeDisabled();
+  await page.getByRole("button", { name: "Resume", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Pause", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Stop", exact: true }).click();
+  await expect(page.getByLabel("Attack limit", { exact: true })).toBeEnabled();
+  await expect(page.getByLabel("Attack limit", { exact: true })).toHaveValue(
+    "4",
+  );
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+});
+
+test("deployment points support keyboard, bounds, save and reset without replacing farming settings", async ({
+  page,
+}) => {
+  await mock(page);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Deployment", exact: true }).click();
+  await expect(page.getByText("No matching scout screenshot")).toBeVisible();
+  const point = page.getByRole("button", {
+    name: "Point 1, X 100, Y 300",
+    exact: true,
+  });
+  await point.focus();
+  await page.keyboard.press("Shift+ArrowRight");
+  await expect(page.getByLabel("X", { exact: true })).toHaveValue("110");
+  await page.getByLabel("X", { exact: true }).fill("9000");
+  await expect(page.getByLabel("X", { exact: true })).toHaveValue("1279");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByRole("status")).toHaveText("Saved");
+  await page.getByRole("button", { name: "Farming", exact: true }).click();
+  await page.getByText("Farming settings", { exact: true }).click();
+  await page.getByLabel("Attack limit", { exact: true }).fill("8");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByRole("status")).toHaveText("Saved");
+  await page.getByRole("button", { name: "Deployment", exact: true }).click();
+  await expect(page.getByLabel("X", { exact: true })).toHaveValue("1279");
+  await page.getByRole("button", { name: "Reset", exact: true }).click();
+  await expect(page.getByLabel("X", { exact: true })).toHaveValue("100");
+  await page
+    .getByRole("button", { name: "Builder stage 2", exact: true })
+    .click();
+  await page
+    .getByRole("combobox", { name: "Points", exact: true })
+    .selectOption("points");
+  await expect(page.getByLabel("X", { exact: true })).toHaveValue("300");
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+});
+
+test("Stop remains available while Pause is waiting for the worker", async ({
+  page,
+}) => {
+  await mock(page, { holdPause: true });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Start", exact: true }).click();
+  await page.getByRole("button", { name: "Pause", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Pause", exact: true }),
+  ).toBeDisabled();
+  await page.getByRole("button", { name: "Stop", exact: true }).click();
+  await expect(page.getByText("Stopped", { exact: true })).toBeVisible();
+});
+
+test("deployment never relabels an older frame after a scout screen changes", async ({
+  page,
+}) => {
+  await mock(page, { holdNextFrame: true, screen: "home_scout" });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Deployment", exact: true }).click();
+  const reference = page.getByRole("img", {
+    name: "Deployment reference screenshot",
+  });
+  await expect(reference).toBeVisible();
+  await page.evaluate(() => {
+    const snapshot = (
+      window as unknown as {
+        fixtureSnapshot: {
+          detection: { screens: string };
+          revision: number;
+          frame_sequence: number;
+        };
+      }
+    ).fixtureSnapshot;
+    snapshot.detection.screens = "builder_stage2";
+    snapshot.frame_sequence = 2;
+    snapshot.revision++;
+  });
+  await page
+    .getByRole("button", { name: "Builder stage 2", exact: true })
+    .click();
+  await expect(reference).toHaveCount(0);
+  await expect(page.getByText("No matching scout screenshot")).toBeVisible();
 });

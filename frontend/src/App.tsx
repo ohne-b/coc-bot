@@ -10,6 +10,9 @@ import {
   mdiGold,
   mdiWaterOutline,
   mdiEyeOutline,
+  mdiPause,
+  mdiWall,
+  mdiVectorPolygon,
 } from "@mdi/js";
 import logo from "../../.github/assets/clash-shield.svg?no-inline";
 import { Button, Empty, Help } from "./ui";
@@ -17,41 +20,54 @@ import { dateTime, duration, fresh, number, time, title } from "./format";
 import { useScreenshot, useSnapshot } from "./useSnapshot";
 import Settings from "./Settings";
 import History from "./History";
+import Farming from "./Farming";
+import Deployment from "./Deployment";
 import type { SessionDetail, Snapshot, Village } from "./types";
 
 function Overview({
   snapshot,
   offline,
+  mode = "farming",
 }: {
   snapshot: Snapshot;
   offline: boolean;
+  mode?: "farming" | "walls";
 }) {
   const { image: screenshot, error: screenshotError } = useScreenshot(snapshot);
   const [village, setVillage] = useState<Village>("home");
   const [busy, setBusy] = useState(false);
+  const [stopping, setStopping] = useState(false);
   const [error, setError] = useState<string>();
   const running = snapshot.session?.state === "running";
+  const paused = snapshot.session?.state === "paused";
+  const active = running || paused;
+  const stats = snapshot.statistics?.find((item) => item.village === village);
   const currentScreen =
     snapshot.detection.status === "known" ? snapshot.detection.screens : null;
   useEffect(() => {
     if (currentScreen === "home" || currentScreen === "builder")
       setVillage(currentScreen);
   }, [currentScreen]);
-  async function control(command: "start" | "stop") {
-    setBusy(true);
+  async function control(
+    command: "start" | "stop" | "pause",
+    args?: Record<string, unknown>,
+  ) {
+    if (command === "stop") setStopping(true);
+    else setBusy(true);
     setError(undefined);
     try {
-      await invoke(command);
+      await invoke(command, args);
     } catch (e) {
       setError(String(e));
     } finally {
-      setBusy(false);
+      if (command === "stop") setStopping(false);
+      else setBusy(false);
     }
   }
   return (
     <>
       <header className="page-header">
-        <h1>Farming</h1>
+        <h1>{mode === "walls" ? "Walls" : "Farming"}</h1>
         <span className="status-label">
           <span
             className={`status-dot ${running && !offline ? "active" : ""}`}
@@ -59,31 +75,55 @@ function Overview({
           {offline
             ? "Disconnected"
             : running
-              ? "Observing"
+              ? (snapshot.progress?.operation ?? "Observing")
               : snapshot.session
                 ? title(snapshot.session.state)
                 : "Ready"}
         </span>
         <div className="page-actions">
           <Help label="Observation">
-            Observe checks the selected emulator and reads screenshots without
-            sending taps or restarting the game. Missing resource values remain
-            unknown. Storage capacity is unavailable until recognized.
+            Start runs the selected mode with saved settings. Observe reads
+            screenshots without sending input. Pause suspends automation; Stop
+            cancels pending work. Missing readings remain unknown.
           </Help>
-          {running ? (
-            <Button disabled={busy} onClick={() => void control("stop")}>
-              <Icon path={mdiStop} />
-              Stop
-            </Button>
+          {active ? (
+            <>
+              {snapshot.session?.mode !== "observe" && (
+                <Button
+                  disabled={busy || stopping || offline}
+                  onClick={() => void control("pause", { paused: !paused })}
+                >
+                  <Icon path={paused ? mdiPlayOutline : mdiPause} />
+                  {paused ? "Resume" : "Pause"}
+                </Button>
+              )}
+              <Button disabled={stopping} onClick={() => void control("stop")}>
+                <Icon path={mdiStop} />
+                Stop
+              </Button>
+            </>
           ) : (
-            <Button
-              primary
-              disabled={busy || offline || !snapshot.settings.device}
-              onClick={() => void control("start")}
-            >
-              <Icon path={mdiPlayOutline} />
-              Observe
-            </Button>
+            <>
+              <Button
+                disabled={
+                  busy || stopping || offline || !snapshot.settings.device
+                }
+                onClick={() => void control("start", { mode: "observe" })}
+              >
+                <Icon path={mdiEyeOutline} />
+                Observe
+              </Button>
+              <Button
+                primary
+                disabled={
+                  busy || stopping || offline || !snapshot.settings.device
+                }
+                onClick={() => void control("start", { mode })}
+              >
+                <Icon path={mdiPlayOutline} />
+                Start
+              </Button>
+            </>
           )}
         </div>
       </header>
@@ -95,7 +135,7 @@ function Overview({
       <div className="overview-grid">
         <section className="panel capture-panel">
           <div className="section-heading">
-            <h2>{currentScreen ? title(currentScreen) : "Screen"}</h2>
+            <h2>{screenshot?.screen ? title(screenshot.screen) : "Screen"}</h2>
             <span className="muted capture-time">
               {time(screenshot?.at ?? null)}
             </span>
@@ -212,9 +252,69 @@ function Overview({
         </div>
         <div>
           <dt>Mode</dt>
-          <dd>Observation</dd>
+          <dd>{title(snapshot.session?.mode ?? mode)}</dd>
+        </div>
+        <div>
+          <dt>Attacks</dt>
+          <dd>{number(stats?.attacks)}</dd>
+        </div>
+        <div>
+          <dt>Wall upgrades</dt>
+          <dd>{number(stats?.wall_upgrades)}</dd>
         </div>
       </dl>
+      <section className="panel">
+        <div className="section-heading">
+          <h2>{mode === "walls" ? "Spending" : "Loot"}</h2>
+          <Help label="Session statistics">
+            Only confirmed result readings count as earned loot. Rates use
+            active time, including searching and recovery, excluding pauses.
+            Wall spending is separate. Unreadable results remain unavailable.
+          </Help>
+        </div>
+        <dl className="summary-row">
+          {mode === "walls" ? (
+            <>
+              <div>
+                <dt>Gold spent</dt>
+                <dd>{number(stats?.wall_gold)}</dd>
+              </div>
+              <div>
+                <dt>Elixir spent</dt>
+                <dd>{number(stats?.wall_elixir)}</dd>
+              </div>
+            </>
+          ) : (
+            (
+              [
+                "gold",
+                "elixir",
+                ...(village === "home" ? ["dark"] : []),
+              ] as const
+            ).map((key) => (
+              <div key={key}>
+                <dt>{key === "dark" ? "Dark Elixir" : title(key)}</dt>
+                <dd>
+                  {number(stats?.[key as "gold" | "elixir" | "dark"].amount)}
+                  <span className="stat-rate">
+                    {number(
+                      stats?.[key as "gold" | "elixir" | "dark"].per_hour,
+                    )}
+                    /h
+                  </span>
+                </dd>
+              </div>
+            ))
+          )}
+        </dl>
+      </section>
+      {snapshot.settings.farming && (
+        <Farming
+          options={snapshot.settings.farming}
+          active={active || offline}
+          walls={mode === "walls"}
+        />
+      )}
     </>
   );
 }
@@ -286,6 +386,8 @@ export default function App() {
   const { snapshot, error } = useSnapshot();
   const nav = [
     ["farming", "Farming", mdiEyeOutline],
+    ["walls", "Walls", mdiWall],
+    ["deployment", "Deployment", mdiVectorPolygon],
     ["history", "History", mdiHistory],
     ["activity", "Activity", mdiTextBoxOutline],
     ["settings", "Settings", mdiCogOutline],
@@ -326,14 +428,23 @@ export default function App() {
           ) : page === "settings" ? (
             <Settings
               settings={snapshot.settings}
-              running={snapshot.session?.state === "running"}
+              running={
+                snapshot.session?.state === "running" ||
+                snapshot.session?.state === "paused"
+              }
             />
           ) : page === "history" ? (
             <History />
           ) : page === "activity" ? (
             <Activity sessionId={snapshot.session?.id} />
+          ) : page === "deployment" ? (
+            <Deployment snapshot={snapshot} offline={Boolean(error)} />
           ) : (
-            <Overview snapshot={snapshot} offline={Boolean(error)} />
+            <Overview
+              snapshot={snapshot}
+              offline={Boolean(error)}
+              mode={page === "walls" ? "walls" : "farming"}
+            />
           )}
         </div>
       </main>

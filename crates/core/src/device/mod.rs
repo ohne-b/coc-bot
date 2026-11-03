@@ -18,6 +18,7 @@ use crate::{
 pub mod ldplayer;
 pub mod process;
 mod touch;
+pub mod update;
 use process::{Invocation, Process, Transport};
 pub use touch::{Gesture, TouchDevice};
 
@@ -173,7 +174,7 @@ impl<T: Transport> Adb<T> {
         detector: Arc<Detector>,
         expected: &[Screen],
         cancel: &CancellationToken,
-    ) -> Result<()> {
+    ) -> Result<CapturedFrame> {
         self.require_live(cancel)?;
         if expected.is_empty() {
             return Err(Error::InputGuard);
@@ -182,15 +183,20 @@ impl<T: Transport> Adb<T> {
             self.verify(cancel).await?;
         }
         let frame = self.capture(cancel).await?;
-        let detection =
-            tokio::task::spawn_blocking(move || detector.detect(&frame.image)).await??;
+        let captured_at = frame.captured_at;
+        let (image, detection) = tokio::task::spawn_blocking(move || {
+            let detection = detector.detect(&frame.image)?;
+            Ok::<_, Error>((frame.image, detection))
+        })
+        .await??;
         if !self.ready
-            || frame.captured_at.elapsed() > MAX_FRAME_AGE
+            || captured_at.elapsed() > MAX_FRAME_AGE
             || !matches!(detection,Detection::Known(screen) if expected.contains(&screen))
         {
             return Err(Error::InputGuard);
         }
-        self.require_live(cancel)
+        self.require_live(cancel)?;
+        Ok(CapturedFrame { image, captured_at })
     }
 
     pub async fn tap(
@@ -201,7 +207,25 @@ impl<T: Transport> Adb<T> {
         cancel: &CancellationToken,
     ) -> Result<()> {
         point.validate(self.config.resolution)?;
-        self.guard(detector, expected, cancel).await?;
+        self.tap_checked(detector, expected, |_| Ok((point, ())), cancel)
+            .await
+    }
+
+    /// Resolve moving targets and purchase guards against the exact frame authorizing input.
+    pub async fn tap_checked<R>(
+        &mut self,
+        detector: Arc<Detector>,
+        expected: &[Screen],
+        resolve: impl FnOnce(&Mat) -> Result<(Point, R)>,
+        cancel: &CancellationToken,
+    ) -> Result<R> {
+        let frame = self.guard(detector, expected, cancel).await?;
+        let (point, value) = resolve(&frame.image)?;
+        point.validate(self.config.resolution)?;
+        if frame.captured_at.elapsed() > MAX_FRAME_AGE {
+            return Err(Error::InputGuard);
+        }
+        self.require_live(cancel)?;
         let result = self
             .command(
                 &[
@@ -218,7 +242,7 @@ impl<T: Transport> Adb<T> {
         if result.is_err() {
             self.ready = false;
         }
-        result.map(|_| ())
+        result.map(|_| value)
     }
 
     pub async fn swipe(

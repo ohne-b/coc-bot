@@ -18,7 +18,7 @@ jobs:
   validation:
     name: Validation
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -38,12 +38,12 @@ jobs:
       - name: Install baseline test dependencies
         run: python -m pip install -r legacy/python/requirements.txt
       - name: Test repository automation
-        run: python -m unittest discover -s .github/scripts -p "test_*.py" -v
+        run: node --test .github/scripts/*.test.mjs
       - name: Check conventional PR title
         if: github.event_name == 'pull_request'
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
-        run: python .github/scripts/check_pr_title.py
+        run: node .github/scripts/check-pr-title.mjs
       - name: Test Python baseline offline
         working-directory: legacy/python
         run: python -m unittest discover -v
@@ -86,3 +86,15 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Clippy failed' }
           cargo build -p coc-bot-desktop --features desktop-fixture,custom-protocol --locked
           if ($LASTEXITCODE -ne 0) { throw 'Desktop fixture build failed' }
+      - name: Build Windows installer from validated main
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        shell: pwsh
+        run: ./scripts/build-windows.ps1
+      - name: Retain exact Windows release candidate
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: windows-${{ github.sha }}
+          path: artifacts/windows/
+          if-no-files-found: error
+          retention-days: 30

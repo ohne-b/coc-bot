@@ -315,9 +315,7 @@ impl<T: Transport> super::Adb<T> {
         }
         let display = self.display(cancel).await?;
         if display.resolution != self.config.resolution || display.dpi != 240 {
-            return Err(Error::Device(
-                "Set the emulator to the calibrated resolution and 240 DPI".into(),
-            ));
+            return Err(Error::Display);
         }
         self.ready = true;
         Ok(display)

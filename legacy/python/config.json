@@ -833,6 +833,7 @@
       "result_readings": [
         {
           "name": "home_two_resources",
+          "damage_color": "green",
           "guards": [
             {
               "file": "calibration/english/icons/home_result-ee063b1fccee453f81c0b547b971a754.png",
@@ -884,6 +885,7 @@
         },
         {
           "name": "home_three_resources",
+          "damage_color": "green",
           "guards": [
             {
               "file": "calibration/english/icons/home_result-ee063b1fccee453f81c0b547b971a754.png",

@@ -7,6 +7,7 @@ fn main() {
             "discover",
             "start",
             "stop",
+            "pause",
             "history",
             "session_detail",
         ]),

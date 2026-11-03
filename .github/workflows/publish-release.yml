@@ -1,0 +1,67 @@
+name: Publish release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Reviewed version already validated on main'
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: publish-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main' && github.actor == github.repository_owner
+    environment: release
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Verify publication prerequisites
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          RELEASE_OWNER: ${{ github.repository_owner }}
+          PERMISSION_CONFIRMED: ${{ vars.UPSTREAM_PERMISSION_CONFIRMED }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          if ($env:PERMISSION_CONFIRMED -ne 'true') { throw 'Resolve and record upstream permission in NOTICE.md before distribution' }
+          if (-not $env:GH_TOKEN) { throw 'Configure RELEASE_TOKEN in the release environment' }
+          $publisher = gh api user --jq .login
+          if ($LASTEXITCODE -ne 0 -or $publisher -ne $env:RELEASE_OWNER) { throw 'RELEASE_TOKEN must belong to the repository owner' }
+          node --input-type=module -e "import { version } from './.github/scripts/release.mjs'; version(process.env.RELEASE_VERSION)"
+          if ($LASTEXITCODE -ne 0) { throw 'Invalid release version' }
+          $tag = git ls-remote origin "refs/tags/v$env:RELEASE_VERSION"
+          if ($LASTEXITCODE -ne 0 -or $tag) { throw 'Tag already exists or could not be checked' }
+      - run: npm ci --prefix frontend
+      - name: Download exact successful main artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: node .github/scripts/release.mjs download $env:RELEASE_VERSION
+      - name: Sign installer and prepare reviewed notes
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: node .github/scripts/release.mjs prepare $env:RELEASE_VERSION artifacts/validated
+      - name: Upload, verify and publish
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: node .github/scripts/release.mjs publish $env:RELEASE_VERSION

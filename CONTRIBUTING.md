@@ -80,7 +80,7 @@ The Python baseline remains an offline comparison suite during migration:
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r legacy/python/requirements.txt
 .\.venv\Scripts\python.exe -m unittest discover -s legacy/python -v
-.\.venv\Scripts\python.exe -m unittest discover -s .github/scripts -p "test_*.py" -v
+node --test .github/scripts/*.test.mjs
 Get-ChildItem legacy/python/web -Filter *.js | ForEach-Object {
     Get-Content -Raw -Encoding UTF8 $_.FullName | node --input-type=module --check
     if ($LASTEXITCODE -ne 0) { throw "JavaScript syntax check failed: $_" }
@@ -103,11 +103,27 @@ Never commit a virtual environment, runtime captures, logs, credentials or datab
 | `desktop/` | Tauri lifecycle and scoped native commands |
 | `frontend/` | React/TypeScript dashboard and offline browser tests |
 | `legacy/python/` | Python source, dashboard, settings examples, calibration and fixtures |
-| `scripts/` | Native Windows build dependency setup |
+| `scripts/` | Native Windows dependencies and installer build |
 | `.github/` | Repository policy, validation and supplied branding |
 
-The desktop currently supports observation: selected-instance display checks, screenshots,
-screen/resource recognition, settings and session history. It does not farm or upgrade walls.
+The desktop supports observation and development farming/wall modes: selected-instance display
+checks, screenshots, recognition, dynamic deployment, bounded recovery and session history.
+Start enables guarded game input; Observe never does. Pause freezes active time and dispatches
+no gameplay steps. Settings remain locked until Stop. Farming, device and deployment saves
+patch their own sections so stale forms cannot overwrite unrelated preferences.
+Offline attack regressions cover Home and both Builder stages. Wall replays cover both
+villages from list scanning through confirmation, reserve refusal and rejection of unchanged
+post-confirmation balances. Their HUD positions reuse captured pixels; successful spending
+accounting uses an explicitly simulated prior balance, not a captured live upgrade.
+Live gameplay parity remains unverified.
+Captured English result layouts require two independent guards and exactly one match. Absent currencies remain
+unavailable; a separately displayed bonus is added only with explicit inclusion semantics.
+The captured Home victory has unverified bonus inclusion, so its aggregate earnings remain
+unavailable. Home silver stars and uncaptured recovery screens are also unavailable rather
+than inferred. Native numeric regressions consume `fixtures/english-readings.json`, including
+the HUD balance whose leading digits the Python baseline drops. The Rust reader preserves
+that captured value without lowering confidence thresholds; the Python comparison test
+continues to document its inherited expected failure.
 Capacity is displayed only when both the village and its calibrated storage tooltip are
 recognized; isolated tooltip fixtures cannot identify a village. The UI uses TDM's dark
 palette, spacing, Manrope and Material Design Icons, with explanations behind info buttons.
@@ -129,10 +145,15 @@ The fixture build uses a captured English frame, temporary settings/history and 
 transport. It has a separate application identifier and does not save window preferences.
 Never package `desktop-fixture` for users. The browser suite mocks native IPC and checks
 controls, errors, help popovers, narrow layouts and accessibility; it never opens an emulator.
-For manual observation, omit `desktop-fixture`. That app stores settings/history in its
+For the real desktop, omit `desktop-fixture`. That app stores settings/history in its
 Windows local app-data directory and connects only after selecting an instance and clicking
-Observe. Closing cancels capture and drains the owned worker. Screenshots stay in memory.
-The unbundled binary requires the OpenCV DLL on PATH; installer packaging is separate work.
+Observe or Start. Closing cancels device work and drains the owned worker. Screenshots stay in memory.
+The unbundled binary requires the OpenCV DLL on PATH. `./scripts/build-windows.ps1` builds
+an x64 NSIS installer with OpenCV, Visual C++ runtime DLLs, calibration and applicable
+notices beside the executable. It stages the installer and a source/hash manifest in
+ignored `artifacts/windows/`. `-DebugBuild` is for local packaging checks and cannot be
+published. Building never starts the desktop app or an emulator. An installer build alone
+does not establish clean-machine installation or live gameplay compatibility.
 
 Keep README short: logo, status, essential links, scope and attribution. `LEGACY.md`
 and inherited `docs/` media preserve the original instructions. Future user guides
@@ -194,8 +215,27 @@ substantive fixes; unresolved blockers prevent readiness. Never fabricate result
 
 ## Releases
 
-There is no Rust release pipeline yet. Keep planned work under `Unreleased` in CHANGELOG.
-Do not publish a Python or Rust package as part of repository setup. Before the first
-desktop release, resolve upstream permissions and add a Windows build/signing workflow
-that publishes the exact validated artifacts, with all applicable license notices.
-Keep signing credentials out of PR jobs, source, logs and chat.
+Successful canonical main validation retains the exact Windows installer for 30 days.
+PR validation has read-only permissions and receives no release secrets. No push or merge
+publishes a release. Local dirty builds are marked and rejected by the publisher.
+
+The owner can dispatch **Prepare release** with a new SemVer version. It opens a draft
+version/lockfile PR using `PUBLISHER_TOKEN`; add reviewed bullets under `## VERSION` in
+CHANGELOG.md, then complete normal validation and independent review. After merging,
+**Publish release** downloads that revision's successful main artifact, checks its source
+and SHA-256, signs it and verifies every uploaded draft asset before publication. It fails
+if main has advanced or the tag already exists; it never rebuilds the application.
+
+The `release` environment needs owner-held `RELEASE_TOKEN`, `TAURI_SIGNING_PRIVATE_KEY`
+and its optional `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. Resolve and record upstream permission
+in NOTICE.md before setting repository variable `UPSTREAM_PERMISSION_CONFIRMED=true`.
+Keep all secrets out of PR jobs, source, logs and chat. Environment approval rules can
+provide an additional publication gate. These credentials and permissions are not provisioned
+by committing the workflows, and no release has been published.
+
+Following TDM's release layout, published assets are `coc-bot-VERSION-windows-x64-setup.exe`,
+`latest.json` and `SHA256SUMS`. The title is `CoC Bot vVERSION`; notes use reviewed changelog
+bullets followed by compare and issue links. The signed manifest supplies update metadata;
+the current desktop does not download or install application updates automatically.
+Updater signatures are separate from Windows Authenticode signing. Validate installation,
+uninstallation, native dependencies and update signatures before the first public release.

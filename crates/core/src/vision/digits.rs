@@ -80,7 +80,42 @@ impl Digits {
         Ok(value(&digits))
     }
 
+    pub fn card_count(&self, image: &Mat, suffix: bool) -> Result<u32> {
+        let mut digits = glyphs(image)?
+            .iter()
+            .map(|glyph| self.classify(glyph, 0.75))
+            .collect::<Result<Vec<_>>>()?;
+        if !(2..=4).contains(&digits.len()) {
+            return Err(Error::Unreadable);
+        }
+        let marker = if suffix {
+            digits.pop().flatten()
+        } else {
+            digits.remove(0)
+        };
+        if marker.is_some() {
+            return Err(Error::Unreadable);
+        }
+        let number = value(
+            &digits
+                .into_iter()
+                .collect::<Option<Vec<_>>>()
+                .ok_or(Error::Unreadable)?,
+        );
+        if !(1..=300).contains(&number) {
+            return Err(Error::Unreadable);
+        }
+        Ok(number as u32)
+    }
+
     pub fn percent(&self, image: &Mat) -> Result<u8> {
+        self.percent_up_to(image, 100)
+    }
+
+    pub fn percent_up_to(&self, image: &Mat, maximum: u8) -> Result<u8> {
+        if maximum > 200 {
+            return Err(Error::Unreadable);
+        }
         let digits = glyphs(image)?
             .iter()
             .map(|glyph| self.classify(glyph, 0.75))
@@ -95,7 +130,7 @@ impl Digits {
                 .collect::<Option<Vec<_>>>()
                 .ok_or(Error::Unreadable)?,
         );
-        if number > 100 {
+        if number > u64::from(maximum) {
             return Err(Error::Unreadable);
         }
         Ok(number as u8)
@@ -171,7 +206,7 @@ impl Digits {
         let mut canvases = Vec::new();
         let mut last_left = None;
         for (id, rect) in solid {
-            if (rect.y - reference.y).abs() > 2 || (rect.height - reference.height).abs() > 2 {
+            if (rect.y - reference.y).abs() > 2 || rect.height < reference.height - 2 {
                 continue;
             }
             if last_left.is_some_and(|left| {
@@ -179,7 +214,15 @@ impl Digits {
             }) {
                 break;
             }
-            let glyph = components.glyph(id)?;
+            let mut glyph = components.glyph(id)?;
+            if rect.height > reference.height + 2 {
+                // A tooltip border can join a HUD digit below its text line at the crop edge.
+                if rect.y + rect.height != image.rows() || rect.height > 2 * reference.height {
+                    return Err(Error::Unreadable);
+                }
+                glyph =
+                    Mat::roi(&glyph, Rect::new(0, 0, rect.width, reference.height))?.try_clone()?;
+            }
             let pieces = if rect.width as f64 > 1.4 * rect.height as f64 {
                 split_glyphs(
                     &glyph,
@@ -494,6 +537,17 @@ mod tests {
         let seven = glyphs(&rendered("7")).unwrap().remove(0);
         digits.templates.push((9, seven));
         assert!(digits.number(&rendered("7"), 0.75).is_err());
+    }
+
+    #[test]
+    fn builder_percent_has_an_explicit_two_stage_bound() {
+        let reader = digits();
+        for value in [101, 199, 200] {
+            let image = rendered(&format!("{value}%"));
+            assert_eq!(reader.percent_up_to(&image, 200).unwrap(), value);
+            assert!(reader.percent(&image).is_err());
+        }
+        assert!(reader.percent_up_to(&rendered("201%"), 200).is_err());
     }
 
     #[test]

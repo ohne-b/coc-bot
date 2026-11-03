@@ -13,14 +13,13 @@
 
 ## Get started
 
-The Rust rewrite is in progress. Its core currently recognizes calibrated screens and
-digits using OpenCV, captures ADB framebuffer images and provides guarded device input
-and LDPlayer discovery. Session history and typed resource observations persist in SQLite.
-The Tauri/React dashboard can select an emulator, start/stop observation, show screenshots
-and recognized balances, and browse local history. Observation sends no game input.
-Autonomous Rust farming and wall upgrades are not implemented yet; there is no desktop
-release to download. The Python [coc-auto](https://github.com/peenjeee/coc-auto) baseline,
-calibration, dashboard and tests are retained in [legacy/python/](legacy/python/).
+The Rust rewrite is in progress. Development builds include Home and Builder farming,
+dynamic army deployment, wall upgrades and bounded recovery, with a Tauri/React dashboard
+for controls, deployment editing, resources and SQLite session history. Observe mode sends
+no game input. Automated validation uses captured screenshots and fake devices; live parity,
+remaining English calibration and installer validation are unfinished. There is no desktop
+release to download. The Python [coc-auto](https://github.com/peenjeee/coc-auto) baseline
+remains in [legacy/python/](legacy/python/) until the port has equivalent regression coverage.
 
 The target is a Windows application with **Rust, OpenCV, ADB, Tauri 2, React/TypeScript
 and SQLite**. It will preserve farming, troop deployment, resource collection, wall

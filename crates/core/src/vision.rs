@@ -11,8 +11,25 @@ use crate::{
     calibration::{Anchor, Calibration, Region, Resolution, Screen, asset_path},
 };
 
+pub mod army;
 mod digits;
+pub mod target;
 pub use digits::Digits;
+
+pub fn green_text(image: &Mat) -> Result<Mat> {
+    let mut hsv = Mat::default();
+    imgproc::cvt_color_def(image, &mut hsv, imgproc::COLOR_BGR2HSV)?;
+    let mut mask = Mat::default();
+    core::in_range(
+        &hsv,
+        &Scalar::new(35.0, 120.0, 200.0, 0.0),
+        &Scalar::new(85.0, 255.0, 255.0, 0.0),
+        &mut mask,
+    )?;
+    let mut result = Mat::default();
+    imgproc::cvt_color_def(&mask, &mut result, imgproc::COLOR_GRAY2BGR)?;
+    Ok(result)
+}
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(tag = "status", content = "screens", rename_all = "snake_case")]
@@ -42,7 +59,7 @@ impl Detector {
         profile.validate()?;
         let mut screens = Vec::new();
         for (&name, spec) in &profile.screens {
-            // Uncaptured English popups still contain Indonesian templates in the migration baseline.
+            // Uncaptured screens cannot authorize input.
             if !profile.is_observed(name) {
                 continue;
             }
@@ -99,21 +116,7 @@ impl Detector {
         let mut matched = Vec::new();
         let mut overridden = BTreeSet::new();
         for screen in &self.screens {
-            let mut found = false;
-            for group in &screen.groups {
-                let mut matches = true;
-                for anchor in group {
-                    let score = anchor.score(image, self.resolution)?;
-                    if !score.is_finite() || score > anchor.spec.max_score {
-                        matches = false;
-                        break;
-                    }
-                }
-                if matches {
-                    found = true;
-                    break;
-                }
-            }
+            let found = self.matches(image, screen.name)?;
             if found {
                 matched.push(screen.name);
                 overridden.extend(screen.overrides.iter().copied());
@@ -125,6 +128,27 @@ impl Detector {
             [name] => Detection::Known(*name),
             _ => Detection::Ambiguous(matched),
         })
+    }
+
+    pub fn matches(&self, image: &Mat, name: Screen) -> Result<bool> {
+        check_frame(image, self.resolution)?;
+        let Some(screen) = self.screens.iter().find(|screen| screen.name == name) else {
+            return Ok(false);
+        };
+        for group in &screen.groups {
+            let mut matches = true;
+            for anchor in group {
+                let score = anchor.score(image, self.resolution)?;
+                if !score.is_finite() || score > anchor.spec.max_score {
+                    matches = false;
+                    break;
+                }
+            }
+            if matches {
+                return Ok(true);
+            }
+        }
+        Ok(false)
     }
 }
 

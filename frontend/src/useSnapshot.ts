@@ -34,6 +34,8 @@ export function useSnapshot() {
 export function useScreenshot(snapshot: Snapshot | undefined) {
   const [image, setImage] = useState<{
     session: number;
+    sequence: number;
+    screen: string | null;
     url: string;
     at: number | null;
   }>();
@@ -58,7 +60,16 @@ export function useScreenshot(snapshot: Snapshot | undefined) {
         );
         if (current.current) URL.revokeObjectURL(current.current);
         current.current = next;
-        setImage({ session, url: next, at: snapshot?.captured_at_ms ?? null });
+        setImage({
+          session,
+          sequence,
+          screen:
+            snapshot?.detection.status === "known"
+              ? snapshot.detection.screens
+              : null,
+          url: next,
+          at: snapshot?.captured_at_ms ?? null,
+        });
         setError(undefined);
       })
       .catch((error: unknown) => {
