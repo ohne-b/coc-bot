@@ -29,7 +29,7 @@ alternate agent instruction files or links.
 
 The Rust workspace currently implements calibrated screen and digit recognition in
 `crates/core/`, with bounded ADB/LDPlayer processes, guarded input, framebuffer capture
-and offline regression tests. The Tauri
+and SQLite session history with typed telemetry and offline regression tests. The Tauri
 application and gameplay engine are not implemented yet. The Python coc-auto baseline,
 dashboard, calibration and tests live in `legacy/python/`; retain them and their history
 until equivalent Rust behavior has meaningful regression coverage.

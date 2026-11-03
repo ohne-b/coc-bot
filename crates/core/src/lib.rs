@@ -1,5 +1,7 @@
 pub mod calibration;
 pub mod device;
+pub mod storage;
+pub mod telemetry;
 pub mod vision;
 
 #[derive(Debug, thiserror::Error)]
@@ -12,6 +14,10 @@ pub enum Error {
     Frame,
     #[error("The value could not be read reliably")]
     Unreadable,
+    #[error("{0}")]
+    History(String),
+    #[error(transparent)]
+    Sqlite(#[from] rusqlite::Error),
     #[error("{0}")]
     Device(String),
     #[error("Operation cancelled")]

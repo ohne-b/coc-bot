@@ -15,7 +15,8 @@
 
 The Rust rewrite is in progress. Its core currently recognizes calibrated screens and
 digits using OpenCV, captures ADB framebuffer images and provides guarded device input
-and LDPlayer discovery, with offline regression tests.
+and LDPlayer discovery. Session history and typed resource observations persist in SQLite.
+Offline regression tests cover recognition, device boundaries and storage.
 The gameplay engine and Tauri dashboard are not implemented yet; there is no desktop
 release to download. The Python [coc-auto](https://github.com/peenjeee/coc-auto) baseline,
 calibration, dashboard and tests are retained in [legacy/python/](legacy/python/).
