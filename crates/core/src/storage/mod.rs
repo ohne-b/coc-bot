@@ -21,7 +21,7 @@ impl Store {
             transaction.pragma_query_value(None, "application_id", |r| r.get(0))?;
         if version == 0 && application == 0 {
             let objects: i64 = transaction.query_row(
-                "SELECT COUNT(*) FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%'",
+                "SELECT COUNT(*) FROM sqlite_schema WHERE name NOT GLOB 'sqlite_*'",
                 [],
                 |r| r.get(0),
             )?;

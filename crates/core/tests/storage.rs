@@ -315,12 +315,15 @@ fn unreadable_foreign_and_newer_databases_are_not_reset() {
     let foreign = folder.path().join("foreign.sqlite3");
     let connection = Connection::open(&foreign).unwrap();
     connection
-        .execute_batch("CREATE TABLE personal (value TEXT); INSERT INTO personal VALUES ('keep');")
+        .execute_batch(
+            "CREATE TABLE sqliteData (value TEXT); INSERT INTO sqliteData VALUES ('keep');",
+        )
         .unwrap();
     assert!(Store::open(&foreign).is_err());
     assert_eq!(
         connection
-            .query_row("SELECT value FROM personal", [], |r| r.get::<_, String>(0))
+            .query_row("SELECT value FROM sqliteData", [], |r| r
+                .get::<_, String>(0))
             .unwrap(),
         "keep"
     );
@@ -329,6 +332,19 @@ fn unreadable_foreign_and_newer_databases_are_not_reset() {
             .pragma_query_value(None, "user_version", |r| r.get::<_, i64>(0))
             .unwrap(),
         0
+    );
+    assert_eq!(
+        connection
+            .pragma_query_value(None, "application_id", |r| r.get::<_, i64>(0))
+            .unwrap(),
+        0
+    );
+    assert_eq!(
+        connection
+            .query_row("SELECT COUNT(*) FROM sqlite_schema", [], |r| r
+                .get::<_, i64>(0))
+            .unwrap(),
+        1
     );
     let future = folder.path().join("future.sqlite3");
     let mut store = Store::open(&future).unwrap();
