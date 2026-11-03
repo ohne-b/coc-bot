@@ -496,7 +496,8 @@ async fn a_connected_device_with_broken_capture_is_restarted_and_recovery_is_bou
         settings.farming.recoveries = 2;
         app.save_settings(settings).await.unwrap();
         app.start(SessionMode::Farming).await.unwrap();
-        tokio::time::timeout(Duration::from_secs(12), async {
+        // Two restarts include six seconds of backoff; allow CI scheduling and vision work too.
+        tokio::time::timeout(Duration::from_secs(30), async {
             loop {
                 let snapshot = app.snapshot();
                 if stays_broken {
