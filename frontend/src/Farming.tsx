@@ -81,7 +81,7 @@ export default function Farming({
     </label>
   );
   return (
-    <details className="panel configuration">
+    <details className="content-section configuration">
       <summary>{walls ? "Wall settings" : "Farming settings"}</summary>
       <form onSubmit={(event) => void save(event)}>
         <fieldset disabled={active || busy}>

@@ -7,7 +7,7 @@ import type { Session, SessionDetail, Statistics } from "./types";
 
 function Totals({ stats }: { stats: Statistics }) {
   return (
-    <section className="panel">
+    <section className="content-section">
       <div className="section-heading">
         <h2>{stats.village === "home" ? "Home Village" : "Builder Base"}</h2>
         <Help label="Loot">
@@ -151,7 +151,7 @@ export default function History() {
           <Totals stats={detail.home} />
           <Totals stats={detail.builder} />
           {detail.activity.length > 0 && (
-            <section className="panel">
+            <section className="content-section">
               <h2>Activity</h2>
               {detail.activity.map((item) => (
                 <div className="activity-row" key={item.sequence}>
@@ -163,7 +163,7 @@ export default function History() {
           )}
         </div>
       ) : (
-        <section className="panel history-panel">
+        <section className="content-section history-section">
           {!sessions ? (
             <Empty>{error ? "History unavailable" : "Loading…"}</Empty>
           ) : sessions.length === 0 ? (

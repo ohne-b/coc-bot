@@ -132,8 +132,81 @@ function Overview({
           {error || snapshot.error}
         </p>
       )}
+      <section className="resources-section">
+        <div className="section-heading">
+          <h2>Resources</h2>
+          <Help label="Resources">
+            Balances come from recognized village screens. A last known value
+            stays visible when a read fails. Open its status for the observation
+            time. Unknown values are shown as a dash.
+          </Help>
+          <div className="tabs" role="group" aria-label="Resource village">
+            {(["home", "builder"] as const).map((item) => (
+              <button
+                key={item}
+                aria-pressed={village === item}
+                onClick={() => setVillage(item)}
+              >
+                {item === "home" ? "Home" : "Builder"}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="resource-list">
+          {(
+            ["gold", "elixir", ...(village === "home" ? ["dark"] : [])] as const
+          ).map((key) => {
+            const value = snapshot.resources.find(
+              (v) => v.latest.village === village && v.latest.resource === key,
+            );
+            const known = value?.last_known;
+            const live = fresh(value, Date.now(), running && !offline);
+            return (
+              <div className="resource" key={key}>
+                <Icon
+                  path={key === "gold" ? mdiGold : mdiWaterOutline}
+                  className={`resource-icon ${key}`}
+                />
+                <div className="resource-content">
+                  <div className="resource-label">
+                    {key === "dark" ? "Dark Elixir" : title(key)}
+                    {value && !live && (
+                      <Help label={`${title(key)} last read`}>
+                        Last recognized:{" "}
+                        {value.observed_at_ms === null
+                          ? "never"
+                          : dateTime(value.observed_at_ms)}
+                        . Latest read:{" "}
+                        {value.latest.reading.status === "failed"
+                          ? "failed"
+                          : live
+                            ? "current"
+                            : "last known"}
+                        .
+                      </Help>
+                    )}
+                  </div>
+                  <strong>{number(known?.amount)}</strong>
+                  <div className="capacity-label">
+                    {known?.capacity
+                      ? `of ${number(known.capacity)}`
+                      : "Capacity —"}
+                  </div>
+                  {known?.capacity && (
+                    <progress
+                      aria-label={`${title(key)} storage`}
+                      max={known.capacity}
+                      value={known.amount}
+                    />
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
       <div className="overview-grid">
-        <section className="panel capture-panel">
+        <section className="capture-section">
           <div className="section-heading">
             <h2>{screenshot?.screen ? title(screenshot.screen) : "Screen"}</h2>
             <span className="muted capture-time">
@@ -156,158 +229,90 @@ function Overview({
               </Empty>
             )}
           </div>
+          <dl className="capture-meta">
+            <div>
+              <dt>Instance</dt>
+              <dd>{snapshot.settings.device?.index ?? "—"}</dd>
+            </div>
+            <div>
+              <dt>Mode</dt>
+              <dd>{title(snapshot.session?.mode ?? mode)}</dd>
+            </div>
+          </dl>
           {screenshotError && (
             <p role="status" className="error">
               {screenshotError}
             </p>
           )}
         </section>
-        <section className="panel resource-panel">
+        <section className="session-section" aria-label="Session">
           <div className="section-heading">
-            <h2>Resources</h2>
-            <Help label="Resources">
-              Balances come from recognized village screens. A last known value
-              stays visible when a read fails. Open its status for the
-              observation time. Unknown values are shown as a dash.
-            </Help>
+            <h2>Session</h2>
           </div>
-          <div className="tabs" role="group" aria-label="Resource village">
-            {(["home", "builder"] as const).map((item) => (
-              <button
-                key={item}
-                aria-pressed={village === item}
-                onClick={() => setVillage(item)}
-              >
-                {item === "home" ? "Home" : "Builder"}
-              </button>
-            ))}
-          </div>
-          <div className="resource-list">
-            {(
-              [
-                "gold",
-                "elixir",
-                ...(village === "home" ? ["dark"] : []),
-              ] as const
-            ).map((key) => {
-              const value = snapshot.resources.find(
-                (v) =>
-                  v.latest.village === village && v.latest.resource === key,
-              );
-              const known = value?.last_known;
-              const live = fresh(value, Date.now(), running && !offline);
-              return (
-                <div className="resource" key={key}>
-                  <Icon
-                    path={key === "gold" ? mdiGold : mdiWaterOutline}
-                    className={`resource-icon ${key}`}
-                  />
-                  <div className="resource-content">
-                    <div className="resource-label">
-                      {key === "dark" ? "Dark Elixir" : title(key)}
-                      {value && !live && (
-                        <Help label={`${title(key)} last read`}>
-                          Last recognized:{" "}
-                          {value.observed_at_ms === null
-                            ? "never"
-                            : dateTime(value.observed_at_ms)}
-                          . Latest read:{" "}
-                          {value.latest.reading.status === "failed"
-                            ? "failed"
-                            : live
-                              ? "current"
-                              : "last known"}
-                          .
-                        </Help>
-                      )}
-                    </div>
-                    <strong>{number(known?.amount)}</strong>
-                    <div className="capacity-label">
-                      {known?.capacity
-                        ? `of ${number(known.capacity)}`
-                        : "Capacity —"}
-                    </div>
-                    {known?.capacity && (
-                      <progress
-                        aria-label={`${title(key)} storage`}
-                        max={known.capacity}
-                        value={known.amount}
-                      />
-                    )}
+          <dl className="session-summary">
+            <div>
+              <dt>Active time</dt>
+              <dd>{duration(snapshot.session?.active_ms ?? 0)}</dd>
+            </div>
+            <div>
+              <dt>Attacks</dt>
+              <dd>{number(stats?.attacks)}</dd>
+            </div>
+            <div>
+              <dt>Wall upgrades</dt>
+              <dd>{number(stats?.wall_upgrades)}</dd>
+            </div>
+          </dl>
+          <section className="session-loot">
+            <div className="section-heading">
+              <h2>{mode === "walls" ? "Spending" : "Loot"}</h2>
+              <Help label="Session statistics">
+                Only confirmed result readings count as earned loot. Rates use
+                active time, including searching and recovery, excluding pauses.
+                Wall spending is separate. Unreadable results remain
+                unavailable.
+              </Help>
+            </div>
+            <dl className="summary-row">
+              {mode === "walls" ? (
+                <>
+                  <div>
+                    <dt>Gold spent</dt>
+                    <dd>{number(stats?.wall_gold)}</dd>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                  <div>
+                    <dt>Elixir spent</dt>
+                    <dd>{number(stats?.wall_elixir)}</dd>
+                  </div>
+                </>
+              ) : (
+                (
+                  [
+                    "gold",
+                    "elixir",
+                    ...(village === "home" ? ["dark"] : []),
+                  ] as const
+                ).map((key) => (
+                  <div key={key}>
+                    <dt>{key === "dark" ? "Dark Elixir" : title(key)}</dt>
+                    <dd>
+                      {number(
+                        stats?.[key as "gold" | "elixir" | "dark"].amount,
+                      )}
+                      <span className="stat-rate">
+                        {number(
+                          stats?.[key as "gold" | "elixir" | "dark"].per_hour,
+                        )}
+                        /h
+                      </span>
+                    </dd>
+                  </div>
+                ))
+              )}
+            </dl>
+          </section>
         </section>
       </div>
-      <dl className="session-summary">
-        <div>
-          <dt>Active time</dt>
-          <dd>{duration(snapshot.session?.active_ms ?? 0)}</dd>
-        </div>
-        <div>
-          <dt>Instance</dt>
-          <dd>{snapshot.settings.device?.index ?? "—"}</dd>
-        </div>
-        <div>
-          <dt>Mode</dt>
-          <dd>{title(snapshot.session?.mode ?? mode)}</dd>
-        </div>
-        <div>
-          <dt>Attacks</dt>
-          <dd>{number(stats?.attacks)}</dd>
-        </div>
-        <div>
-          <dt>Wall upgrades</dt>
-          <dd>{number(stats?.wall_upgrades)}</dd>
-        </div>
-      </dl>
-      <section className="panel">
-        <div className="section-heading">
-          <h2>{mode === "walls" ? "Spending" : "Loot"}</h2>
-          <Help label="Session statistics">
-            Only confirmed result readings count as earned loot. Rates use
-            active time, including searching and recovery, excluding pauses.
-            Wall spending is separate. Unreadable results remain unavailable.
-          </Help>
-        </div>
-        <dl className="summary-row">
-          {mode === "walls" ? (
-            <>
-              <div>
-                <dt>Gold spent</dt>
-                <dd>{number(stats?.wall_gold)}</dd>
-              </div>
-              <div>
-                <dt>Elixir spent</dt>
-                <dd>{number(stats?.wall_elixir)}</dd>
-              </div>
-            </>
-          ) : (
-            (
-              [
-                "gold",
-                "elixir",
-                ...(village === "home" ? ["dark"] : []),
-              ] as const
-            ).map((key) => (
-              <div key={key}>
-                <dt>{key === "dark" ? "Dark Elixir" : title(key)}</dt>
-                <dd>
-                  {number(stats?.[key as "gold" | "elixir" | "dark"].amount)}
-                  <span className="stat-rate">
-                    {number(
-                      stats?.[key as "gold" | "elixir" | "dark"].per_hour,
-                    )}
-                    /h
-                  </span>
-                </dd>
-              </div>
-            ))
-          )}
-        </dl>
-      </section>
       {snapshot.settings.farming && (
         <Farming
           options={snapshot.settings.farming}
@@ -365,7 +370,7 @@ function Activity({ sessionId }: { sessionId?: number }) {
           {error}
         </p>
       )}
-      <section className="panel">
+      <section className="content-section">
         {!detail?.activity.length ? (
           <Empty>{error ? "Activity unavailable" : "No recent activity"}</Empty>
         ) : (

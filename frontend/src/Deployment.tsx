@@ -90,7 +90,7 @@ function Editor({
   }
   return (
     <>
-      <section className="panel">
+      <section className="content-section">
         <div className="section-heading">
           <h2>Placement</h2>
           <Help label="Deployment points">
