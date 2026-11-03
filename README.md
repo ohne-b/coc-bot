@@ -17,7 +17,7 @@ The Rust rewrite is in progress. Development builds include Home and Builder far
 dynamic army deployment, wall upgrades and bounded recovery, with a Tauri/React dashboard
 for controls, deployment editing, resources and SQLite session history. Observe mode sends
 no game input. Automated validation uses captured screenshots and fake devices; live parity,
-remaining English calibration and installer packaging are unfinished. There is no desktop
+remaining English calibration and installer validation are unfinished. There is no desktop
 release to download. The Python [coc-auto](https://github.com/peenjeee/coc-auto) baseline
 remains in [legacy/python/](legacy/python/) until the port has equivalent regression coverage.
 

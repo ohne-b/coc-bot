@@ -1,0 +1,52 @@
+name: Prepare release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Next SemVer version, for example 0.2.0 or 0.2.0-rc.1'
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: prepare-release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: github.ref == 'refs/heads/main' && github.actor == github.repository_owner
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: main
+          token: ${{ secrets.PUBLISHER_TOKEN }}
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Prepare version and draft PR
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.PUBLISHER_TOKEN }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          if (-not $env:GH_TOKEN) { throw 'Configure PUBLISHER_TOKEN so the PR can trigger validation' }
+          node .github/scripts/release.mjs bump $env:RELEASE_VERSION
+          if ($LASTEXITCODE -ne 0) { throw 'Version preparation failed' }
+          $branch = "feat/release-$env:RELEASE_VERSION"
+          git switch -c $branch
+          if ($LASTEXITCODE -ne 0) { throw 'Release branch already exists' }
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add Cargo.toml Cargo.lock
+          git commit -m "chore(release): prepare $env:RELEASE_VERSION"
+          if ($LASTEXITCODE -ne 0) { throw 'Version commit failed' }
+          git push origin $branch
+          if ($LASTEXITCODE -ne 0) { throw 'Release branch push failed' }
+          gh pr create --draft --base main --head $branch --title "chore(release): prepare $env:RELEASE_VERSION" --body-file .tools/release-pr.md
+          if ($LASTEXITCODE -ne 0) { throw 'Draft release PR failed' }

@@ -43,3 +43,8 @@ The desktop dashboard adapts layout tokens and basic controls from
 contributions by ohne-b use PolyForm Noncommercial 1.0.0. This does not change inherited
 coc-auto licensing. Manrope and Material Design Icons notices are retained in
 [frontend/public/licenses/](frontend/public/licenses/) and bundled with the desktop app.
+
+Windows installers bundle OpenCV 4.12.0, its Apache 2.0 license and the accompanying
+third-party notices from the checksum-pinned Windows distribution. Visual C++ runtime DLLs
+come from the build host's Visual Studio redistributable directory and retain Microsoft's
+terms. No ADB, LDPlayer or game executable is redistributed with the desktop installer.

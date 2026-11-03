@@ -103,7 +103,7 @@ Never commit a virtual environment, runtime captures, logs, credentials or datab
 | `desktop/` | Tauri lifecycle and scoped native commands |
 | `frontend/` | React/TypeScript dashboard and offline browser tests |
 | `legacy/python/` | Python source, dashboard, settings examples, calibration and fixtures |
-| `scripts/` | Native Windows build dependency setup |
+| `scripts/` | Native Windows dependencies and installer build |
 | `.github/` | Repository policy, validation and supplied branding |
 
 The desktop supports observation and development farming/wall modes: selected-instance display
@@ -140,7 +140,12 @@ controls, errors, help popovers, narrow layouts and accessibility; it never open
 For the real desktop, omit `desktop-fixture`. That app stores settings/history in its
 Windows local app-data directory and connects only after selecting an instance and clicking
 Observe or Start. Closing cancels device work and drains the owned worker. Screenshots stay in memory.
-The unbundled binary requires the OpenCV DLL on PATH; installer packaging is separate work.
+The unbundled binary requires the OpenCV DLL on PATH. `./scripts/build-windows.ps1` builds
+an x64 NSIS installer with OpenCV, Visual C++ runtime DLLs, calibration and applicable
+notices beside the executable. It stages the installer and a source/hash manifest in
+ignored `artifacts/windows/`. `-DebugBuild` is for local packaging checks and cannot be
+published. Building never starts the desktop app or an emulator. An installer build alone
+does not establish clean-machine installation or live gameplay compatibility.
 
 Keep README short: logo, status, essential links, scope and attribution. `LEGACY.md`
 and inherited `docs/` media preserve the original instructions. Future user guides
@@ -202,8 +207,27 @@ substantive fixes; unresolved blockers prevent readiness. Never fabricate result
 
 ## Releases
 
-There is no Rust release pipeline yet. Keep planned work under `Unreleased` in CHANGELOG.
-Do not publish a Python or Rust package as part of repository setup. Before the first
-desktop release, resolve upstream permissions and add a Windows build/signing workflow
-that publishes the exact validated artifacts, with all applicable license notices.
-Keep signing credentials out of PR jobs, source, logs and chat.
+Successful canonical main validation retains the exact Windows installer for 30 days.
+PR validation has read-only permissions and receives no release secrets. No push or merge
+publishes a release. Local dirty builds are marked and rejected by the publisher.
+
+The owner can dispatch **Prepare release** with a new SemVer version. It opens a draft
+version/lockfile PR using `PUBLISHER_TOKEN`; add reviewed bullets under `## VERSION` in
+CHANGELOG.md, then complete normal validation and independent review. After merging,
+**Publish release** downloads that revision's successful main artifact, checks its source
+and SHA-256, signs it and verifies every uploaded draft asset before publication. It fails
+if main has advanced or the tag already exists; it never rebuilds the application.
+
+The `release` environment needs owner-held `RELEASE_TOKEN`, `TAURI_SIGNING_PRIVATE_KEY`
+and its optional `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. Resolve and record upstream permission
+in NOTICE.md before setting repository variable `UPSTREAM_PERMISSION_CONFIRMED=true`.
+Keep all secrets out of PR jobs, source, logs and chat. Environment approval rules can
+provide an additional publication gate. These credentials and permissions are not provisioned
+by committing the workflows, and no release has been published.
+
+Following TDM's release layout, published assets are `coc-bot-VERSION-windows-x64-setup.exe`,
+`latest.json` and `SHA256SUMS`. The title is `CoC Bot vVERSION`; notes use reviewed changelog
+bullets followed by compare and issue links. The signed manifest supplies update metadata;
+the current desktop does not download or install application updates automatically.
+Updater signatures are separate from Windows Authenticode signing. Validate installation,
+uninstallation, native dependencies and update signatures before the first public release.

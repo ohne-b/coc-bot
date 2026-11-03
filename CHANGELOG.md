@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add an x64 Windows installer with native dependencies and TDM-style release staging,
+  checksums, signed update metadata and separate manual preparation/publication workflows.
 - Port Home and two-stage Builder farming, dynamic troop/hero/spell deployment, resource
   checks, guarded wall spending and bounded recovery into the Rust worker.
 - Add farming/wall settings, pause/resume and a keyboard-accessible deployment editor.
