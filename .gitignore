@@ -6,7 +6,6 @@ captures/
 *.png
 !/.github/assets/desktop.png
 *.log
-!docs/*.png
 !/assets/calibration/english/**/*.png
 !/assets/calibration/digits/*.png
 !/crates/core/tests/fixtures/*.png

@@ -16,7 +16,8 @@ not replace third-party rights or supply a missing upstream license.
 - The local baseline also includes existing changes to `bot.py`, `test_bot.py` and
   the original README, three calibration images and `fixtures/wall-discount-price.png`.
   These are recorded separately in the `chore: import local coc-auto baseline` commit.
-- The original README, including local additions, is retained as [LEGACY.md](LEGACY.md).
+- The original README, including local additions, and its media remain in
+  [Git history](https://github.com/ohne-b/coc-bot/blob/a3b3346df05ab905c7990f6697509ca5fa6b35a5/LEGACY.md).
 - The Python runtime and old dashboard were retired after the Rust port; their final
   comparison baseline is preserved at commit `a3b3346`. Calibration and fixtures retain
   their history and attribution after relocation.

@@ -83,7 +83,7 @@ git diff --check
 
 Tests use fixtures, temporary storage and fake device boundaries. Do not launch a real
 bot or reuse a live emulator for automated validation. The Python runtime, relay and
-old web dashboard have been retired; [LEGACY.md](LEGACY.md) is historical reference.
+old web dashboard have been retired; their guides and media remain in Git history.
 Existing local settings, captures, logs and backups are never migrated or deleted
 automatically. Desktop settings belong in SQLite, separate from shared calibration.
 Never commit a virtual environment, runtime captures, logs, credentials or databases.
@@ -158,9 +158,10 @@ touch personal app data. Run `./scripts/test-windows-install.ps1 -Installer PATH
 to check installation, this diagnostic and uninstallation in an isolated directory.
 That script refuses an existing CoC Bot installation or running app.
 
-Keep README short: logo, status, essential links, scope and attribution. `LEGACY.md`
-and inherited `docs/` media preserve the original instructions. Future user guides
-belong in the GitHub wiki once it is published; verify links before moving instructions.
+Keep README short: logo, status, essential links, scope and attribution. Features and
+fixes do not automatically need README additions. User guides belong in the GitHub wiki
+once it is published; verify links before moving instructions. Retired guides and media
+remain in Git history, not in a second documentation tree.
 Keep wiki editing restricted to collaborators. Do not create a second planning/docs tree.
 Contributor policy stays here, technical contracts in AGENTS and release notes in CHANGELOG.
 
