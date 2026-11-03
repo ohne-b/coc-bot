@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add SQLite session history, timestamped resource observations, confirmed-loot statistics,
+  wall spending and paged error/recovery history, with offline persistence tests.
 - Start the Rust core with OpenCV screen and digit recognition, framebuffer decoding,
   captured-fixture regression tests and pinned Windows native build dependencies.
 - Move the Python migration baseline and its dashboard into `legacy/python/`.

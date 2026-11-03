@@ -55,6 +55,17 @@ wrong dimensions and weak numeric readings. English screens listed as pending ha
 no matching templates. Indonesian profiles and text anchors have been removed; shared
 icons and digits remain. Integrate ongoing English calibration additions with their fixtures.
 
+History tests use temporary SQLite files. The store preserves last known resource readings
+with timestamps and explicit failed/unavailable status, isolates sessions and villages, and
+counts confirmed attack results and wall spending separately. Loot totals and averages carry
+the number of measured attacks; unreadable results are not zero loot. Rates use the engine's
+monotonic active session time, excluding pauses and including searching/recovery. They describe
+confirmed earnings across the session, not estimates from storage changes. The engine must
+checkpoint active time and own the blocking SQLite connection off the UI thread. Startup may
+mark unfinished sessions interrupted only after acquiring the desktop single-instance lock.
+Foreign, corrupt or newer databases fail without being reset. Settings and UI integration
+are not implemented yet.
+
 The Python baseline remains an offline comparison suite during migration:
 
 ```powershell
@@ -79,7 +90,7 @@ Never commit a virtual environment, runtime captures, logs, credentials or datab
 
 | Location | Current purpose |
 | --- | --- |
-| `crates/core/` | Rust recognition, calibration validation and framebuffer decoding |
+| `crates/core/` | Rust recognition, calibration validation, typed telemetry and SQLite session history |
 | `crates/core/tests/` | Offline Rust regressions against captured fixtures |
 | `legacy/python/` | Python source, dashboard, settings examples, calibration and fixtures |
 | `scripts/` | Native Windows build dependency setup |
