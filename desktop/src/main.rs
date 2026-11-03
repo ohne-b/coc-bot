@@ -15,24 +15,38 @@ use tauri::{Manager, State};
 #[cfg(feature = "desktop-fixture")]
 mod fixture;
 mod installation;
+mod updates;
 
 struct Desktop {
     application: Result<Arc<Application>, String>,
     closing: AtomicBool,
+    drained: AtomicBool,
+    updates: updates::Updates,
 }
 
 impl Desktop {
     fn core(&self) -> Result<&Application, String> {
+        if self.closing.load(Ordering::SeqCst) || self.drained.load(Ordering::SeqCst) {
+            return Err("The application has stopped. Restart it to continue.".into());
+        }
         self.application
             .as_ref()
             .map(Arc::as_ref)
             .map_err(Clone::clone)
     }
+
+    async fn drain(&self) -> Result<(), String> {
+        self.drained.store(true, Ordering::SeqCst);
+        if let Ok(core) = &self.application {
+            core.shutdown().await.map_err(|e| e.to_string())?;
+        }
+        Ok(())
+    }
 }
 
 #[tauri::command]
 fn snapshot(state: State<'_, Desktop>) -> Result<Snapshot, String> {
-    Ok(state.core()?.snapshot())
+    Ok(state.application.as_ref().map_err(Clone::clone)?.snapshot())
 }
 #[tauri::command]
 fn screenshot(
@@ -87,6 +101,29 @@ async fn session_detail(state: State<'_, Desktop>, id: i64) -> Result<SessionDet
     state.core()?.detail(id).await.map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+fn restart_app(app: tauri::AppHandle) {
+    finish(&app, true);
+}
+
+fn finish(app: &tauri::AppHandle, restart: bool) {
+    let state = app.state::<Desktop>();
+    if state.closing.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    let handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let state = handle.state::<Desktop>();
+        state.updates.shutdown().await;
+        let _ = state.drain().await;
+        if restart {
+            handle.restart();
+        } else {
+            handle.exit(0);
+        }
+    });
+}
+
 fn main() {
     if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--check-installation")) {
         let result = std::env::current_exe()
@@ -117,6 +154,7 @@ fn main() {
     let builder = builder.plugin(tauri_plugin_window_state::Builder::default().build());
     builder
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             let assets = if cfg!(debug_assertions) {
                 std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../assets")
@@ -141,6 +179,8 @@ fn main() {
             app.manage(Desktop {
                 application,
                 closing: AtomicBool::new(false),
+                drained: AtomicBool::new(false),
+                updates: updates::Updates::default(),
             });
             Ok(())
         })
@@ -153,25 +193,47 @@ fn main() {
             start,
             stop,
             history,
-            session_detail
+            session_detail,
+            updates::desktop_update,
+            restart_app
         ])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 api.prevent_close();
-                let app = window.app_handle().clone();
-                let state = app.state::<Desktop>();
-                if state.closing.swap(true, Ordering::SeqCst) {
-                    return;
-                }
-                let core = state.application.as_ref().ok().cloned();
-                tauri::async_runtime::spawn(async move {
-                    if let Some(core) = core {
-                        let _ = core.shutdown().await;
-                    }
-                    app.exit(0);
-                });
+                finish(window.app_handle(), false);
             }
         })
         .run(context)
         .expect("Unable to launch CoC Bot");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn drained_application_keeps_its_snapshot_but_rejects_new_work() {
+        let directory = tempfile::tempdir().unwrap();
+        let assets = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../assets");
+        let core = Arc::new(
+            Application::open(directory.path().to_path_buf(), assets)
+                .await
+                .unwrap(),
+        );
+        let state = Desktop {
+            application: Ok(core.clone()),
+            closing: AtomicBool::new(false),
+            drained: AtomicBool::new(false),
+            updates: updates::Updates::default(),
+        };
+        assert!(state.core().is_ok());
+        state.closing.store(true, Ordering::SeqCst);
+        assert!(state.core().is_err());
+        state.drain().await.unwrap();
+        // An installer launch failure reopens the window, not the drained bot engine.
+        state.closing.store(false, Ordering::SeqCst);
+        assert!(state.core().is_err());
+        assert!(core.snapshot().session.is_none());
+        state.drain().await.unwrap();
+    }
 }

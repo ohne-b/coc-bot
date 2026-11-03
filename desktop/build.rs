@@ -10,6 +10,8 @@ fn main() {
             "pause",
             "history",
             "session_detail",
+            "desktop_update",
+            "restart_app",
         ]),
     ))
     .expect("Tauri build configuration");

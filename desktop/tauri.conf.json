@@ -2,6 +2,14 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "CoC Bot",
   "identifier": "app.ohne-b.coc-bot",
+  "plugins": {
+    "updater": {
+      "endpoints": ["https://github.com/ohne-b/coc-bot/releases/latest/download/latest.json"],
+      "pubkey": "",
+      "requireSignedVersion": true,
+      "windows": { "installMode": "passive" }
+    }
+  },
   "build": {
     "beforeDevCommand": "npm --prefix frontend run dev",
     "beforeBuildCommand": "npm --prefix frontend run build",
