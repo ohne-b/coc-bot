@@ -1,7 +1,7 @@
 use std::{
     path::{Path, PathBuf},
     sync::{
-        Arc,
+        Arc, Mutex,
         atomic::{AtomicBool, Ordering},
     },
     time::Duration,
@@ -14,7 +14,7 @@ use coc_bot_core::{
     device::process::{Invocation, Transport},
     settings::{SelectedDevice, Settings},
     storage::Store,
-    telemetry::{SessionState, Village},
+    telemetry::{SessionMode, SessionState, Village},
     vision::{Detection, read_image},
 };
 use opencv::{core::Mat, imgproc, prelude::*};
@@ -293,38 +293,175 @@ async fn an_abandoned_start_request_remains_cancellable() {
 
 #[tokio::test]
 async fn device_failure_is_reported_and_recorded_without_capturing_or_input() {
+    for mode in [SessionMode::Observe, SessionMode::Farming] {
+        let folder = tempfile::tempdir().unwrap();
+        let mut fake = Fake::new();
+        fake.bad_display = true;
+        let app = Application::with_transport(folder.path().join("data"), assets(), fake)
+            .await
+            .unwrap();
+        app.save_settings(preferences(folder.path())).await.unwrap();
+        app.start(mode).await.unwrap();
+        tokio::time::timeout(Duration::from_secs(2), async {
+            while app.snapshot().session.as_ref().unwrap().state == SessionState::Running {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .unwrap();
+        let snapshot = app.snapshot();
+        assert_eq!(
+            snapshot.session.as_ref().unwrap().state,
+            SessionState::Failed
+        );
+        assert!(snapshot.error.unwrap().contains("240 DPI"));
+        assert!(snapshot.frame_sequence.is_none());
+        assert_eq!(
+            app.detail(snapshot.session.unwrap().id)
+                .await
+                .unwrap()
+                .activity
+                .len(),
+            1
+        );
+        app.shutdown().await.unwrap();
+    }
+}
+
+#[derive(Clone)]
+struct BrokenCapture {
+    base: Fake,
+    calls: Arc<Mutex<Vec<String>>>,
+    launched: Arc<AtomicBool>,
+    stays_broken: bool,
+    stall_launch: bool,
+    entered_launch: Arc<Notify>,
+}
+
+impl BrokenCapture {
+    fn new(stays_broken: bool, stall_launch: bool) -> Self {
+        Self {
+            base: Fake::new(),
+            calls: Arc::new(Mutex::new(vec![])),
+            launched: Arc::new(AtomicBool::new(false)),
+            stays_broken,
+            stall_launch,
+            entered_launch: Arc::new(Notify::new()),
+        }
+    }
+}
+
+impl Transport for BrokenCapture {
+    async fn run(&self, command: Invocation, cancel: &CancellationToken) -> Result<Vec<u8>> {
+        if cancel.is_cancelled() {
+            return Err(Error::Cancelled);
+        }
+        let args = command
+            .args
+            .iter()
+            .map(|arg| arg.to_string_lossy())
+            .collect::<Vec<_>>()
+            .join(" ");
+        self.calls.lock().unwrap().push(args.clone());
+        match args.as_str() {
+            "list2" => Ok(b"0,LDPlayer,0,0,1,123,456\n".to_vec()),
+            "quit --index 0" => Ok(vec![]),
+            "launch --index 0" => {
+                self.entered_launch.notify_one();
+                if self.stall_launch {
+                    cancel.cancelled().await;
+                    return Err(Error::Cancelled);
+                }
+                self.launched.store(true, Ordering::SeqCst);
+                Ok(vec![])
+            }
+            "-s emulator-5554 exec-out screencap"
+                if self.stays_broken || !self.launched.load(Ordering::SeqCst) =>
+            {
+                Err(Error::Frame)
+            }
+            "-s emulator-5554 shell dumpsys window" => {
+                Ok(b"mCurrentFocus=com.supercell.clashofclans/Game".to_vec())
+            }
+            _ => self.base.run(command, cancel).await,
+        }
+    }
+}
+
+#[tokio::test]
+async fn a_connected_device_with_broken_capture_is_restarted_and_recovery_is_bounded() {
+    for stays_broken in [false, true] {
+        let folder = tempfile::tempdir().unwrap();
+        let fake = BrokenCapture::new(stays_broken, false);
+        let app = Application::with_transport(folder.path().join("data"), assets(), fake.clone())
+            .await
+            .unwrap();
+        let mut settings = preferences(folder.path());
+        settings.farming.recoveries = 2;
+        app.save_settings(settings).await.unwrap();
+        app.start(SessionMode::Farming).await.unwrap();
+        tokio::time::timeout(Duration::from_secs(12), async {
+            loop {
+                let snapshot = app.snapshot();
+                if stays_broken {
+                    if snapshot.session.unwrap().state == SessionState::Failed {
+                        assert_eq!(snapshot.error.as_deref(), Some("Recovery limit reached"));
+                        break;
+                    }
+                } else if snapshot.frame_sequence.is_some() {
+                    assert_eq!(snapshot.detection, Detection::Known(Screen::Home));
+                    assert!(snapshot.error.is_none());
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .unwrap();
+        app.stop().await.unwrap();
+        let calls = fake.calls.lock().unwrap().clone();
+        let restarts = if stays_broken { 2 } else { 1 };
+        assert_eq!(
+            calls
+                .iter()
+                .filter(|args| *args == "quit --index 0")
+                .count(),
+            restarts
+        );
+        assert_eq!(
+            calls
+                .iter()
+                .filter(|args| *args == "launch --index 0")
+                .count(),
+            restarts
+        );
+        assert!(
+            calls
+                .iter()
+                .all(|args| !args.contains("input ") && !args.contains("exec-in"))
+        );
+        app.shutdown().await.unwrap();
+    }
+}
+
+#[tokio::test]
+async fn stop_cancels_an_emulator_restart_without_launching_the_game() {
     let folder = tempfile::tempdir().unwrap();
-    let mut fake = Fake::new();
-    fake.bad_display = true;
-    let app = Application::with_transport(folder.path().join("data"), assets(), fake)
+    let fake = BrokenCapture::new(false, true);
+    let app = Application::with_transport(folder.path().join("data"), assets(), fake.clone())
         .await
         .unwrap();
     app.save_settings(preferences(folder.path())).await.unwrap();
-    app.start(coc_bot_core::telemetry::SessionMode::Observe)
+    app.start(SessionMode::Farming).await.unwrap();
+    tokio::time::timeout(Duration::from_secs(6), fake.entered_launch.notified())
         .await
         .unwrap();
-    tokio::time::timeout(Duration::from_secs(2), async {
-        while app.snapshot().session.as_ref().unwrap().state == SessionState::Running {
-            tokio::time::sleep(Duration::from_millis(10)).await;
-        }
-    })
-    .await
-    .unwrap();
-    let snapshot = app.snapshot();
-    assert_eq!(
-        snapshot.session.as_ref().unwrap().state,
-        SessionState::Failed
-    );
-    assert!(snapshot.error.unwrap().contains("240 DPI"));
-    assert!(snapshot.frame_sequence.is_none());
-    assert_eq!(
-        app.detail(snapshot.session.unwrap().id)
-            .await
-            .unwrap()
-            .activity
-            .len(),
-        1
-    );
+    tokio::time::timeout(Duration::from_secs(2), app.stop())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(app.snapshot().session.unwrap().state, SessionState::Stopped);
+    assert!(!fake.launched.load(Ordering::SeqCst));
     app.shutdown().await.unwrap();
 }
 

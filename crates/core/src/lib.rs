@@ -13,6 +13,8 @@ pub enum Error {
     Calibration(String),
     #[error("Screenshot dimensions do not match the calibration")]
     Resolution,
+    #[error("Set the emulator to the calibrated resolution and 240 DPI")]
+    Display,
     #[error("Screenshot data is incomplete or uses an unsupported format")]
     Frame,
     #[error("The value could not be read reliably")]

@@ -577,10 +577,14 @@ impl<T: Transport + Clone> Worker<T> {
             }
             s.revision += 1;
         });
-        match run.adb.verify(&run.token).await {
-            Ok(_) => {}
-            Err(Error::Resolution) => return Err(Error::Resolution),
-            Err(Error::Cancelled) => return Err(Error::Cancelled),
+        let probe = async {
+            run.adb.verify(&run.token).await?;
+            run.adb.capture(&run.token).await
+        }
+        .await;
+        let capture = match probe {
+            Ok(capture) => capture,
+            Err(error) if !recoverable(&error) => return Err(error),
             Err(_) => {
                 if run.player.running(&run.token).await? {
                     run.player.quit(&run.token).await?;
@@ -591,19 +595,18 @@ impl<T: Transport + Clone> Worker<T> {
                 loop {
                     match run.adb.verify(&run.token).await {
                         Ok(_) => break,
-                        Err(Error::Resolution) => return Err(Error::Resolution),
-                        Err(Error::Cancelled) => return Err(Error::Cancelled),
+                        Err(error) if !recoverable(&error) => return Err(error),
                         Err(_) if Instant::now() < deadline => {}
                         Err(error) => return Err(error),
                     }
                     tokio::select! {_ = run.token.cancelled()=>return Err(Error::Cancelled),_ = tokio::time::sleep(Duration::from_secs(2))=>{}}
                 }
+                run.adb.capture(&run.token).await?
             }
-        }
+        };
         if !run.adb.game_in_front(&run.token).await? {
             run.adb.launch_game(&run.token).await?;
         } else {
-            let capture = run.adb.capture(&run.token).await?;
             match self.detector.detect(&capture.image)? {
                 Detection::Known(
                     screen @ (Screen::Disconnected | Screen::Idle | Screen::SearchFailed),
