@@ -65,8 +65,30 @@ function Overview({
   }
   return (
     <>
-      <header className="page-header">
+      <header className="page-header overview-header">
         <h1>{mode === "walls" ? "Walls" : "Farming"}</h1>
+        <div className="header-village">
+          <Help label="Resources">
+            Balances come from recognized village screens. A last known value
+            stays visible when a read fails. Open its status for the observation
+            time. Unknown values are shown as a dash.
+          </Help>
+          <div
+            className="segmented-switch"
+            role="group"
+            aria-label="Resource village"
+          >
+            {(["home", "builder"] as const).map((item) => (
+              <button
+                key={item}
+                aria-pressed={village === item}
+                onClick={() => setVillage(item)}
+              >
+                {item === "home" ? "Home" : "Builder"}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="page-actions">
           {snapshot.settings.farming && (
             <Farming
@@ -129,28 +151,6 @@ function Overview({
         </p>
       )}
       <section className="resources-section">
-        <div className="section-heading">
-          <Help label="Resources">
-            Balances come from recognized village screens. A last known value
-            stays visible when a read fails. Open its status for the observation
-            time. Unknown values are shown as a dash.
-          </Help>
-          <div
-            className="segmented-switch"
-            role="group"
-            aria-label="Resource village"
-          >
-            {(["home", "builder"] as const).map((item) => (
-              <button
-                key={item}
-                aria-pressed={village === item}
-                onClick={() => setVillage(item)}
-              >
-                {item === "home" ? "Home" : "Builder"}
-              </button>
-            ))}
-          </div>
-        </div>
         <div className="resource-list">
           {(
             ["gold", "elixir", ...(village === "home" ? ["dark"] : [])] as const

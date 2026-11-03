@@ -403,6 +403,17 @@ for (const width of [360, 800, 1200]) {
           fullPage: true,
         });
       if (name === "Farming" || name === "Walls") {
+        const header = await page.locator(".overview-header").boundingBox();
+        const village = await page
+          .getByRole("group", { name: "Resource village" })
+          .boundingBox();
+        expect(header).not.toBeNull();
+        expect(village).not.toBeNull();
+        expect(
+          Math.abs(
+            village!.x + village!.width / 2 - header!.x - header!.width / 2,
+          ),
+        ).toBeLessThan(1);
         const settings = page.getByRole("button", {
           name: name === "Walls" ? "Wall settings" : "Farming settings",
           exact: true,
