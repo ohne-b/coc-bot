@@ -30,7 +30,7 @@ pub enum DamageColor {
     Green,
 }
 
-#[derive(Default)]
+#[derive(Clone, Default, PartialEq, Eq)]
 pub struct BattleResult {
     pub loot: Loot,
     pub damage: Option<u8>,

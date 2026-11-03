@@ -73,6 +73,10 @@ enum Stage {
         waited: bool,
     },
     Battle,
+    Result {
+        screen: Screen,
+        previous: Option<super::results::BattleResult>,
+    },
     Surrender,
     Return,
     Walls,
@@ -202,6 +206,7 @@ impl Engine {
             Stage::Plan { .. } => "Reading army",
             Stage::Deploy { .. } => "Deploying",
             Stage::Battle => "In battle",
+            Stage::Result { .. } => "Reading result",
             Stage::Surrender => "Ending battle",
             Stage::Return => "Returning to village",
             Stage::Walls => self
@@ -453,6 +458,9 @@ impl Engine {
             if let Stage::Next { stable, .. } = &mut self.stage {
                 *stable = None;
             }
+            if let Stage::Result { previous, .. } = &mut self.stage {
+                *previous = None;
+            }
             return Ok(outcome);
         };
         self.unknown_since = None;
@@ -553,17 +561,18 @@ impl Engine {
                 Screen::HomeResult | Screen::BuilderResult | Screen::Home | Screen::Builder
             )
         {
-            self.finish_attack(screen, now, at, &mut outcome);
-            if let Some(attack) = &mut outcome.attack {
-                let result = super::results::read(
-                    &profile.screen(screen)?.result_readings,
-                    image,
-                    digits,
-                    self.village(),
-                )?;
-                attack.loot = result.loot;
-                attack.damage = result.damage;
-                attack.stars = result.stars;
+            if matches!(screen, Screen::HomeResult | Screen::BuilderResult) {
+                self.go(
+                    Stage::Result {
+                        screen,
+                        previous: None,
+                    },
+                    now,
+                );
+                // Result counters and stars animate after the return button appears.
+                self.delay(now, 3000);
+            } else {
+                self.finish_attack(screen, now, at, &mut outcome);
             }
             return Ok(outcome);
         }
@@ -1374,6 +1383,41 @@ impl Engine {
                     }
                 }
             }
+            Stage::Result {
+                screen: expected,
+                previous,
+            } => {
+                if screen == expected {
+                    let reading = super::results::read(
+                        &profile.screen(screen)?.result_readings,
+                        image,
+                        digits,
+                        self.village(),
+                    )?;
+                    let stable = previous.as_ref() == Some(&reading);
+                    if stable || now.saturating_sub(self.since) >= 10_000 {
+                        let reading = if stable {
+                            reading
+                        } else {
+                            super::results::BattleResult::default()
+                        };
+                        self.finish_attack(screen, now, at, &mut outcome);
+                        if let Some(attack) = &mut outcome.attack {
+                            attack.loot = reading.loot;
+                            attack.damage = reading.damage;
+                            attack.stars = reading.stars;
+                        }
+                    } else {
+                        self.stage = Stage::Result {
+                            screen,
+                            previous: Some(reading),
+                        };
+                        self.delay(now, 500);
+                    }
+                } else if matches!(screen, Screen::Home | Screen::Builder) {
+                    self.finish_attack(screen, now, at, &mut outcome);
+                }
+            }
             Stage::Surrender => {
                 if screen == Screen::SurrenderConfirm {
                     self.action(vision, adb, screen, "confirm", now, cancel)
@@ -1500,6 +1544,90 @@ mod tests {
         vision::Detector,
     };
     use std::{path::Path, sync::Arc};
+
+    #[tokio::test]
+    async fn result_animation_settles_before_recording_or_returning() {
+        let profile = Profile::load(&root()).unwrap();
+        let digits = Digits::load(&root(), Path::new("calibration/digits")).unwrap();
+        let detector = Arc::new(
+            Detector::load(
+                &Calibration::load(&root().join("config.json")).unwrap(),
+                &root(),
+            )
+            .unwrap(),
+        );
+        let vision = GameVision {
+            profile: &profile,
+            digits: &digits,
+            detector,
+        };
+        let (fake, zero) = Fake::new("english-numeric-builder-zero.png");
+        let (_, two) = Fake::new("english-numeric-builder-two-stars.png");
+        let temp = tempfile::tempdir().unwrap();
+        let mut adb = fake.adb(temp.path());
+        for changing in [false, true] {
+            let mut engine = Engine::new(
+                Options {
+                    villages: vec![Village::Builder],
+                    ..Options::default()
+                },
+                SessionMode::Farming,
+                &profile,
+            )
+            .unwrap();
+            engine.stage = Stage::Battle;
+            engine.pending_attack = true;
+            let frames = if changing {
+                (0..=20)
+                    .map(|i| (1000 + i * 500, if i % 2 == 0 { &zero } else { &two }, true))
+                    .collect::<Vec<_>>()
+            } else {
+                vec![
+                    (1000, &zero, true),
+                    (2000, &zero, true),
+                    (3999, &zero, true),
+                    (4000, &zero, true),
+                    (4500, &two, true),
+                    (5000, &two, false),
+                    (5500, &two, true),
+                    (6000, &two, true),
+                ]
+            };
+            let last = frames.last().unwrap().0;
+            for (now, image, known) in frames {
+                let detection = if known {
+                    Detection::Known(Screen::BuilderResult)
+                } else {
+                    Detection::Unknown
+                };
+                let outcome = engine
+                    .tick(
+                        &vision,
+                        &mut adb,
+                        &FrameView {
+                            image,
+                            detection: &detection,
+                            elapsed_ms: now,
+                            captured_at_ms: now as i64,
+                        },
+                        &CancellationToken::new(),
+                    )
+                    .await
+                    .unwrap();
+                assert!(fake.taps.lock().unwrap().is_empty());
+                if now < last {
+                    assert!(outcome.attack.is_none());
+                } else {
+                    let attack = outcome.attack.unwrap();
+                    assert_eq!(attack.loot.gold, if changing { None } else { Some(75000) });
+                    assert_eq!(attack.damage, if changing { None } else { Some(72) });
+                    assert_eq!(attack.stars, if changing { None } else { Some(2) });
+                    assert!(matches!(engine.stage, Stage::Return));
+                    assert_eq!(engine.attacks, 1);
+                }
+            }
+        }
+    }
 
     #[tokio::test]
     async fn cart_goal_requires_stable_readings_and_stops_after_missing_visits() {
