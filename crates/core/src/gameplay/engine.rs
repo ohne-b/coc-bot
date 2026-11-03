@@ -741,12 +741,25 @@ impl Engine {
             Stage::Cart(step) => {
                 if screen == Screen::Builder && matches!(step, CartPhase::Find) {
                     if let Some(target) = profile.screen(screen)?.targets.get("cart") {
-                        if target.locate(image)?.is_some() {
-                            if self
-                                .action(vision, adb, screen, "cart", now, cancel)
-                                .await?
+                        if let Some(point) = target.locate(image)? {
+                            if self.last_action == 0 || now.saturating_sub(self.last_action) >= 2000
                             {
+                                adb.tap_checked(
+                                    detector,
+                                    &[screen],
+                                    |fresh| {
+                                        Ok((
+                                            target
+                                                .locate_near(fresh, point)?
+                                                .ok_or(Error::Unreadable)?,
+                                            (),
+                                        ))
+                                    },
+                                    cancel,
+                                )
+                                .await?;
                                 self.go(Stage::Cart(CartPhase::Claim), now);
+                                self.delay(now, 500);
                             }
                         } else if let Some([start, end]) =
                             target.pan.filter(|_| self.pans < target.pan_attempts)
@@ -2037,6 +2050,36 @@ mod tests {
         )
         .unwrap();
         assert!(target.locate(&no_cart).unwrap().is_none());
+        for moved in [false, true] {
+            let mut fresh = no_cart.try_clone().unwrap();
+            if moved {
+                Mat::roi(&image, core::Rect::new(789, 304, 52, 71))
+                    .unwrap()
+                    .copy_to(
+                        &mut Mat::roi_mut(&mut fresh, core::Rect::new(400, 300, 52, 71)).unwrap(),
+                    )
+                    .unwrap();
+                assert!(target.locate(&fresh).unwrap().is_some());
+            }
+            let fake = Fake::from_image(&fresh);
+            let mut adb = fake.adb(temp.path());
+            engine.stage = Stage::Cart(CartPhase::Find);
+            let result = engine
+                .tick(
+                    &vision,
+                    &mut adb,
+                    &FrameView {
+                        image: &image,
+                        detection: &Detection::Known(Screen::Builder),
+                        elapsed_ms: 6000,
+                        captured_at_ms: 6000,
+                    },
+                    &CancellationToken::new(),
+                )
+                .await;
+            assert!(matches!(result, Err(Error::Unreadable)));
+            assert!(fake.taps.lock().unwrap().is_empty());
+        }
     }
 
     #[tokio::test]

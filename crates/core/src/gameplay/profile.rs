@@ -134,12 +134,26 @@ impl Target {
         Ok(())
     }
     pub fn locate(&self, image: &Mat) -> Result<Option<Point>> {
+        self.locate_with_hint(image, None)
+    }
+    pub fn locate_near(&self, image: &Mat, point: Point) -> Result<Option<Point>> {
+        self.locate_with_hint(image, Some(point))
+    }
+    fn locate_with_hint(&self, image: &Mat, hint: Option<Point>) -> Result<Option<Point>> {
         let resolution = Resolution(image.cols() as u32, image.rows() as u32);
+        if let Some(point) = hint {
+            point.validate(resolution)?;
+        }
         let region = self
             .region
             .unwrap_or(Region(0, 0, resolution.0, resolution.1));
         for (template, offset) in &self.looks {
-            if let Some(hit) = template.find(image, region)? {
+            let hit = if let Some(point) = hint {
+                template.find_near(image, region, point, *offset)?
+            } else {
+                template.find(image, region)?
+            };
+            if let Some(hit) = hit {
                 let point = hit.point(*offset, resolution)?;
                 if self.avoid.iter().any(|Region(x, y, w, h)| {
                     point.0 >= *x && point.0 < x + w && point.1 >= *y && point.1 < y + h

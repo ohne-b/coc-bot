@@ -71,6 +71,39 @@ impl Template {
     pub fn find(&self, image: &Mat, region: Region) -> Result<Option<Hit>> {
         Ok(self.find_all(image, region)?.into_iter().next())
     }
+    pub fn find_near(
+        &self,
+        image: &Mat,
+        region: Region,
+        point: Point,
+        offset: [i32; 2],
+    ) -> Result<Option<Hit>> {
+        let resolution = Resolution(image.cols() as u32, image.rows() as u32);
+        region.validate(resolution)?;
+        point.validate(resolution)?;
+        let scale = self.scales.iter().copied().fold(0.0, f64::max);
+        let radius = |size: i32, offset: i32| {
+            ((f64::from(size) / 2.0 + f64::from(offset.unsigned_abs())) * scale).ceil() as u32 + 8
+        };
+        let rx = radius(self.image.cols(), offset[0]);
+        let ry = radius(self.image.rows(), offset[1]);
+        let x = point.0.saturating_sub(rx).max(region.0);
+        let y = point.1.saturating_sub(ry).max(region.1);
+        let right = point
+            .0
+            .saturating_add(rx)
+            .saturating_add(1)
+            .min(region.0 + region.2);
+        let bottom = point
+            .1
+            .saturating_add(ry)
+            .saturating_add(1)
+            .min(region.1 + region.3);
+        if right <= x || bottom <= y {
+            return Ok(None);
+        }
+        self.find(image, Region(x, y, right - x, bottom - y))
+    }
     pub fn find_all(&self, image: &Mat, region: Region) -> Result<Vec<Hit>> {
         let source = crop(image, region)?;
         let mut hits = Vec::new();
