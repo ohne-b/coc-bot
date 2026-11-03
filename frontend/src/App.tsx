@@ -161,7 +161,7 @@ function Overview({
             const known = value?.last_known;
             const live = fresh(value, Date.now(), running && !offline);
             return (
-              <div className="resource" key={key}>
+              <div className={`resource resource-${key}`} key={key}>
                 <Icon
                   path={key === "gold" ? mdiGold : mdiWaterOutline}
                   className={`resource-icon ${key}`}
