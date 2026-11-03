@@ -195,12 +195,14 @@ export default function History({ sessionId }: { sessionId?: number }) {
         >
           <button
             aria-pressed={view === "sessions"}
+            disabled={busy}
             onClick={() => setView("sessions")}
           >
             Sessions
           </button>
           <button
             aria-pressed={view === "activity"}
+            disabled={busy}
             onClick={() => setView("activity")}
           >
             Activity

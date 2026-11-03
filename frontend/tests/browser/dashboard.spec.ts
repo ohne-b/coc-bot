@@ -14,6 +14,7 @@ async function mock(
     holdNextFrame?: boolean;
     screen?: string;
     populated?: boolean;
+    holdDetail?: boolean;
   } = {},
 ) {
   const frame = readFileSync(
@@ -254,7 +255,13 @@ async function mock(
                 },
               ];
             if (command === "history") return [session];
-            if (command === "session_detail")
+            if (command === "session_detail") {
+              if (options.holdDetail) {
+                options.holdDetail = false;
+                await new Promise<void>((resolve) =>
+                  Object.assign(window, { resolveDetail: resolve }),
+                );
+              }
               return {
                 session,
                 resources: snapshot.resources,
@@ -264,6 +271,7 @@ async function mock(
                 walls: [],
                 activity: [],
               };
+            }
             throw `Unexpected command: ${command}`;
           },
         },
@@ -307,6 +315,31 @@ test("observation controls, help and history use native commands", async ({
     path: "../.tools/review-session.png",
     fullPage: true,
   });
+});
+
+test("pending session details cannot relabel the Activity view", async ({
+  page,
+}) => {
+  await mock(page, { holdDetail: true });
+  await page.goto("/");
+  await page.getByRole("button", { name: "History", exact: true }).click();
+  await page.getByRole("button", { name: /Nov/ }).click();
+  await expect(
+    page.getByRole("button", { name: "Activity", exact: true }),
+  ).toBeDisabled();
+  await page.evaluate(() =>
+    (window as unknown as { resolveDetail: () => void }).resolveDetail(),
+  );
+  await expect(
+    page.getByRole("heading", { name: "Home Village" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Back to history" }).click();
+  await page.getByRole("button", { name: "Activity", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "History", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("No recent activity")).toBeVisible();
+  await expect(page.getByRole("group", { name: "History view" })).toBeVisible();
 });
 
 test("desktop layout is accessible and keeps explanations behind info buttons", async ({
