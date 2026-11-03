@@ -31,10 +31,10 @@ or unredacted logs/screenshots. Report vulnerabilities using [SECURITY.md](SECUR
 
 ## Development
 
-Use Windows x64 with Visual Studio 2022 Build Tools (Desktop development with C++
+Use Windows x64 with Visual Studio 2022 or newer Build Tools (Desktop development with C++
 and a Windows SDK), Rustup, Python 3.13 and Node.js 24. Rust is pinned by
 `rust-toolchain.toml`. The native dependency script downloads checksum-pinned OpenCV
-4.12.0 and portable LLVM 19.1.7 into ignored `.tools/`; it needs no administrator rights.
+4.12.0 and portable LLVM 20.1.8 into ignored `.tools/`; it needs no administrator rights.
 The first download is about 1.1 GB. Dot-source it in each PowerShell session before
 running Rust binaries so the OpenCV DLL can be found.
 

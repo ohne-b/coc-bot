@@ -25,18 +25,18 @@ if (-not (Test-Path -LiteralPath "$opencvRoot\x64\vc16\bin\opencv_world4120.dll"
     if ($process.ExitCode -ne 0) { throw 'OpenCV extraction failed' }
 }
 
-$clangRoot = Join-Path $nativeRoot 'llvm-19.1.7\bin'
+$clangRoot = Join-Path $nativeRoot 'llvm-20.1.8\bin'
 if (-not (Test-Path -LiteralPath "$clangRoot\libclang.dll") -or
     -not (Test-Path -LiteralPath "$clangRoot\clang.exe") -or
-    -not (Test-Path -LiteralPath "$nativeRoot\llvm-19.1.7\lib\clang\19\include\stddef.h")) {
-    $archive = Get-VerifiedArchive 'llvm-19.1.7.tar.xz' `
-        'https://github.com/llvm/llvm-project/releases/download/llvmorg-19.1.7/clang%2Bllvm-19.1.7-x86_64-pc-windows-msvc.tar.xz' `
-        'b4557b4f012161f56a2f5d9e877ab9635cafd7a08f7affe14829bd60c9d357f0'
-    New-Item -ItemType Directory -Path "$nativeRoot\llvm-19.1.7" -Force | Out-Null
-    tar.exe -xf $archive -C "$nativeRoot\llvm-19.1.7" --strip-components=1 `
-        'clang+llvm-19.1.7-x86_64-pc-windows-msvc/bin/libclang.dll' `
-        'clang+llvm-19.1.7-x86_64-pc-windows-msvc/bin/clang.exe' `
-        'clang+llvm-19.1.7-x86_64-pc-windows-msvc/lib/clang/19/include'
+    -not (Test-Path -LiteralPath "$nativeRoot\llvm-20.1.8\lib\clang\20\include\stddef.h")) {
+    $archive = Get-VerifiedArchive 'llvm-20.1.8.tar.xz' `
+        'https://github.com/llvm/llvm-project/releases/download/llvmorg-20.1.8/clang%2Bllvm-20.1.8-x86_64-pc-windows-msvc.tar.xz' `
+        'f229769f11d6a6edc8ada599c0cda964b7dee6ab1a08c6cf9dd7f513e85b107f'
+    New-Item -ItemType Directory -Path "$nativeRoot\llvm-20.1.8" -Force | Out-Null
+    tar.exe -xf $archive -C "$nativeRoot\llvm-20.1.8" --strip-components=1 `
+        'clang+llvm-20.1.8-x86_64-pc-windows-msvc/bin/libclang.dll' `
+        'clang+llvm-20.1.8-x86_64-pc-windows-msvc/bin/clang.exe' `
+        'clang+llvm-20.1.8-x86_64-pc-windows-msvc/lib/clang/20/include'
     if ($LASTEXITCODE -ne 0) { throw 'LLVM extraction failed' }
 }
 
