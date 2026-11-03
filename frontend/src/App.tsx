@@ -78,7 +78,9 @@ function Overview({
           <Help label="Observation">
             Start runs the selected mode with saved settings. Observe reads
             screenshots without sending input. Pause suspends automation; Stop
-            cancels pending work. Missing readings remain unknown.
+            cancels pending work. Missing readings remain unknown. Selected
+            instance: {snapshot.settings.device?.index ?? "none"}. Session mode:{" "}
+            {title(snapshot.session?.mode ?? mode)}.
           </Help>
           {active ? (
             <>
@@ -178,18 +180,20 @@ function Overview({
                       </Help>
                     )}
                   </div>
-                  <strong>{number(known?.amount)}</strong>
-                  <div className="capacity-label">
-                    {known?.capacity
-                      ? `of ${number(known.capacity)}`
-                      : "Capacity —"}
+                  <div className="resource-amount">
+                    <strong>{number(known?.amount)}</strong>
+                    <span className="capacity-label">
+                      / {number(known?.capacity)}
+                    </span>
                   </div>
-                  {known?.capacity && (
+                  {known?.capacity ? (
                     <progress
                       aria-label={`${title(key)} storage`}
                       max={known.capacity}
                       value={known.amount}
                     />
+                  ) : (
+                    <div className="resource-track" aria-hidden="true" />
                   )}
                 </div>
               </div>
@@ -221,16 +225,6 @@ function Overview({
               </Empty>
             )}
           </div>
-          <dl className="capture-meta">
-            <div>
-              <dt>Instance</dt>
-              <dd>{snapshot.settings.device?.index ?? "—"}</dd>
-            </div>
-            <div>
-              <dt>Mode</dt>
-              <dd>{title(snapshot.session?.mode ?? mode)}</dd>
-            </div>
-          </dl>
           {screenshotError && (
             <p role="status" className="error">
               {screenshotError}
