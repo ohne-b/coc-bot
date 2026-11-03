@@ -1,0 +1,55 @@
+name: validation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, edited, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validation:
+    name: Validation
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Check changed-file whitespace
+        run: git diff --check HEAD^ HEAD
+      - name: Install baseline test dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Test repository automation
+        run: python -m unittest discover -s .github/scripts -p "test_*.py" -v
+      - name: Check conventional PR title
+        if: github.event_name == 'pull_request'
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: python .github/scripts/check_pr_title.py
+      - name: Test Python baseline offline
+        run: python -m unittest discover -v
+      - name: Check inherited dashboard JavaScript syntax
+        shell: pwsh
+        run: |
+          Get-ChildItem web -Filter *.js | ForEach-Object {
+            Get-Content -Raw -Encoding UTF8 $_.FullName | node --input-type=module --check
+            if ($LASTEXITCODE -ne 0) { throw "JavaScript syntax check failed: $_" }
+          }

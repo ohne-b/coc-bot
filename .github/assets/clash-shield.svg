@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" shape-rendering="geometricPrecision" role="img" aria-labelledby="logo-title logo-description">
+  <title id="logo-title">Clash Shield — gold and crimson bot emblem</title>
+  <desc id="logo-description">Symmetric shield with a shallow crest, faceted gold frame, brown and crimson panels, charcoal visor, and two gold eyes. All artwork is editable vector geometry; no embedded images, fonts, filters, or external resources. Light falls from the upper left.</desc>
+  <defs>
+    <linearGradient id="edge-brown" gradientUnits="userSpaceOnUse" x1="512" y1="52" x2="512" y2="981"><stop offset="0" stop-color="#41220e"/><stop offset="1" stop-color="#2e160b"/></linearGradient>
+    <linearGradient id="gold-crown" gradientUnits="userSpaceOnUse" x1="385" y1="59" x2="640" y2="137"><stop offset="0" stop-color="#fffac2"/><stop offset="0.5" stop-color="#ffe274"/><stop offset="1" stop-color="#edb62b"/></linearGradient>
+    <linearGradient id="gold-left-shoulder" gradientUnits="userSpaceOnUse" x1="181" y1="155" x2="355" y2="235"><stop offset="0" stop-color="#fff8b5"/><stop offset="0.5" stop-color="#ffdc5b"/><stop offset="1" stop-color="#f3ba2f"/></linearGradient>
+    <linearGradient id="gold-right-shoulder" gradientUnits="userSpaceOnUse" x1="675" y1="130" x2="852" y2="239"><stop offset="0" stop-color="#ffe789"/><stop offset="0.5" stop-color="#f7be36"/><stop offset="1" stop-color="#e6a01c"/></linearGradient>
+    <linearGradient id="gold-left-side" gradientUnits="userSpaceOnUse" x1="82" y1="280" x2="122" y2="527"><stop offset="0" stop-color="#ffdf63"/><stop offset="0.5" stop-color="#ffd34b"/><stop offset="1" stop-color="#e6a529"/></linearGradient>
+    <linearGradient id="gold-right-side" gradientUnits="userSpaceOnUse" x1="885" y1="282" x2="949" y2="586"><stop offset="0" stop-color="#eead26"/><stop offset="0.5" stop-color="#d89419"/><stop offset="1" stop-color="#b16b0c"/></linearGradient>
+    <linearGradient id="gold-left-lower" gradientUnits="userSpaceOnUse" x1="162" y1="523" x2="512" y2="967"><stop offset="0" stop-color="#eeb531"/><stop offset="0.5" stop-color="#cd8718"/><stop offset="1" stop-color="#a85b0c"/></linearGradient>
+    <linearGradient id="gold-right-lower" gradientUnits="userSpaceOnUse" x1="875" y1="530" x2="512" y2="967"><stop offset="0" stop-color="#d4901b"/><stop offset="0.5" stop-color="#b57111"/><stop offset="1" stop-color="#95490b"/></linearGradient>
+    <linearGradient id="gold-inner-top" gradientUnits="userSpaceOnUse" x1="512" y1="103" x2="512" y2="239"><stop offset="0" stop-color="#b66c09"/><stop offset="1" stop-color="#88430a"/></linearGradient>
+    <linearGradient id="gold-inner-left" gradientUnits="userSpaceOnUse" x1="117" y1="280" x2="165" y2="546"><stop offset="0" stop-color="#a05a0a"/><stop offset="1" stop-color="#bf7c11"/></linearGradient>
+    <linearGradient id="gold-inner-right" gradientUnits="userSpaceOnUse" x1="876" y1="285" x2="912" y2="546"><stop offset="0" stop-color="#ffe57e"/><stop offset="1" stop-color="#ffd346"/></linearGradient>
+    <linearGradient id="gold-inner-lower-left" gradientUnits="userSpaceOnUse" x1="210" y1="603" x2="512" y2="930"><stop offset="0" stop-color="#ffd84d"/><stop offset="1" stop-color="#ffe989"/></linearGradient>
+    <linearGradient id="gold-inner-lower-right" gradientUnits="userSpaceOnUse" x1="811" y1="604" x2="512" y2="930"><stop offset="0" stop-color="#fff5b6"/><stop offset="1" stop-color="#ffdc59"/></linearGradient>
+    <linearGradient id="recess" gradientUnits="userSpaceOnUse" x1="512" y1="130" x2="512" y2="905"><stop offset="0" stop-color="#46200e"/><stop offset="1" stop-color="#5b290f"/></linearGradient>
+    <linearGradient id="wood" gradientUnits="userSpaceOnUse" x1="210" y1="166" x2="520" y2="856"><stop offset="0" stop-color="#78381e"/><stop offset="0.5" stop-color="#995435"/><stop offset="1" stop-color="#72331e"/></linearGradient>
+    <linearGradient id="red" gradientUnits="userSpaceOnUse" x1="700" y1="166" x2="520" y2="856"><stop offset="0" stop-color="#c80d19"/><stop offset="0.5" stop-color="#f1232b"/><stop offset="1" stop-color="#c80919"/></linearGradient>
+    <linearGradient id="wood-lower" gradientUnits="userSpaceOnUse" x1="300" y1="688" x2="512" y2="894"><stop offset="0" stop-color="#70371e"/><stop offset="1" stop-color="#512615"/></linearGradient>
+    <linearGradient id="red-lower" gradientUnits="userSpaceOnUse" x1="720" y1="688" x2="512" y2="894"><stop offset="0" stop-color="#b60917"/><stop offset="1" stop-color="#8a0713"/></linearGradient>
+    <linearGradient id="visor-edge" gradientUnits="userSpaceOnUse" x1="512" y1="372" x2="512" y2="648"><stop offset="0" stop-color="#27190f"/><stop offset="1" stop-color="#1c130e"/></linearGradient>
+    <linearGradient id="visor-top" gradientUnits="userSpaceOnUse" x1="300" y1="384" x2="740" y2="414"><stop offset="0" stop-color="#8e90a1"/><stop offset="1" stop-color="#686b7d"/></linearGradient>
+    <linearGradient id="visor-left" gradientUnits="userSpaceOnUse" x1="210" y1="440" x2="260" y2="590"><stop offset="0" stop-color="#646779"/><stop offset="1" stop-color="#363b4c"/></linearGradient>
+    <linearGradient id="visor-right" gradientUnits="userSpaceOnUse" x1="770" y1="430" x2="808" y2="577"><stop offset="0" stop-color="#494c5d"/><stop offset="1" stop-color="#333746"/></linearGradient>
+    <linearGradient id="visor-bottom" gradientUnits="userSpaceOnUse" x1="512" y1="606" x2="512" y2="636"><stop offset="0" stop-color="#282d3c"/><stop offset="1" stop-color="#1a202d"/></linearGradient>
+    <linearGradient id="visor-face" gradientUnits="userSpaceOnUse" x1="355" y1="419" x2="668" y2="606"><stop offset="0" stop-color="#242834"/><stop offset="1" stop-color="#171c27"/></linearGradient>
+    <linearGradient id="eye-gold" gradientUnits="userSpaceOnUse" x1="0" y1="452" x2="0" y2="558"><stop offset="0" stop-color="#fff376"/><stop offset="1" stop-color="#ffd21d"/></linearGradient>
+    <linearGradient id="eye-amber" gradientUnits="userSpaceOnUse" x1="0" y1="454" x2="0" y2="556"><stop offset="0" stop-color="#ffbb09"/><stop offset="1" stop-color="#f49a06"/></linearGradient>
+    <linearGradient id="eye-depth" gradientUnits="userSpaceOnUse" x1="0" y1="452" x2="0" y2="562"><stop offset="0" stop-color="#bc760b"/><stop offset="1" stop-color="#9e5908"/></linearGradient>
+  </defs>
+  <g id="silhouette" inkscape:groupmode="layer" inkscape:label="01 • Outer silhouette">
+    <path id="shield-outline" inkscape:label="shield outline" d="M 512 52 C 570 52 624 56 654 70 C 674 79 682 110 706 124 C 733 140 790 145 840 154 C 916 166 954 205 954 274 L 954 490 C 954 588 913 668 852 744 C 776 838 642 918 522 975 C 518 978 514 981 512 981 C 510 981 506 978 502 975 C 382 918 248 838 172 744 C 111 668 70 588 70 490 L 70 274 C 70 205 108 166 184 154 C 234 145 291 140 318 124 C 342 110 350 79 370 70 C 400 56 454 52 512 52 Z" fill="url(#edge-brown)"/>
+  </g>
+  <g id="gold-frame" inkscape:groupmode="layer" inkscape:label="02 • Faceted gold frame">
+    <path id="gold-foundation" inkscape:label="gold foundation" d="M 512 64 C 570 64 620 68 649 81 C 669 90 677 120 701 134 C 733 151 790 156 838 165 C 909 177 942 210 942 274 L 942 490 C 942 580 904 662 842 737 C 767 830 636 912 518 963 C 516 965 514 966 512 966 C 510 966 508 965 506 963 C 388 912 257 830 182 737 C 120 662 82 580 82 490 L 82 274 C 82 210 115 177 186 165 C 234 156 291 151 323 134 C 347 120 355 90 375 81 C 404 68 454 64 512 64 Z" fill="#edb22c"/>
+    <path id="gold-outer-crest" inkscape:label="gold outer crest" d="M 375 81 C 404 68 454 64 512 64 C 570 64 620 68 649 81 L 632 115 C 610 106 564 102 512 102 C 460 102 414 106 392 115 Z" fill="url(#gold-crown)"/>
+    <path id="gold-outer-left-crest-transition" inkscape:label="gold outer left crest transition" d="M 375 81 C 355 90 347 120 323 134 C 291 151 234 156 186 165 C 115 177 82 210 82 274 L 118 280 C 118 238 143 214 196 205 C 244 198 304 190 337 173 C 367 156 377 123 392 115 Z" fill="url(#gold-left-shoulder)"/>
+    <path id="gold-outer-left-side" inkscape:label="gold outer left side" d="M 82 274 L 82 490 L 118 492 L 118 280 Z" fill="url(#gold-left-side)"/>
+    <path id="gold-outer-left-lower-curve" inkscape:label="gold outer left lower curve" d="M 82 490 C 82 580 120 662 182 737 C 257 830 388 912 506 963 C 508 965 510 966 512 966 L 512 930 C 510 930 508 929 506 928 C 404 882 284 799 213 715 C 155 644 118 569 118 492 Z" fill="url(#gold-left-lower)"/>
+    <path id="gold-outer-right-crest-transition" inkscape:label="gold outer right crest transition" d="M 649 81 C 669 90 677 120 701 134 C 733 151 790 156 838 165 C 909 177 942 210 942 274 L 906 280 C 906 238 881 214 828 205 C 780 198 720 190 687 173 C 657 156 647 123 632 115 Z" fill="url(#gold-right-shoulder)"/>
+    <path id="gold-outer-right-side" inkscape:label="gold outer right side" d="M 942 274 L 942 490 L 906 492 L 906 280 Z" fill="url(#gold-right-side)"/>
+    <path id="gold-outer-right-lower-curve" inkscape:label="gold outer right lower curve" d="M 942 490 C 942 580 904 662 842 737 C 767 830 636 912 518 963 C 516 965 514 966 512 966 L 512 930 C 514 930 516 929 518 928 C 620 882 740 799 811 715 C 869 644 906 569 906 492 Z" fill="url(#gold-right-lower)"/>
+    <path id="gold-inner-top-facet" inkscape:label="gold inner top facet" d="M 118 280 C 118 238 143 214 196 205 C 244 198 304 190 337 173 C 367 156 377 123 392 115 C 414 106 460 102 512 102 C 564 102 610 106 632 115 C 647 123 657 156 687 173 C 720 190 780 198 828 205 C 881 214 906 238 906 280 L 877 285 C 877 254 857 240 823 234 C 771 226 708 219 671 196 C 640 179 633 150 617 140 C 601 134 563 130 512 130 C 461 130 423 134 407 140 C 391 150 384 179 353 196 C 316 219 253 226 201 234 C 167 240 147 254 147 285 Z" fill="url(#gold-inner-top)"/>
+    <path id="gold-inner-left-side" inkscape:label="gold inner left side" d="M 118 280 L 118 492 L 147 491 L 147 285 Z" fill="url(#gold-inner-left)"/>
+    <path id="gold-inner-left-lower-curve" inkscape:label="gold inner left lower curve" d="M 118 492 C 118 569 155 644 213 715 C 284 799 404 882 506 928 C 508 929 510 930 512 930 L 512 905 C 510 905 509 904 506 902 C 418 858 301 774 235 695 C 181 628 147 557 147 491 Z" fill="url(#gold-inner-lower-left)"/>
+    <path id="gold-inner-right-side" inkscape:label="gold inner right side" d="M 906 280 L 906 492 L 877 491 L 877 285 Z" fill="url(#gold-inner-right)"/>
+    <path id="gold-inner-right-lower-curve" inkscape:label="gold inner right lower curve" d="M 906 492 C 906 569 869 644 811 715 C 740 799 620 882 518 928 C 516 929 514 930 512 930 L 512 905 C 514 905 515 904 518 902 C 606 858 723 774 789 695 C 843 628 877 557 877 491 Z" fill="url(#gold-inner-lower-right)"/>
+  </g>
+  <g id="shield-panels" inkscape:groupmode="layer" inkscape:label="03 • Recessed shield panels">
+    <path id="panel-recess" inkscape:label="panel recess" d="M 512 130 C 563 130 601 134 617 140 C 633 150 640 179 671 196 C 708 219 771 226 823 234 C 857 240 877 254 877 285 L 877 491 C 877 557 843 628 789 695 C 723 774 606 858 518 902 C 515 904 514 905 512 905 C 510 905 509 904 506 902 C 418 858 301 774 235 695 C 181 628 147 557 147 491 L 147 285 C 147 254 167 240 201 234 C 253 226 316 219 353 196 C 384 179 391 150 407 140 C 423 134 461 130 512 130 Z" fill="url(#recess)"/>
+    <path id="panel-brown" inkscape:label="panel brown" d="M 512 140 C 463 140 428 143 413 149 C 397 160 390 185 359 205 C 320 230 255 236 203 244 C 174 249 157 260 157 285 L 157 491 C 157 551 191 622 243 688 C 308 766 422 849 506 890 C 509 892 510 894 512 894 Z" fill="url(#wood)"/>
+    <path id="panel-crimson" inkscape:label="panel crimson" d="M 512 140 C 561 140 596 143 611 149 C 627 160 634 185 665 205 C 704 230 769 236 821 244 C 850 249 867 260 867 285 L 867 491 C 867 551 833 622 781 688 C 716 766 602 849 518 890 C 515 892 514 894 512 894 Z" fill="url(#red)"/>
+    <path id="panel-brown-lower-facet" inkscape:label="panel brown lower facet" d="M 243 688 C 308 766 422 849 506 890 C 509 892 510 894 512 894 L 512 812 Z" fill="url(#wood-lower)"/>
+    <path id="panel-crimson-lower-facet" inkscape:label="panel crimson lower facet" d="M 781 688 C 716 766 602 849 518 890 C 515 892 514 894 512 894 L 512 812 Z" fill="url(#red-lower)"/>
+  </g>
+  <g id="bot-face" inkscape:label="Bot face — move together" transform="translate(0 -56)">
+  <g id="visor" inkscape:groupmode="layer" inkscape:label="04 • Beveled charcoal visor">
+    <path id="visor-outer-rim" inkscape:label="visor outer rim" d="M270 372 H754 L828 446 V574 L754 648 H270 L196 574 V446 Z" fill="url(#visor-edge)"/>
+    <path id="visor-bevel-foundation" inkscape:label="visor bevel foundation" d="M275 384 H749 L816 451 V569 L749 636 H275 L208 569 V451 Z" fill="#3b4050"/>
+    <path id="visor-bevel-top" inkscape:label="visor bevel top" d="M275 384 H749 L726 414 H298 L240 466 L208 451 Z" fill="url(#visor-top)"/>
+    <path id="visor-bevel-left" inkscape:label="visor bevel left" d="M208 451 L240 466 V554 L208 569 Z" fill="url(#visor-left)"/>
+    <path id="visor-bevel-lower-left" inkscape:label="visor bevel lower left" d="M208 569 L240 554 L298 606 L275 636 Z" fill="url(#visor-left)"/>
+    <path id="visor-bevel-bottom" inkscape:label="visor bevel bottom" d="M275 636 L298 606 H726 L749 636 Z" fill="url(#visor-bottom)"/>
+    <path id="visor-bevel-lower-right" inkscape:label="visor bevel lower right" d="M749 636 L726 606 L784 554 L816 569 Z" fill="url(#visor-right)"/>
+    <path id="visor-bevel-right" inkscape:label="visor bevel right" d="M816 569 L784 554 V466 L816 451 Z" fill="url(#visor-right)"/>
+    <path id="visor-bevel-upper-right" inkscape:label="visor bevel upper right" d="M816 451 L784 466 L726 414 L749 384 Z" fill="url(#visor-right)"/>
+    <path id="visor-front" inkscape:label="visor front" d="M298 414 H726 L784 466 V554 L726 606 H298 L240 554 V466 Z" fill="url(#visor-face)"/>
+  </g>
+  <g id="eyes" inkscape:groupmode="layer" inkscape:label="05 • Gold eyes">
+    <g id="eye-left" inkscape:label="Left eye">
+    <path id="eye-left-depth" inkscape:label="eye left depth" d="M 354 454 H 430 Q 444 454 444 468 V 548 Q 444 562 430 562 H 354 Q 340 562 340 548 V 468 Q 340 454 354 454 Z" fill="url(#eye-depth)"/>
+    <path id="eye-left-face" inkscape:label="eye left face" d="M 354 452 H 430 Q 444 452 444 466 V 542 Q 444 556 430 556 H 354 Q 340 556 340 542 V 466 Q 340 452 354 452 Z" fill="url(#eye-gold)"/>
+    <path id="eye-left-diagonal" inkscape:label="eye left diagonal" d="M 343 551 L 439 457 Q 444 461 444 466 V 542 Q 444 556 430 556 H 354 Q 347 556 343 551 Z" fill="url(#eye-amber)"/>
+    <path id="eye-left-upper-bevel" inkscape:label="eye left upper bevel" d="M 354 452 H 430 Q 436 452 439 457 L 433 463 H 356 Q 351 463 351 468 V 536 L 343 551 Q 340 547 340 542 V 466 Q 340 452 354 452 Z" fill="#fff8a3" opacity="0.55"/>
+    </g>
+    <g id="eye-right" inkscape:label="Right eye">
+    <path id="eye-right-depth" inkscape:label="eye right depth" d="M 594 454 H 670 Q 684 454 684 468 V 548 Q 684 562 670 562 H 594 Q 580 562 580 548 V 468 Q 580 454 594 454 Z" fill="url(#eye-depth)"/>
+    <path id="eye-right-face" inkscape:label="eye right face" d="M 594 452 H 670 Q 684 452 684 466 V 542 Q 684 556 670 556 H 594 Q 580 556 580 542 V 466 Q 580 452 594 452 Z" fill="url(#eye-gold)"/>
+    <path id="eye-right-diagonal" inkscape:label="eye right diagonal" d="M 583 551 L 679 457 Q 684 461 684 466 V 542 Q 684 556 670 556 H 594 Q 587 556 583 551 Z" fill="url(#eye-amber)"/>
+    <path id="eye-right-upper-bevel" inkscape:label="eye right upper bevel" d="M 594 452 H 670 Q 676 452 679 457 L 673 463 H 596 Q 591 463 591 468 V 536 L 583 551 Q 580 547 580 542 V 466 Q 580 452 594 452 Z" fill="#fff8a3" opacity="0.55"/>
+    </g>
+  </g>
+  </g>
+</svg>
