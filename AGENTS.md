@@ -17,8 +17,14 @@ alternate agent instruction files or links.
   author cannot approve their own work. Follow CONTRIBUTING for evidence and rechecks.
 - When merging is authorized, use a conventional merge subject with the PR number.
   Release publication is separate. Never weaken checks to make a PR appear complete.
-- Keep README a short entry point. Preserve the inherited `LEGACY.md` and `docs/` media;
-  new user guides belong in the published wiki. Do not add plans or duplicate docs trees.
+- Keep README as short as TDM's: logo, tagline, screenshot, getting-started links,
+  essential project scope and license/credits. A new feature or fix does not require
+  a README addition. Do not append implementation details, progress reports, test results,
+  calibration notes, exhaustive feature lists or repeated explanations of UI controls.
+  Update it only when essential setup, usage, links or project scope change.
+- Put contributor instructions in CONTRIBUTING, technical contracts here, release changes
+  in CHANGELOG and user guides in the published wiki. Retired Python/web guides and media
+  belong in Git history; do not restore `LEGACY.md`, `docs/` or duplicate documentation trees.
 - The desktop UI and calibration are English only. Indonesian profiles and text anchors
   were removed at the maintainer's request. Keep shared icons and digits used by English;
   missing English screens remain explicitly uncalibrated, with no language fallback.

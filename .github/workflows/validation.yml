@@ -62,7 +62,7 @@ jobs:
       - name: Test Rust core and desktop offline
         shell: pwsh
         run: |
-          . ./scripts/windows-dependencies.ps1
+          . ./.github/scripts/windows-dependencies.ps1
           cargo test --workspace --all-targets --locked
           if ($LASTEXITCODE -ne 0) { throw 'Rust tests failed' }
           cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
@@ -72,14 +72,14 @@ jobs:
       - name: Build Windows installer from validated main
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         shell: pwsh
-        run: ./scripts/build-windows.ps1
+        run: ./.github/scripts/build-windows.ps1
       - name: Check installed native dependencies and uninstallation
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         shell: pwsh
         run: |
           $installers = @(Get-ChildItem artifacts/windows -Filter '*-setup.exe' -File)
           if ($installers.Count -ne 1) { throw 'Expected one staged installer' }
-          ./scripts/test-windows-install.ps1 -Installer $installers[0].FullName
+          ./.github/scripts/test-windows-install.ps1 -Installer $installers[0].FullName
       - name: Retain exact Windows release candidate
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
