@@ -24,6 +24,7 @@ export interface FarmingOptions {
   targets: Resource[];
   until_full: boolean;
   collect_cart: boolean;
+  cart_goal: boolean;
   attacks: number;
   minutes: number;
   searches: number;

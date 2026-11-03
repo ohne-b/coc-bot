@@ -2,7 +2,7 @@ use std::{
     path::{Path, PathBuf},
     sync::{
         Arc, Mutex,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
     },
     time::Duration,
 };
@@ -35,7 +35,12 @@ impl Fake {
     }
 
     fn capture(name: &str) -> Self {
-        let image = read_image(&assets().join("fixtures").join(name)).unwrap();
+        let image = read_image(
+            &Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("tests/fixtures")
+                .join(name),
+        )
+        .unwrap();
         let mut rgba = Mat::default();
         imgproc::cvt_color_def(&image, &mut rgba, imgproc::COLOR_BGR2RGBA).unwrap();
         let frame = [1280_u32, 720, 1]
@@ -95,7 +100,7 @@ impl Transport for Fake {
 }
 
 fn assets() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../legacy/python")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets")
 }
 fn preferences(folder: &Path) -> Settings {
     std::fs::write(folder.join("adb.exe"), []).unwrap();
@@ -227,7 +232,10 @@ async fn an_isolated_tooltip_cannot_authorize_a_village_resource_reading() {
 #[tokio::test]
 async fn contextual_tooltips_publish_the_captured_balance_and_capacity_for_the_correct_village() {
     let manifest: serde_json::Value = serde_json::from_slice(
-        &std::fs::read(assets().join("fixtures/english-readings.json")).unwrap(),
+        &std::fs::read(
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/english-readings.json"),
+        )
+        .unwrap(),
     )
     .unwrap();
     let mut checked = 0;
@@ -398,6 +406,10 @@ struct BrokenCapture {
     stays_broken: bool,
     stall_launch: bool,
     entered_launch: Arc<Notify>,
+    quitting: Arc<AtomicBool>,
+    stop_polls: Arc<AtomicUsize>,
+    shutdown_delay: usize,
+    entered_quit: Arc<Notify>,
 }
 
 impl BrokenCapture {
@@ -409,6 +421,10 @@ impl BrokenCapture {
             stays_broken,
             stall_launch,
             entered_launch: Arc::new(Notify::new()),
+            quitting: Arc::new(AtomicBool::new(false)),
+            stop_polls: Arc::new(AtomicUsize::new(0)),
+            shutdown_delay: 0,
+            entered_quit: Arc::new(Notify::new()),
         }
     }
 }
@@ -426,15 +442,33 @@ impl Transport for BrokenCapture {
             .join(" ");
         self.calls.lock().unwrap().push(args.clone());
         match args.as_str() {
-            "list2" => Ok(b"0,LDPlayer,0,0,1,123,456\n".to_vec()),
-            "quit --index 0" => Ok(vec![]),
+            "list2" => {
+                let stopped = self.quitting.load(Ordering::SeqCst)
+                    && self.stop_polls.fetch_add(1, Ordering::SeqCst) >= self.shutdown_delay;
+                Ok(if stopped {
+                    b"0,LDPlayer,0,0,0,0,0\n".to_vec()
+                } else {
+                    b"0,LDPlayer,0,0,1,123,456\n".to_vec()
+                })
+            }
+            "quit --index 0" => {
+                self.quitting.store(true, Ordering::SeqCst);
+                self.stop_polls.store(0, Ordering::SeqCst);
+                self.entered_quit.notify_one();
+                Ok(vec![])
+            }
             "launch --index 0" => {
+                assert!(
+                    self.stop_polls.load(Ordering::SeqCst) > self.shutdown_delay,
+                    "launch raced shutdown"
+                );
                 self.entered_launch.notify_one();
                 if self.stall_launch {
                     cancel.cancelled().await;
                     return Err(Error::Cancelled);
                 }
                 self.launched.store(true, Ordering::SeqCst);
+                self.quitting.store(false, Ordering::SeqCst);
                 Ok(vec![])
             }
             "-s emulator-5554 exec-out screencap"
@@ -525,6 +559,35 @@ async fn stop_cancels_an_emulator_restart_without_launching_the_game() {
     assert_eq!(app.snapshot().session.unwrap().state, SessionState::Stopped);
     assert!(!fake.launched.load(Ordering::SeqCst));
     app.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn emulator_restart_waits_for_shutdown_and_stop_cancels_that_wait() {
+    for cancel_wait in [false, true] {
+        let folder = tempfile::tempdir().unwrap();
+        let mut fake = BrokenCapture::new(false, false);
+        fake.shutdown_delay = if cancel_wait { usize::MAX } else { 2 };
+        let app = Application::with_transport(folder.path().join("data"), assets(), fake.clone())
+            .await
+            .unwrap();
+        app.save_settings(preferences(folder.path())).await.unwrap();
+        app.start(SessionMode::Farming).await.unwrap();
+        tokio::time::timeout(Duration::from_secs(2), fake.entered_quit.notified())
+            .await
+            .unwrap();
+        if !cancel_wait {
+            tokio::time::timeout(Duration::from_secs(8), fake.entered_launch.notified())
+                .await
+                .unwrap();
+        }
+        tokio::time::timeout(Duration::from_secs(2), app.stop())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(fake.launched.load(Ordering::SeqCst), !cancel_wait);
+        assert_eq!(app.snapshot().session.unwrap().state, SessionState::Stopped);
+        app.shutdown().await.unwrap();
+    }
 }
 
 #[test]

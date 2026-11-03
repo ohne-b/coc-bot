@@ -17,6 +17,9 @@ not replace third-party rights or supply a missing upstream license.
   the original README, three calibration images and `fixtures/wall-discount-price.png`.
   These are recorded separately in the `chore: import local coc-auto baseline` commit.
 - The original README, including local additions, is retained as [LEGACY.md](LEGACY.md).
+- The Python runtime and old dashboard were retired after the Rust port; their final
+  comparison baseline is preserved at commit `a3b3346`. Calibration and fixtures retain
+  their history and attribution after relocation.
 
 No project-wide LICENSE, COPYING or equivalent permission grant was found in that
 upstream revision. Its authors retain their rights. This repository does not assert
@@ -30,8 +33,9 @@ Record any later permission grant here without erasing the original attribution.
 
 ## Bundled assets
 
-The inherited Lilita One font retains its [SIL Open Font License 1.1](legacy/python/web/fonts/OFL.txt),
-including its copyright and reserved font name. Keep that notice with the font.
+The inherited Lilita One font remains under [assets/fonts/lilita-one/](assets/fonts/lilita-one/)
+with its [SIL Open Font License 1.1](assets/fonts/lilita-one/OFL.txt), copyright and
+reserved font name. It is retained for attribution and is not used by the new dashboard.
 Game screenshots, calibration crops and game names retain their respective owners'
 rights; the project license does not grant rights to Supercell assets or trademarks.
 

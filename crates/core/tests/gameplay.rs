@@ -19,7 +19,7 @@ use tokio_util::sync::CancellationToken;
 
 const EVENTS: &str = "add device 1: /dev/input/event4\n ABS_MT_SLOT : value 0, min 0, max 9\n ABS_MT_POSITION_X : value 0, min 0, max 1279\n ABS_MT_POSITION_Y : value 0, min 0, max 719\n";
 fn root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../legacy/python")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets")
 }
 struct State {
     screen: String,
@@ -48,7 +48,12 @@ impl Fake {
         let frames = files
             .into_iter()
             .map(|(name, file)| {
-                let image = read_image(&root().join("fixtures").join(file)).unwrap();
+                let image = read_image(
+                    &Path::new(env!("CARGO_MANIFEST_DIR"))
+                        .join("tests/fixtures")
+                        .join(file),
+                )
+                .unwrap();
                 let mut rgba = Mat::default();
                 imgproc::cvt_color_def(&image, &mut rgba, imgproc::COLOR_BGR2RGBA).unwrap();
                 let bytes = [1280_u32, 720, 1]
@@ -342,4 +347,26 @@ fn deployment_settings_reject_missing_required_strategy_points() {
     options.layouts.insert(Screen::HomeScout, layout);
     options.earthquake = true;
     assert!(options.validate(profile.resolution).is_err());
+}
+
+#[test]
+fn cart_target_validation_tracks_the_selected_villages() {
+    let resolution = coc_bot_core::calibration::Resolution(1280, 720);
+    let mut options = Options {
+        until_full: true,
+        cart_goal: true,
+        collect_cart: false,
+        ..Options::default()
+    };
+    assert!(options.validate(resolution).is_ok());
+    options.villages.push(Village::Builder);
+    assert!(options.validate(resolution).is_err());
+    options.collect_cart = true;
+    assert!(options.validate(resolution).is_ok());
+    options.targets.clear();
+    assert!(options.validate(resolution).is_err());
+    options.villages = vec![Village::Builder];
+    assert!(options.validate(resolution).is_ok());
+    options.cart_goal = false;
+    assert!(options.validate(resolution).is_err());
 }

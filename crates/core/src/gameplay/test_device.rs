@@ -15,7 +15,7 @@ use std::{
 use tokio_util::sync::CancellationToken;
 
 pub fn root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../legacy/python")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets")
 }
 #[derive(Clone)]
 pub struct Fake {
@@ -25,7 +25,12 @@ pub struct Fake {
 }
 impl Fake {
     pub fn new(file: &str) -> (Self, Mat) {
-        let image = read_image(&root().join("fixtures").join(file)).unwrap();
+        let image = read_image(
+            &Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("tests/fixtures")
+                .join(file),
+        )
+        .unwrap();
         (Self::from_image(&image), image)
     }
     pub fn from_image(image: &Mat) -> Self {

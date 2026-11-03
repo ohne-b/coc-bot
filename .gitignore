@@ -10,10 +10,9 @@ captures/
 !/.github/assets/desktop-observer.png
 *.log
 !docs/*.png
-!legacy/python/calibration/english/**/*.png
-!legacy/python/calibration/digits/*.png
-!legacy/python/fixtures/*.png
-!legacy/python/web/icons/*.png
+!/assets/calibration/english/**/*.png
+!/assets/calibration/digits/*.png
+!/crates/core/tests/fixtures/*.png
 config.json.bak
 config.json.tmp
 config.local.json

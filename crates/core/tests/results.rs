@@ -6,7 +6,7 @@ use coc_bot_core::{
 use std::path::{Path, PathBuf};
 
 fn root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../legacy/python")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets")
 }
 
 // Exercise layout selection with captured readable loot while result-specific captures are collected.
@@ -32,7 +32,10 @@ fn layout() -> ResultLayout {
 #[test]
 fn guarded_numeric_reader_rejects_ambiguous_or_wrong_layouts_and_preserves_unknowns() {
     let digits = Digits::load(&root(), Path::new("calibration/digits")).unwrap();
-    let image = read_image(&root().join("fixtures/english-home_scout.png")).unwrap();
+    let image = read_image(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/english-home_scout.png"),
+    )
+    .unwrap();
     let mut variant = layout();
     let read = results::read(
         std::slice::from_ref(&variant),
@@ -112,7 +115,9 @@ fn guarded_numeric_reader_rejects_ambiguous_or_wrong_layouts_and_preserves_unkno
         .elixir
         .is_none()
     );
-    let wrong = read_image(&root().join("fixtures/english-home.png")).unwrap();
+    let wrong =
+        read_image(&Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/english-home.png"))
+            .unwrap();
     assert!(
         results::read(
             &[layout()],

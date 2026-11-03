@@ -32,14 +32,15 @@ The Rust workspace currently implements calibrated screen and digit recognition 
 and SQLite session history with typed telemetry and offline regression tests. The Tauri
 application and React dashboard support observation, farming/wall controls, deployment editing,
 settings and session history. Gameplay is validated offline against captured screens and fake
-devices; complete English result/recovery calibration and live parity remain unfinished. The Python coc-auto baseline,
-dashboard, calibration and tests live in `legacy/python/`; retain them and their history
-until equivalent Rust behavior has meaningful regression coverage.
+devices; uncaptured English result/recovery calibration and live parity remain unfinished.
+Shared calibration lives in `assets/`; test captures and annotations live in
+`crates/core/tests/fixtures/`. The Python runtime and old dashboard are retired;
+their baseline remains in Git history at `a3b3346` for comparison.
 
 The target is Windows + LDPlayer + ADB, a modular Rust backend, OpenCV recognition,
 SQLite persistence and a Tauri 2 + React/TypeScript desktop UI. No Linux server, Docker,
-hosted relay or game-protocol reverse engineering. The inherited relay, Netlify config
-and web dashboard are reference material, not architecture for the new application.
+hosted relay or game-protocol reverse engineering. Do not restore the retired relay,
+Netlify configuration or old web dashboard as runtime dependencies.
 
 Use `crates/core/` for recognition, device control, farming,
 application state and persistence; `desktop/` for Tauri lifecycle/IPC; and `frontend/`
@@ -64,8 +65,7 @@ reset data. Keep personal app data separate from shared calibration and source.
   taps. Keep dry-run input guards, cancellation, timeouts and bounded recovery attempts.
 - Preserve resource reserves, price/icon checks and gem protections. Never spend gems,
   buy items or upgrade non-wall buildings. Do not remove safety checks to improve speed.
-- The Python code already reads loot, resources and capacity, but does not expose every
-  value as structured dashboard data. Preserve observations with their timestamps and
+- Preserve loot, resource and capacity observations with their timestamps and
   validity. Show unknown/stale values honestly; do not convert failed reads into zero.
 - Wall levels/distributions are not currently detected. Do not advertise them as working.
   Evaluate `nihatxp/clash-of-clans-vision` only when recognition work starts, including its
@@ -92,8 +92,8 @@ Avoid filler, technical implementation details and middle-dot separators in new 
 
 Use CONTRIBUTING's real commands for the current code. Automated tests use fixtures,
 temporary data and fake device/transport boundaries; never live accounts or emulators.
-Keep the legacy `legacy/python/web/` sources tracked until deliberately retired. Do not copy the
-reference project's generated-web ignore rule onto this repository.
+Keep React sources and fixture assets tracked. Do not copy the reference project's
+generated-web ignore rule onto this repository.
 Add Rust and frontend checks alongside the implementation; never claim absent build
 steps passed. Preserve workflow trust boundaries, immutable action pins and read-only
 PR permissions. Ordinary CI and merges never deploy, contact a game account or publish.

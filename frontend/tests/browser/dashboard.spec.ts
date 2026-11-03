@@ -16,7 +16,7 @@ async function mock(
   } = {},
 ) {
   const frame = readFileSync(
-    "../legacy/python/fixtures/english-home.png",
+    "../crates/core/tests/fixtures/english-home.png",
   ).toString("base64");
   await page.addInitScript(
     ({ frame, options }) => {
@@ -40,6 +40,7 @@ async function mock(
             targets: ["gold", "elixir"],
             until_full: false,
             collect_cart: true,
+            cart_goal: false,
             attacks: 0,
             minutes: 0,
             searches: 50,
@@ -479,6 +480,9 @@ test("farming controls preserve settings and lock editing throughout a paused se
   await page.getByText("Farming settings", { exact: true }).click();
   await page.getByLabel("Attack limit", { exact: true }).fill("4");
   await page.getByLabel("Home deployment").selectOption("ring");
+  await page.getByRole("combobox", { name: /^Village/ }).selectOption("both");
+  await page.getByLabel("Stop when targets are full").check();
+  await page.getByLabel("Elixir Cart full", { exact: true }).check();
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByRole("status")).toHaveText("Saved");
   await page.getByRole("button", { name: "Start", exact: true }).click();
@@ -486,6 +490,9 @@ test("farming controls preserve settings and lock editing throughout a paused se
     page.getByRole("button", { name: "Pause", exact: true }),
   ).toBeVisible();
   await expect(page.getByLabel("Attack limit", { exact: true })).toBeDisabled();
+  await expect(
+    page.getByLabel("Elixir Cart full", { exact: true }),
+  ).toBeDisabled();
   await page.getByRole("button", { name: "Pause", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Resume", exact: true }),
@@ -500,6 +507,9 @@ test("farming controls preserve settings and lock editing throughout a paused se
   await expect(page.getByLabel("Attack limit", { exact: true })).toHaveValue(
     "4",
   );
+  await expect(
+    page.getByLabel("Elixir Cart full", { exact: true }),
+  ).toBeChecked();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 });
 

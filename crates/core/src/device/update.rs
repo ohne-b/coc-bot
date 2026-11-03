@@ -182,9 +182,8 @@ impl<T: Transport> Adb<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    const OFFER: &str =
-        include_str!("../../../../legacy/python/fixtures/playstore-update-offer.xml");
-    const PAGE: &str = include_str!("../../../../legacy/python/fixtures/playstore-game-page.xml");
+    const OFFER: &str = include_str!("../../tests/fixtures/playstore-update-offer.xml");
+    const PAGE: &str = include_str!("../../tests/fixtures/playstore-game-page.xml");
     #[test]
     fn only_an_enabled_english_update_for_the_game_is_accepted() {
         let res = Resolution(1280, 720);

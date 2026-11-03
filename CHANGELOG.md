@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Retire Python, the old web dashboard and relay; keep English calibration in `assets/`
+  and captured regression fixtures beside the Rust tests.
+- Add the Elixir Cart stopping target, bounded failed-opening handling and low-memory
+  recovery that waits for the selected emulator to finish shutting down.
+- Reject redacted star readings and verify fixture privacy/annotations in Rust.
+- Add an offline packaged-executable diagnostic and isolated Windows installer checks.
 - Integrate captured English result layouts and green damage readings, and preserve HUD
   digits joined to tooltip borders without weakening recognition confidence.
 - Add an x64 Windows installer with native dependencies and TDM-style release staging,
@@ -24,7 +30,7 @@
   guarded taps/swipes and multitouch with cleanup after interruption.
 - Start the Rust core with OpenCV screen and digit recognition, framebuffer decoding,
   captured-fixture regression tests and pinned Windows native build dependencies.
-- Move the Python migration baseline and its dashboard into `legacy/python/`.
+- Preserve the Python migration baseline and its dashboard in Git history.
 - Make English the only calibration profile, retain shared icons and digits, and remove
   Indonesian profiles, text templates and fallback anchors for uncaptured screens.
 - Add real English UI-only regression captures and explicit coverage gaps while retaining
@@ -37,4 +43,5 @@
 - Record PolyForm Noncommercial terms for original contributions and the unresolved
   upstream license scope.
 
-The Rust rewrite is in progress. No desktop release is available.
+No desktop release is available. Uncaptured English dialogs remain pending, and live
+gameplay compatibility has not been verified.

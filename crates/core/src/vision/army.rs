@@ -421,6 +421,9 @@ pub fn stars(image: &Mat, regions: &[Region]) -> Result<u8> {
     let colour = hsv(image)?;
     let mut count = 0;
     for &region in regions {
+        if share(&colour, region, |p| p[2] > 0)? == 0.0 {
+            return Err(Error::Unreadable);
+        }
         if share(&colour, region, |p| {
             (8..=30).contains(&p[0]) && p[1] >= 120 && p[2] >= 150
         })? >= 0.25

@@ -5,7 +5,7 @@ use coc_bot_core::{
 };
 use std::path::{Path, PathBuf};
 fn root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../legacy/python")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets")
 }
 #[test]
 fn english_wall_confirmations_require_matching_currency_and_reserves() {
@@ -26,7 +26,12 @@ fn english_wall_confirmations_require_matching_currency_and_reserves() {
         ),
     ] {
         let spec = &profile.walls[village];
-        let image = read_image(&root().join("fixtures").join(file)).unwrap();
+        let image = read_image(
+            &Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("tests/fixtures")
+                .join(file),
+        )
+        .unwrap();
         let cost = spec
             .confirm_cost(&image, &digits, resource, u32::MAX, 0)
             .unwrap();
@@ -58,8 +63,13 @@ fn english_wall_confirmations_require_matching_currency_and_reserves() {
 #[test]
 fn village_target_and_wall_selection_are_loaded_from_english_assets() {
     let profile = Profile::load(&root()).unwrap();
-    let home = read_image(&root().join("fixtures/english-home.png")).unwrap();
-    let selected = read_image(&root().join("fixtures/english-wall_selected.png")).unwrap();
+    let home =
+        read_image(&Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/english-home.png"))
+            .unwrap();
+    let selected = read_image(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/english-wall_selected.png"),
+    )
+    .unwrap();
     assert!(profile.walls["home"].gem_shift(&home).is_ok());
     assert!(!profile.walls["home"].buttons(&selected).unwrap().is_empty());
 }

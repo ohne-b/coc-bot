@@ -14,7 +14,7 @@ use opencv::{
 use serde::Deserialize;
 
 fn root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../legacy/python")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets")
 }
 fn profile() -> Calibration {
     Calibration::load(&root().join("config.json")).unwrap()
@@ -27,12 +27,19 @@ fn english_captured_screens_match_baseline() {
         file: String,
         state: Option<Screen>,
     }
-    let manifest: BTreeMap<String, Fixture> =
-        serde_json::from_slice(&std::fs::read(root().join("fixtures/english.json")).unwrap())
-            .unwrap();
+    let manifest: BTreeMap<String, Fixture> = serde_json::from_slice(
+        &std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/english.json"))
+            .unwrap(),
+    )
+    .unwrap();
     let detector = Detector::load(&profile(), &root()).unwrap();
     for (name, fixture) in manifest {
-        let image = read_image(&root().join("fixtures").join(fixture.file)).unwrap();
+        let image = read_image(
+            &Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("tests/fixtures")
+                .join(fixture.file),
+        )
+        .unwrap();
         assert_eq!(
             detector.detect(&image).unwrap(),
             fixture.state.map_or(Detection::Unknown, Detection::Known),
@@ -46,7 +53,12 @@ fn rejects_black_frames_wrong_dimensions_and_ambiguous_screens() {
     let mut calibration = profile();
     let detector = Detector::load(&calibration, &root()).unwrap();
     for file in ["english-home.png", "english-builder.png"] {
-        let frame = read_image(&root().join("fixtures").join(file)).unwrap();
+        let frame = read_image(
+            &Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("tests/fixtures")
+                .join(file),
+        )
+        .unwrap();
         let mut dimmed = Mat::default();
         frame.convert_to(&mut dimmed, -1, 0.5, 0.0).unwrap();
         assert_eq!(detector.detect(&dimmed).unwrap(), Detection::Unknown);
@@ -59,7 +71,9 @@ fn rejects_black_frames_wrong_dimensions_and_ambiguous_screens() {
     duplicate.overrides.clear();
     calibration.screens.insert(Screen::Builder, duplicate);
     let ambiguous = Detector::load(&calibration, &root()).unwrap();
-    let home = read_image(&root().join("fixtures/english-home.png")).unwrap();
+    let home =
+        read_image(&Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/english-home.png"))
+            .unwrap();
     assert_eq!(
         ambiguous.detect(&home).unwrap(),
         Detection::Ambiguous(vec![Screen::Home, Screen::Builder])
@@ -80,7 +94,9 @@ fn pending_english_templates_never_authorize_input() {
 fn profiles_validate_and_bad_regions_paths_and_tolerances_fail_closed() {
     let calibration = profile();
     Detector::load(&calibration, &root()).unwrap();
-    assert!(Calibration::load(&root().join("config.example.json")).is_err());
+    let invalid_file = tempfile::NamedTempFile::new().unwrap();
+    std::fs::write(invalid_file.path(), b"{}").unwrap();
+    assert!(Calibration::load(invalid_file.path()).is_err());
     for region in [
         Region(0, 0, 0, 1),
         Region(u32::MAX, 0, 1, 1),
@@ -177,19 +193,29 @@ fn real_capacity_gem_and_damage_digits_match_the_baseline() {
     for resource in ["gold", "elixir"] {
         let region: Region =
             serde_json::from_value(config["capacity"]["home"][resource]["max"].clone()).unwrap();
-        let image =
-            read_image(&root().join(format!("fixtures/english-tooltip_{resource}.png"))).unwrap();
+        let image = read_image(
+            &Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join(format!("tests/fixtures/english-tooltip_{resource}.png")),
+        )
+        .unwrap();
         assert_eq!(
             digits.number(&crop(&image, region).unwrap(), 0.65).unwrap(),
             26_000_000
         );
     }
-    let gems = read_image(&root().join("fixtures/gems-over-walls.png")).unwrap();
+    let gems = read_image(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/gems-over-walls.png"),
+    )
+    .unwrap();
     assert_eq!(digits.trailing(&gems, 0.65, 70).unwrap(), 1096);
     let Region(x, y, w, h) =
         serde_json::from_value(config["screens"]["home_battle"]["damage"].clone()).unwrap();
     for (name, expected) in [("49", 49), ("94-two-stars", 94), ("100", 100)] {
-        let image = read_image(&root().join(format!("fixtures/battle-damage-{name}.png"))).unwrap();
+        let image = read_image(
+            &Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join(format!("tests/fixtures/battle-damage-{name}.png")),
+        )
+        .unwrap();
         assert_eq!(
             digits
                 .percent(&crop(&image, Region(x - 1060, y - 495, w, h)).unwrap())
@@ -197,7 +223,11 @@ fn real_capacity_gem_and_damage_digits_match_the_baseline() {
             expected
         );
     }
-    let mut image = read_image(&root().join("fixtures/battle-damage-94-two-stars.png")).unwrap();
+    let mut image = read_image(
+        &Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/fixtures/battle-damage-94-two-stars.png"),
+    )
+    .unwrap();
     for y in 33..55 {
         for x in 158..175 {
             *image.at_2d_mut::<core::Vec3b>(y, x).unwrap() = core::Vec3b::all(255);

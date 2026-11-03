@@ -1,16 +1,8 @@
 {
-  "adb": "C:\\LDPlayer\\LDPlayer14\\adb.exe",
-  "serial": "emulator-5554",
-  "tesseract": "C:\\Program Files\\Tesseract-OCR\\tesseract.exe",
   "resolution": [
     1280,
     720
   ],
-  "minimum": {
-    "gold": 0,
-    "elixir": 0,
-    "dark": 0
-  },
   "screens": {
     "home": {
       "anchors": [
@@ -2159,64 +2151,6 @@
       "max_score": 0.08
     }
   },
-  "touch_device": "/dev/input/event4",
-  "storage": {
-    "home": {
-      "gold": {
-        "row": 53,
-        "left": 1014,
-        "right": 1198,
-        "hue": [
-          15,
-          35
-        ],
-        "min_saturation": 150
-      },
-      "elixir": {
-        "row": 120,
-        "left": 1014,
-        "right": 1198,
-        "hue": [
-          125,
-          165
-        ],
-        "min_saturation": 120
-      }
-    },
-    "builder": {
-      "gold": {
-        "row": 53,
-        "left": 1014,
-        "right": 1198,
-        "hue": [
-          15,
-          35
-        ],
-        "min_saturation": 150
-      },
-      "elixir": {
-        "row": 120,
-        "left": 1014,
-        "right": 1198,
-        "hue": [
-          125,
-          165
-        ],
-        "min_saturation": 120
-      }
-    }
-  },
-  "cart_bar": {
-    "row": 620,
-    "left": 515,
-    "right": 808,
-    "hue": [
-      125,
-      165
-    ],
-    "min_saturation": 100,
-    "from": "left"
-  },
   "capacity": {
     "home": {
       "elixir": {
@@ -2384,8 +2318,6 @@
       160
     ]
   },
-  "ldconsole": "C:\\LDPlayer\\LDPlayer14\\ldconsole.exe",
-  "ld_index": 0,
   "walls": {
     "home": {
       "build": [
@@ -2615,9 +2547,6 @@
         "icon_min": 40
       }
     }
-  },
-  "remote": {
-    "port": 8766
   },
   "calibration_language": "en",
   "calibration_observed_screens": [

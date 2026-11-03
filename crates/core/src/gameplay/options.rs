@@ -25,6 +25,7 @@ pub struct Options {
     pub targets: Vec<Resource>,
     pub until_full: bool,
     pub collect_cart: bool,
+    pub cart_goal: bool,
     pub attacks: u32,
     pub minutes: u32,
     pub searches: u32,
@@ -52,6 +53,7 @@ impl Default for Options {
             targets: vec![Resource::Gold, Resource::Elixir],
             until_full: false,
             collect_cart: true,
+            cart_goal: false,
             attacks: 0,
             minutes: 0,
             searches: 50,
@@ -77,7 +79,13 @@ impl Options {
             || self.villages.len() > 2
             || (self.villages.len() == 2 && self.villages[0] == self.villages[1])
             || self.targets.len() > 3
-            || (self.until_full && self.targets.is_empty())
+            || (self.until_full
+                && self.targets.is_empty()
+                && !(self.cart_goal && self.villages == [Village::Builder]))
+            || (self.until_full
+                && self.cart_goal
+                && self.villages.contains(&Village::Builder)
+                && !self.collect_cart)
             || self
                 .targets
                 .iter()
