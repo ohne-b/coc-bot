@@ -1,5 +1,5 @@
 <p align="center">
-  <img src=".github/assets/clash-shield.svg" width="128" alt="CoC Bot shield logo">
+  <img src=".github/assets/clash-shield.svg" width="160" alt="CoC Bot shield logo">
 </p>
 
 <h1 align="center">CoC Bot</h1>
