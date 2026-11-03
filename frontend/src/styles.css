@@ -144,6 +144,7 @@ main:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  margin-bottom: 0;
 }
 .deployment-surface {
   position: relative;
@@ -273,12 +274,6 @@ nav {
 }
 .nav-item.active svg {
   color: var(--accent);
-}
-.sidebar-footer {
-  margin-top: auto;
-  padding: 20px 24px;
-  color: var(--muted);
-  font-size: 12px;
 }
 .workspace {
   padding: 28px 40px;
@@ -829,9 +824,6 @@ td {
     min-height: 44px;
     padding: 8px 4px;
     font-size: 12px;
-  }
-  .sidebar-footer {
-    display: none;
   }
   .workspace {
     padding: 20px 16px;
