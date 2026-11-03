@@ -23,7 +23,8 @@ fn command(script: &str) -> Invocation {
             .to_vec(),
         input: vec![],
         output_limit: 4096,
-        timeout: Duration::from_secs(10),
+        // Cold PowerShell startup on Windows CI can exceed ten seconds.
+        timeout: Duration::from_secs(30),
     }
 }
 
@@ -53,7 +54,7 @@ async fn preserves_binary_stdio_and_reports_process_failure() {
 
 #[tokio::test]
 async fn bounds_both_output_streams_and_time() {
-    let mut invocation = command("[Console]::Write('x' * 4097); Start-Sleep -Seconds 30");
+    let mut invocation = command("[Console]::Write('x' * 4097); Start-Sleep -Seconds 120");
     assert!(matches!(
         Process
             .run(invocation.clone(), &CancellationToken::new())
@@ -64,7 +65,7 @@ async fn bounds_both_output_streams_and_time() {
         .args
         .last_mut()
         .unwrap()
-        .clone_from(&"[Console]::Error.Write('x' * 65537); Start-Sleep -Seconds 30".into());
+        .clone_from(&"[Console]::Error.Write('x' * 65537); Start-Sleep -Seconds 120".into());
     assert!(matches!(
         Process.run(invocation, &CancellationToken::new()).await,
         Err(Error::OutputLimit)
@@ -84,7 +85,7 @@ async fn cancellation_reaps_the_owned_process() {
     let pid_file = folder.path().join("pid.txt");
     std::fs::write(
         &script,
-        "[IO.File]::WriteAllText($args[0], [string]$PID)\nStart-Sleep -Seconds 30\n",
+        "[IO.File]::WriteAllText($args[0] + '.tmp', [string]$PID)\n[IO.File]::Move($args[0] + '.tmp', $args[0])\nStart-Sleep -Seconds 120\n",
     )
     .unwrap();
     let invocation = Invocation {
@@ -98,19 +99,25 @@ async fn cancellation_reaps_the_owned_process() {
         ],
         input: vec![],
         output_limit: 4096,
-        timeout: Duration::from_secs(10),
+        timeout: Duration::from_secs(60),
     };
     let token = CancellationToken::new();
     let child_token = token.clone();
     let task = tokio::spawn(async move { Process.run(invocation, &child_token).await });
-    let deadline = Instant::now() + Duration::from_secs(8);
+    let deadline = Instant::now() + Duration::from_secs(30);
     while !pid_file.exists() {
         assert!(Instant::now() < deadline, "Fake process did not start");
         tokio::time::sleep(Duration::from_millis(20)).await;
     }
     let pid: u32 = std::fs::read_to_string(pid_file).unwrap().parse().unwrap();
     token.cancel();
-    assert!(matches!(task.await.unwrap(), Err(Error::Cancelled)));
+    assert!(matches!(
+        tokio::time::timeout(Duration::from_secs(5), task)
+            .await
+            .expect("Cancellation did not reap the started process promptly")
+            .unwrap(),
+        Err(Error::Cancelled)
+    ));
     let check_script = folder.path().join("check.ps1");
     std::fs::write(
         &check_script,
@@ -128,7 +135,7 @@ async fn cancellation_reaps_the_owned_process() {
         ],
         input: vec![],
         output_limit: 4096,
-        timeout: Duration::from_secs(10),
+        timeout: Duration::from_secs(30),
     };
     Process.run(check, &CancellationToken::new()).await.unwrap();
 }
