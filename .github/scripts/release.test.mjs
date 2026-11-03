@@ -54,6 +54,30 @@ test("release signatures match the app key, bytes and announced version", () => 
   );
 });
 
+test("desktop updates require a permanent public key and signed release versions", () => {
+  const config = JSON.parse(
+    readFileSync(
+      new URL("../../desktop/tauri.conf.json", import.meta.url),
+      "utf8",
+    ),
+  );
+  const updater = config.plugins.updater;
+  const decoded = Buffer.from(updater.pubkey, "base64").toString("utf8");
+  assert.match(decoded, /^untrusted comment:.*\nRW[A-Za-z0-9+/=]+\s*$/);
+  assert.equal(Buffer.from(decoded.trim().split("\n")[1], "base64").length, 42);
+  assert.equal(updater.requireSignedVersion, true);
+  assert.deepEqual(updater.endpoints, [
+    "https://github.com/ohne-b/coc-bot/releases/latest/download/latest.json",
+  ]);
+  const fixture = JSON.parse(
+    readFileSync(
+      new URL("../../desktop/tests/fixtures/update.json", import.meta.url),
+      "utf8",
+    ),
+  );
+  assert.notEqual(updater.pubkey, fixture.pubkey);
+});
+
 test("versions and release notes cannot introduce paths or unreviewed headings", () => {
   assert.equal(version("1.2.3-rc.1"), "1.2.3-rc.1");
   for (const value of [

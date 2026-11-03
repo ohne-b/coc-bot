@@ -235,8 +235,10 @@ The `release` environment needs owner-held `RELEASE_TOKEN`, `TAURI_SIGNING_PRIVA
 and its optional `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. Resolve and record upstream permission
 in NOTICE.md before setting repository variable `UPSTREAM_PERMISSION_CONFIRMED=true`.
 Keep all secrets out of PR jobs, source, logs and chat. Environment approval rules can
-provide an additional publication gate. These credentials and permissions are not provisioned
-by committing the workflows, and no release has been published.
+provide an additional publication gate. The dedicated updater signing key is configured
+in the main-only `release` environment. Publication tokens and upstream permission are
+separate requirements; committing workflows alone does not provision them. No release
+has been published.
 
 Following TDM's release layout, published assets are `coc-bot-VERSION-windows-x64-setup.exe`,
 `latest.json` and `SHA256SUMS`. The title is `CoC Bot vVERSION`; notes use reviewed changelog

@@ -5,7 +5,7 @@
   "plugins": {
     "updater": {
       "endpoints": ["https://github.com/ohne-b/coc-bot/releases/latest/download/latest.json"],
-      "pubkey": "",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVGRUQ0RjE5QTUzODVDNTkKUldSWlhEaWxHVS90N3pVOUYzOWNWVkJpbmJCWTkwWi9XY05lUDVxNThUcGxQeVgra0xIL1NpMDQK",
       "requireSignedVersion": true,
       "windows": { "installMode": "passive" }
     }
