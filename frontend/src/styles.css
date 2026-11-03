@@ -675,6 +675,10 @@ fieldset {
   color: var(--text);
   padding: 7px 10px;
 }
+.field:focus-visible {
+  outline: none;
+  border-color: var(--soft);
+}
 .number-field {
   width: 100px;
 }
