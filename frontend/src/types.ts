@@ -36,6 +36,7 @@ export interface FarmingOptions {
   surrender_stars: number;
   trophy_floor: number;
   recoveries: number;
+  upgrade_walls: boolean;
   wall_upgrades: number;
   gold_reserve: number;
   elixir_reserve: number;

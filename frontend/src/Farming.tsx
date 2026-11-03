@@ -10,13 +10,11 @@ type NumericKey = {
 export default function Farming({
   options,
   active,
-  walls,
   open,
   onBack,
 }: {
   options: FarmingOptions;
   active: boolean;
-  walls: boolean;
   open: boolean;
   onBack: () => void;
 }) {
@@ -73,6 +71,7 @@ export default function Farming({
   );
   const toggle = (
     key:
+      | "upgrade_walls"
       | "until_full"
       | "collect_cart"
       | "cart_goal"
@@ -94,11 +93,11 @@ export default function Farming({
       <header className="page-header">
         <IconButton
           path={mdiArrowLeft}
-          label={walls ? "Back to walls" : "Back to farming"}
+          label="Back to farming"
           onClick={onBack}
         />
         <h1 ref={heading} tabIndex={-1}>
-          {walls ? "Wall settings" : "Farming settings"}
+          Farming settings
         </h1>
       </header>
       <form onSubmit={(event) => void save(event)}>
@@ -151,7 +150,7 @@ export default function Farming({
               </div>
             </fieldset>
           </section>
-          {!walls && (
+          {!draft.upgrade_walls && (
             <section className="preference-section">
               <div className="section-heading">
                 <h2>Targets</h2>
@@ -197,18 +196,20 @@ export default function Farming({
               </fieldset>
             </section>
           )}
-          {walls && (
-            <section className="preference-section">
-              <div className="section-heading">
-                <h2>Resources</h2>
-                <Help label="Wall reserves">
-                  Keep these balances after each upgrade. Farming refills Gold
-                  and Elixir to the threshold, capped by each storage's
-                  capacity. Zero threshold starts with wall upgrades. Only
-                  verified wall spending is counted.
-                </Help>
-              </div>
-              <fieldset className="preference-fields" disabled={active || busy}>
+          <section className="preference-section">
+            <div className="section-heading">
+              <h2>Walls</h2>
+              <Help label="Wall reserves">
+                Upgrade walls instead of stopping at full storages. Keep these
+                balances after each upgrade. Farming refills Gold and Elixir to
+                the threshold, capped by each storage's capacity. Zero threshold
+                starts with wall upgrades. Only verified wall spending is
+                counted.
+              </Help>
+            </div>
+            <fieldset className="preference-fields" disabled={active || busy}>
+              {toggle("upgrade_walls", "Upgrade walls")}
+              {draft.upgrade_walls && (
                 <div className="form-grid">
                   {numeric("gold_reserve", "Gold reserve", 1_000_000_000)}
                   {numeric("elixir_reserve", "Elixir reserve", 1_000_000_000)}
@@ -219,9 +220,9 @@ export default function Farming({
                   )}
                   {numeric("wall_upgrades", "Upgrade limit", 1_000_000)}
                 </div>
-              </fieldset>
-            </section>
-          )}
+              )}
+            </fieldset>
+          </section>
           <section className="preference-section">
             <div className="section-heading">
               <h2>Opponent loot</h2>

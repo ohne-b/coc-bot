@@ -456,6 +456,11 @@ impl<T: Transport + Clone> Worker<T> {
             return Err(Error::Cancelled);
         }
         let settings = self.store.settings()?;
+        let mode = if mode == SessionMode::Farming && settings.farming.upgrade_walls {
+            SessionMode::Walls
+        } else {
+            mode
+        };
         let selected = settings
             .device
             .ok_or_else(|| Error::Device("Select an LDPlayer instance in Settings".into()))?;

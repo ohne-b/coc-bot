@@ -119,13 +119,7 @@ for (const width of [360, 800, 1200]) {
     await page.setViewportSize({ width, height: 800 });
     await mock(page, { populated: true });
     await page.goto("/");
-    for (const name of [
-      "Farming",
-      "Walls",
-      "Deployment",
-      "History",
-      "Settings",
-    ]) {
+    for (const name of ["Farming", "Deployment", "History", "Settings"]) {
       await page
         .getByRole("navigation")
         .getByRole("button", { name, exact: true })
@@ -140,7 +134,7 @@ for (const width of [360, 800, 1200]) {
           path: `../.tools/review-${name.toLowerCase()}.png`,
           fullPage: true,
         });
-      if (name === "Farming" || name === "Walls") {
+      if (name === "Farming") {
         const header = await page.locator(".overview-header").boundingBox();
         const village = await page
           .getByRole("group", { name: "Resource village" })
@@ -153,7 +147,7 @@ for (const width of [360, 800, 1200]) {
           ),
         ).toBeLessThan(1);
         const settings = page.getByRole("button", {
-          name: name === "Walls" ? "Wall settings" : "Farming settings",
+          name: "Farming settings",
           exact: true,
         });
         await settings.focus();
@@ -162,19 +156,23 @@ for (const width of [360, 800, 1200]) {
         await expect(page.locator(".overview-header")).not.toBeVisible();
         await expect(
           page.getByRole("heading", {
-            name: name === "Walls" ? "Wall settings" : "Farming settings",
+            name: "Farming settings",
             level: 1,
           }),
         ).toBeFocused();
         await expect(page.getByRole("navigation")).toBeVisible();
         await expect(
           page.getByRole("navigation").getByRole("button"),
-        ).toHaveCount(5);
+        ).toHaveCount(4);
         await expect(
           page
             .getByRole("navigation")
             .getByRole("button", { name, exact: true }),
         ).toHaveAttribute("aria-current", "page");
+        await page.getByLabel("Upgrade walls", { exact: true }).check();
+        await expect(
+          page.getByLabel("Gold reserve", { exact: true }),
+        ).toBeVisible();
         expect(
           await page
             .locator("main form:visible")
@@ -216,7 +214,7 @@ for (const width of [360, 800, 1200]) {
           fullPage: true,
         });
       }
-      if (name === "Farming" || name === "Walls") {
+      if (name === "Farming") {
         if (width === 1200) {
           for (const [part, offset] of [0, 500, 1000].entries()) {
             await page.evaluate((y) => window.scrollTo(0, y), offset);
@@ -227,7 +225,7 @@ for (const width of [360, 800, 1200]) {
         }
         await page
           .getByRole("button", {
-            name: name === "Walls" ? "Back to walls" : "Back to farming",
+            name: "Back to farming",
             exact: true,
           })
           .click();
@@ -236,7 +234,7 @@ for (const width of [360, 800, 1200]) {
         ).toBeVisible();
         await expect(
           page.getByRole("button", {
-            name: name === "Walls" ? "Wall settings" : "Farming settings",
+            name: "Farming settings",
             exact: true,
           }),
         ).toBeFocused();
@@ -247,7 +245,7 @@ for (const width of [360, 800, 1200]) {
 
 test("page and nested scrollbars use TDM styling", async ({ page }) => {
   await mock(page);
-  await page.setViewportSize({ width: 1200, height: 400 });
+  await page.setViewportSize({ width: 1200, height: 300 });
   await page.goto("/");
   await page
     .getByRole("button", { name: "Farming settings", exact: true })
@@ -471,13 +469,7 @@ test("full-page farming settings preserve drafts and lock editing throughout a p
     page.getByRole("button", { name: "Back to farming", exact: true }).click();
   await open();
   await page.getByLabel("Attack limit", { exact: true }).fill("4");
-  await page
-    .getByRole("navigation")
-    .getByRole("button", { name: "Walls", exact: true })
-    .click();
-  await page
-    .getByRole("button", { name: "Wall settings", exact: true })
-    .click();
+  await page.getByLabel("Upgrade walls", { exact: true }).check();
   await page.getByLabel("Gold reserve", { exact: true }).fill("2000000");
   await page
     .getByRole("navigation")
@@ -499,6 +491,10 @@ test("full-page farming settings preserve drafts and lock editing throughout a p
   await expect(page.getByLabel("Attack limit", { exact: true })).toHaveValue(
     "4",
   );
+  await expect(page.getByLabel("Gold reserve", { exact: true })).toHaveValue(
+    "2000000",
+  );
+  await page.getByLabel("Upgrade walls", { exact: true }).uncheck();
   await page.getByLabel("Home deployment").selectOption("ring");
   await page.getByRole("combobox", { name: /^Village/ }).selectOption("both");
   await page.getByLabel("Stop when targets are full").check();
@@ -556,6 +552,88 @@ test("full-page farming settings preserve drafts and lock editing throughout a p
     page.getByLabel("Elixir Cart full", { exact: true }),
   ).toBeChecked();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+});
+
+test("one farming page starts the saved wall option and keeps earnings separate", async ({
+  page,
+}) => {
+  await mock(page, { populated: true });
+  await page.goto("/");
+  await expect(
+    page
+      .getByRole("navigation")
+      .getByRole("button", { name: "Walls", exact: true }),
+  ).toHaveCount(0);
+  const open = () =>
+    page.getByRole("button", { name: "Farming settings", exact: true }).click();
+  const back = () =>
+    page.getByRole("button", { name: "Back to farming", exact: true }).click();
+  const sessionMode = () =>
+    page.evaluate(
+      () =>
+        (
+          window as unknown as {
+            fixtureSnapshot: { session: { mode: string } };
+          }
+        ).fixtureSnapshot.session.mode,
+    );
+  await open();
+  await expect(
+    page.getByLabel("Upgrade walls", { exact: true }),
+  ).not.toBeChecked();
+  await expect(page.getByLabel("Gold reserve", { exact: true })).toHaveCount(0);
+  await page.getByLabel("Upgrade walls", { exact: true }).check();
+  await expect(page.getByLabel("Stop when targets are full")).toHaveCount(0);
+  await page.getByLabel("Gold reserve", { exact: true }).fill("2000000");
+  await page.getByLabel("Upgrade limit", { exact: true }).fill("10");
+  await back();
+  await page.getByRole("button", { name: "Start", exact: true }).click();
+  await expect.poll(sessionMode).toBe("farming");
+  await page.getByRole("button", { name: "Stop", exact: true }).click();
+  await open();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByRole("status")).toHaveText("Saved");
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await page
+    .getByRole("heading", { name: "Farming settings", exact: true })
+    .click();
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({
+    path: "../.tools/unified-farming-settings.png",
+    fullPage: true,
+  });
+  await back();
+  await page.getByRole("button", { name: "Observe", exact: true }).click();
+  await expect.poll(sessionMode).toBe("observe");
+  await page.getByRole("button", { name: "Stop", exact: true }).click();
+  await page.getByRole("button", { name: "Start", exact: true }).click();
+  await expect.poll(sessionMode).toBe("walls");
+  await expect(
+    page.getByRole("heading", { name: "Loot", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Wall spending", exact: true }),
+  ).toBeVisible();
+  await open();
+  await expect(
+    page.getByLabel("Upgrade walls", { exact: true }),
+  ).toBeDisabled();
+  await expect(page.getByLabel("Gold reserve", { exact: true })).toBeDisabled();
+  await back();
+  await page.getByRole("button", { name: "Pause", exact: true }).click();
+  await open();
+  await expect(
+    page.getByLabel("Upgrade walls", { exact: true }),
+  ).toBeDisabled();
+  await back();
+  await page.getByRole("button", { name: "Stop", exact: true }).click();
+  await open();
+  await page.getByLabel("Upgrade walls", { exact: true }).uncheck();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByRole("status")).toHaveText("Saved");
+  await back();
+  await page.getByRole("button", { name: "Start", exact: true }).click();
+  await expect.poll(sessionMode).toBe("farming");
 });
 
 test("deployment points support keyboard, bounds, save and reset without replacing farming settings", async ({

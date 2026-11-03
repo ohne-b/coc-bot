@@ -10,7 +10,6 @@ import {
   mdiWaterOutline,
   mdiEyeOutline,
   mdiPause,
-  mdiWall,
   mdiVectorPolygon,
   mdiGithub,
 } from "@mdi/js";
@@ -32,13 +31,11 @@ import type { Snapshot, Village } from "./types";
 function Overview({
   snapshot,
   offline,
-  mode = "farming",
   preferences,
   onPreferencesChange,
 }: {
   snapshot: Snapshot;
   offline: boolean;
-  mode?: "farming" | "walls";
   preferences: boolean;
   onPreferencesChange: (open: boolean) => void;
 }) {
@@ -83,7 +80,7 @@ function Overview({
   return (
     <>
       <header className="page-header overview-header">
-        <h1>{mode === "walls" ? "Walls" : "Farming"}</h1>
+        <h1>Farming</h1>
         <div className="header-village">
           <Help label="Resources">
             Balances come from recognized village screens. A last known value
@@ -111,16 +108,17 @@ function Overview({
             <IconButton
               ref={settingsButton}
               path={mdiCogOutline}
-              label={mode === "walls" ? "Wall settings" : "Farming settings"}
+              label="Farming settings"
               onClick={() => onPreferencesChange(true)}
             />
           )}
           <Help label="Observation">
-            Start runs the selected mode with saved settings. Observe reads
-            screenshots without sending input. Pause suspends automation; Stop
-            cancels pending work. Missing readings remain unknown. Selected
-            instance: {snapshot.settings.device?.index ?? "none"}. Session mode:{" "}
-            {title(snapshot.session?.mode ?? mode)}. Last capture:{" "}
+            Start farms with saved settings, including wall upgrades when
+            enabled. Observe reads screenshots without sending input. Pause
+            suspends automation; Stop cancels pending work. Missing readings
+            remain unknown. Selected instance:{" "}
+            {snapshot.settings.device?.index ?? "none"}. Session mode:{" "}
+            {title(snapshot.session?.mode ?? "farming")}. Last capture:{" "}
             {time(screenshot?.at ?? null)}. Screen:{" "}
             {screenshot?.screen ? title(screenshot.screen) : "unknown"}.
           </Help>
@@ -157,7 +155,7 @@ function Overview({
                 disabled={
                   busy || stopping || offline || !snapshot.settings.device
                 }
-                onClick={() => void control("start", { mode })}
+                onClick={() => void control("start", { mode: "farming" })}
               />
             </>
           )}
@@ -280,7 +278,7 @@ function Overview({
           </dl>
           <section className="session-loot">
             <div className="section-heading">
-              <h2>{mode === "walls" ? "Spending" : "Loot"}</h2>
+              <h2>Loot</h2>
               <Help label="Session statistics">
                 Only confirmed result readings count as earned loot. Rates use
                 active time, including searching and recovery, excluding pauses.
@@ -289,43 +287,46 @@ function Overview({
               </Help>
             </div>
             <dl className="summary-row">
-              {mode === "walls" ? (
-                <>
-                  <div>
-                    <dt>Gold spent</dt>
-                    <dd>{number(stats?.wall_gold)}</dd>
-                  </div>
-                  <div>
-                    <dt>Elixir spent</dt>
-                    <dd>{number(stats?.wall_elixir)}</dd>
-                  </div>
-                </>
-              ) : (
-                (
-                  [
-                    "gold",
-                    "elixir",
-                    ...(village === "home" ? ["dark"] : []),
-                  ] as const
-                ).map((key) => (
-                  <div key={key}>
-                    <dt>{key === "dark" ? "Dark Elixir" : title(key)}</dt>
-                    <dd>
+              {(
+                [
+                  "gold",
+                  "elixir",
+                  ...(village === "home" ? ["dark"] : []),
+                ] as const
+              ).map((key) => (
+                <div key={key}>
+                  <dt>{key === "dark" ? "Dark Elixir" : title(key)}</dt>
+                  <dd>
+                    {number(stats?.[key as "gold" | "elixir" | "dark"].amount)}
+                    <span className="stat-rate">
                       {number(
-                        stats?.[key as "gold" | "elixir" | "dark"].amount,
+                        stats?.[key as "gold" | "elixir" | "dark"].per_hour,
                       )}
-                      <span className="stat-rate">
-                        {number(
-                          stats?.[key as "gold" | "elixir" | "dark"].per_hour,
-                        )}
-                        /h
-                      </span>
-                    </dd>
-                  </div>
-                ))
-              )}
+                      /h
+                    </span>
+                  </dd>
+                </div>
+              ))}
             </dl>
           </section>
+          {(snapshot.session?.mode === "walls" ||
+            (stats?.wall_upgrades ?? 0) > 0) && (
+            <section className="session-loot" aria-label="Wall spending">
+              <div className="section-heading">
+                <h2>Wall spending</h2>
+              </div>
+              <dl className="summary-row">
+                <div>
+                  <dt>Gold spent</dt>
+                  <dd>{number(stats?.wall_gold)}</dd>
+                </div>
+                <div>
+                  <dt>Elixir spent</dt>
+                  <dd>{number(stats?.wall_elixir)}</dd>
+                </div>
+              </dl>
+            </section>
+          )}
         </section>
       </div>
     </>
@@ -349,7 +350,6 @@ export default function App() {
     snapshot?.session?.state === "paused";
   const nav = [
     ["farming", "Farming", mdiEyeOutline],
-    ["walls", "Walls", mdiWall],
     ["deployment", "Deployment", mdiVectorPolygon],
     ["history", "History", mdiHistory],
     ["settings", "Settings", mdiCogOutline],
@@ -402,7 +402,6 @@ export default function App() {
             <Farming
               options={snapshot.settings.farming}
               active={active || Boolean(error)}
-              walls={page === "walls"}
               open={preferences}
               onBack={() => setPreferences(false)}
             />
@@ -432,7 +431,6 @@ export default function App() {
               <Overview
                 snapshot={snapshot}
                 offline={Boolean(error) || updating}
-                mode={page === "walls" ? "walls" : "farming"}
                 preferences={preferences}
                 onPreferencesChange={setPreferences}
               />
