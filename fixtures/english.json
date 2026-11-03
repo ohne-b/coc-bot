@@ -1,0 +1,134 @@
+{
+  "home": {
+    "file": "english-home.png",
+    "state": "home"
+  },
+  "builder": {
+    "file": "english-builder.png",
+    "state": "builder"
+  },
+  "home_menu": {
+    "file": "english-home_menu.png",
+    "state": "home_menu"
+  },
+  "home_army": {
+    "file": "english-home_army.png",
+    "state": "home_army"
+  },
+  "home_search": {
+    "file": "english-home_search.png",
+    "state": "home_army"
+  },
+  "home_scout": {
+    "file": "english-home_scout.png",
+    "state": "home_scout"
+  },
+  "home_battle_zero": {
+    "file": "english-home_battle_zero.png",
+    "state": "home_battle"
+  },
+  "home_battle": {
+    "file": "english-home_battle.png",
+    "state": "home_battle"
+  },
+  "surrender_confirm": {
+    "file": "english-surrender_confirm.png",
+    "state": "surrender_confirm"
+  },
+  "home_result": {
+    "file": "english-home_result.png",
+    "state": "home_result"
+  },
+  "home_live_final": {
+    "file": "english-home_live_final.png",
+    "state": "surrender_confirm"
+  },
+  "home_live_current": {
+    "file": "english-home_live_current.png",
+    "state": "home_result"
+  },
+  "build_list": {
+    "file": "english-build_list.png",
+    "state": "build_list"
+  },
+  "build_list_scroll2": {
+    "file": "english-build_list_scroll2.png",
+    "state": "build_list"
+  },
+  "wall_selected": {
+    "file": "english-wall_selected.png",
+    "state": "wall_selected"
+  },
+  "wall_confirm_gold": {
+    "file": "english-wall_confirm_gold.png",
+    "state": "wall_confirm"
+  },
+  "wall_confirm_elixir": {
+    "file": "english-wall_confirm_elixir.png",
+    "state": "wall_confirm"
+  },
+  "builder_menu": {
+    "file": "english-builder_menu.png",
+    "state": "builder_menu"
+  },
+  "builder_current": {
+    "file": "english-builder_current.png",
+    "state": "builder_scout"
+  },
+  "builder_battle": {
+    "file": "english-builder_battle.png",
+    "state": "builder_battle"
+  },
+  "builder_progress": {
+    "file": "english-builder_progress.png",
+    "state": "builder_battle2"
+  },
+  "builder_fourth_current": {
+    "file": "english-builder_fourth_current.png",
+    "state": "builder_stage2"
+  },
+  "builder_result_or_stage2": {
+    "file": "english-builder_result_or_stage2.png",
+    "state": "builder_result"
+  },
+  "builder_cart": {
+    "file": "english-builder_cart.png",
+    "state": "builder_cart"
+  },
+  "builder_cart_empty": {
+    "file": "english-builder_cart_empty.png",
+    "state": "builder_cart"
+  },
+  "builder_build_list": {
+    "file": "english-builder_build_list.png",
+    "state": "build_list"
+  },
+  "builder_wall_selected": {
+    "file": "english-builder_wall_selected.png",
+    "state": "wall_selected"
+  },
+  "builder_wall_confirm_gold": {
+    "file": "english-builder_wall_confirm_gold.png",
+    "state": "builder_wall_confirm"
+  },
+  "builder_wall_confirm_elixir": {
+    "file": "english-builder_wall_confirm_elixir.png",
+    "state": "builder_wall_confirm"
+  },
+  "builder_bonus_candidate": {
+    "file": "english-builder_bonus_candidate.png",
+    "state": "builder_star_bonus"
+  },
+  "league": {
+    "file": "english-league.png",
+    "state": "league"
+  },
+  "tooltip_gold": {
+    "file": "english-tooltip_gold.png",
+    "state": null
+  },
+  "tooltip_elixir": {
+    "file": "english-tooltip_elixir.png",
+    "state": null
+  }
+}

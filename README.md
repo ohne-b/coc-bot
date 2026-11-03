@@ -30,6 +30,17 @@ the Rust desktop plan. Development and offline checks are in [CONTRIBUTING.md](C
 > Bahasa Indonesia. Other resolutions or languages need calibration. Automation violates
 > Supercell's rules and can result in an account ban. Not affiliated with Supercell.
 
+The separate [English profile](config.english.json) uses the same resolution and DPI;
+the Indonesian profile remains unchanged. Run it with
+`python bot.py --config config.english.json --walls home --live` and put this PC's
+device settings in ignored `config.english.local.json`. It retains 20M gold **and**
+elixir batching and 1M reserves for Home walls. The current Home price calibration
+targets green Hammer Jam discounts; revalidate it when that event ends. Screens not
+yet captured in English are listed in `calibration_pending_screens`; an unfamiliar
+dialog fails recognition and cannot be confirmed automatically.
+Builder stage two is recognized, but surviving-camp selection and its stack deployment
+point still need correction and another live check; unattended use remains Home-only.
+
 ## Contributing
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) for development, conventional commits and PR review.
@@ -37,8 +48,8 @@ Report problems through [GitHub issues](https://github.com/ohne-b/coc-bot/issues
 redacted logs and your commit, emulator version, resolution and game language.
 See [SECURITY.md](SECURITY.md) for private vulnerability reports.
 
-The new desktop UI will be English only initially. Existing Python messages and
-calibration text remain unchanged during repository setup.
+The new desktop UI will be English only initially. Existing Python messages and the
+Indonesian calibration are retained alongside the English recognition profile.
 
 ## License and credits
 
