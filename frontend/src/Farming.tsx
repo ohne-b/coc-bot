@@ -84,12 +84,12 @@ export default function Farming({
     <details className="content-section configuration">
       <summary>{walls ? "Wall settings" : "Farming settings"}</summary>
       <form onSubmit={(event) => void save(event)}>
-        <fieldset disabled={active || busy}>
+        <div>
           <section className="preference-section">
             <div className="section-heading">
               <h2>Deployment</h2>
             </div>
-            <div className="preference-fields">
+            <fieldset className="preference-fields" disabled={active || busy}>
               <div className="form-grid">
                 <label className="field-label">
                   Village
@@ -131,7 +131,7 @@ export default function Farming({
                 {toggle("builder_stack", "Stack Builder troops")}
                 {toggle("earthquake", "Earthquake groups")}
               </div>
-            </div>
+            </fieldset>
           </section>
           {!walls && (
             <section className="preference-section">
@@ -145,7 +145,7 @@ export default function Farming({
                   stop farming.
                 </Help>
               </div>
-              <div className="preference-fields">
+              <fieldset className="preference-fields" disabled={active || busy}>
                 {toggle("until_full", "Stop when targets are full")}
                 <div className="toggle-row">
                   {draft.villages.includes("builder") &&
@@ -176,7 +176,7 @@ export default function Farming({
                     ),
                   )}
                 </div>
-              </div>
+              </fieldset>
             </section>
           )}
           {walls && (
@@ -190,7 +190,7 @@ export default function Farming({
                   verified wall spending is counted.
                 </Help>
               </div>
-              <div className="preference-fields">
+              <fieldset className="preference-fields" disabled={active || busy}>
                 <div className="form-grid">
                   {numeric("gold_reserve", "Gold reserve", 1_000_000_000)}
                   {numeric("elixir_reserve", "Elixir reserve", 1_000_000_000)}
@@ -201,7 +201,7 @@ export default function Farming({
                   )}
                   {numeric("wall_upgrades", "Upgrade limit", 1_000_000)}
                 </div>
-              </div>
+              </fieldset>
             </section>
           )}
           <section className="preference-section">
@@ -213,14 +213,14 @@ export default function Farming({
                 is attacked.
               </Help>
             </div>
-            <div className="preference-fields">
+            <fieldset className="preference-fields" disabled={active || busy}>
               <div className="form-grid">
                 {numeric("minimum_gold", "Minimum Gold", 1_000_000_000)}
                 {numeric("minimum_elixir", "Minimum Elixir", 1_000_000_000)}
                 {numeric("minimum_dark", "Minimum Dark Elixir", 1_000_000_000)}
                 {numeric("searches", "Search limit", 1_000_000)}
               </div>
-            </div>
+            </fieldset>
           </section>
           <section className="preference-section">
             <div className="section-heading">
@@ -231,14 +231,14 @@ export default function Farming({
                 are ignored.
               </Help>
             </div>
-            <div className="preference-fields">
+            <fieldset className="preference-fields" disabled={active || busy}>
               <div className="form-grid">
                 {numeric("surrender_after", "Surrender after (seconds)", 240)}
                 {numeric("surrender_damage", "Home damage (%)", 100)}
                 {numeric("surrender_stars", "Builder stars", 3)}
                 {numeric("trophy_floor", "Builder trophy floor", 20_000)}
               </div>
-            </div>
+            </fieldset>
           </section>
           <section className="preference-section">
             <div className="section-heading">
@@ -249,23 +249,23 @@ export default function Farming({
                 completed attack or verified wall upgrade.
               </Help>
             </div>
-            <div className="preference-fields">
+            <fieldset className="preference-fields" disabled={active || busy}>
               <div className="form-grid">
                 {numeric("attacks", "Attack limit", 1_000_000)}
                 {numeric("minutes", "Time limit (minutes)", 10_080)}
                 {numeric("recoveries", "Recovery attempts", 20)}
               </div>
-            </div>
+            </fieldset>
           </section>
           <div className="form-row">
-            <Button primary type="submit">
+            <Button primary type="submit" disabled={active || busy}>
               Save
             </Button>
             <span role="status" className="muted">
               {saved ? "Saved" : edited.current ? "Unsaved changes" : ""}
             </span>
           </div>
-        </fieldset>
+        </div>
         {error && (
           <p role="alert" className="error">
             {error}
