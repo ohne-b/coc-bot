@@ -18,6 +18,9 @@ config.json.tmp
 config.local.json
 config.local.json.bak
 config.local.json.tmp
+config.*.local.json
+config.*.local.json.bak
+config.*.local.json.tmp
 
 # Local environments, credentials and tooling
 .venv/
