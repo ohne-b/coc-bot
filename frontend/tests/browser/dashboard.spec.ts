@@ -355,3 +355,24 @@ test("delayed settings acknowledgement preserves a newer draft", async ({
   await expect(instance).toHaveValue("3");
   await expect(page.getByRole("status")).toBeEmpty();
 });
+
+test("returning to untouched settings receives a delayed save acknowledgement", async ({
+  page,
+}) => {
+  await mock(page, { holdSettings: true });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  const instance = page.getByLabel("Instance", { exact: true });
+  await instance.fill("2");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByRole("status")).toHaveText("Saved");
+  await page.getByRole("button", { name: "Farming", exact: true }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(instance).toHaveValue("0");
+  await page.evaluate(() =>
+    (
+      window as unknown as { acknowledgeSettings: () => void }
+    ).acknowledgeSettings(),
+  );
+  await expect(instance).toHaveValue("2");
+});

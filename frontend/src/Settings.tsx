@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Icon } from "@mdi/react";
 import { mdiMagnify } from "@mdi/js";
@@ -18,6 +18,13 @@ export default function Settings({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [saved, setSaved] = useState(false);
+  const edited = useRef(false);
+  useEffect(() => {
+    if (!edited.current) {
+      setFolder(settings.device?.folder ?? "");
+      setIndex(String(settings.device?.index ?? 0));
+    }
+  }, [settings.device?.folder, settings.device?.index]);
   async function discover() {
     setBusy(true);
     setError(undefined);
@@ -81,6 +88,7 @@ export default function Settings({
               className="field"
               value={folder}
               onChange={(e) => {
+                edited.current = true;
                 setFolder(e.target.value);
                 setSaved(false);
               }}
@@ -102,6 +110,7 @@ export default function Settings({
                   step={1}
                   value={index}
                   onChange={(e) => {
+                    edited.current = true;
                     setIndex(e.target.value);
                     setSaved(false);
                   }}
@@ -136,6 +145,7 @@ export default function Settings({
                       key={instance.index}
                       disabled={running || busy}
                       onClick={() => {
+                        edited.current = true;
                         setFolder(item.folder);
                         setIndex(String(instance.index));
                         setSaved(false);
