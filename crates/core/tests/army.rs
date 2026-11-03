@@ -142,6 +142,39 @@ fn captured_counts_drive_ring_and_earthquake_deployment() {
 }
 
 #[test]
+fn adjacent_troop_stacks_do_not_become_siege_units() {
+    let mut image =
+        Mat::new_rows_cols_with_default(720, 1280, core::CV_8UC3, Scalar::all(0.0)).unwrap();
+    let bar = fixture("battle-bar-dragons-15-balloons-4.png");
+    bar.copy_to(&mut Mat::roi_mut(&mut image, Rect::new(0, 586, bar.cols(), bar.rows())).unwrap())
+        .unwrap();
+    let layout: Layout =
+        serde_json::from_value(config()["screens"]["home_scout"]["auto"].clone()).unwrap();
+    let cards = army::cards(&image, layout.bar, false, &digits()).unwrap();
+    assert_eq!(cards.len(), 10);
+    assert_eq!((cards[0].count, cards[1].count), (Some(15), Some(4)));
+    assert_eq!((cards[0].group, cards[1].group), (0, 0));
+    assert_eq!(cards[2].kind, Kind::Siege);
+    let plan = army::plan(&cards, &layout, Point(125, 346), false, false, false).unwrap();
+    for card in &cards[..2] {
+        assert!(plan.contains(&Deployment::Hold {
+            slot: card.slot,
+            seconds: layout.hold
+        }));
+    }
+    let ring = army::plan(&cards, &layout, Point(125, 346), true, false, false).unwrap();
+    for card in &cards[..2] {
+        assert!(ring.iter().any(|step| matches!(step, Deployment::Spread {slot, count, spaced: true, ..} if *slot == card.slot && Some(*count) == card.count)));
+    }
+    assert_eq!(
+        ring.iter()
+            .filter(|step| matches!(step, Deployment::Spread { spaced: false, .. }))
+            .count(),
+        3
+    );
+}
+
+#[test]
 fn captured_hero_meters_and_stars_match_baseline() {
     for n in 1..=3 {
         assert_eq!(
