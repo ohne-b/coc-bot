@@ -5,6 +5,7 @@ captures/
 .pi/
 *.png
 !/.github/assets/desktop.png
+!/.github/assets/updater.png
 *.log
 !/assets/calibration/english/**/*.png
 !/assets/calibration/digits/*.png
