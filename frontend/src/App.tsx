@@ -6,7 +6,6 @@ import {
   mdiStop,
   mdiCogOutline,
   mdiHistory,
-  mdiTextBoxOutline,
   mdiGold,
   mdiWaterOutline,
   mdiEyeOutline,
@@ -22,7 +21,7 @@ import Settings from "./Settings";
 import History from "./History";
 import Farming from "./Farming";
 import Deployment from "./Deployment";
-import type { SessionDetail, Snapshot, Village } from "./types";
+import type { Snapshot, Village } from "./types";
 
 function Overview({
   snapshot,
@@ -322,68 +321,6 @@ function Overview({
   );
 }
 
-function Activity({ sessionId }: { sessionId?: number }) {
-  const [detail, setDetail] = useState<SessionDetail>();
-  const [error, setError] = useState<string>();
-  useEffect(() => {
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout>;
-    async function refresh() {
-      try {
-        let id = sessionId;
-        if (id === undefined) {
-          const sessions = await invoke<{ id: number }[]>("history", {
-            before: null,
-          });
-          id = sessions[0]?.id;
-        }
-        if (id !== undefined) {
-          const next = await invoke<SessionDetail>("session_detail", { id });
-          if (!cancelled) setDetail(next);
-        }
-        if (!cancelled) setError(undefined);
-      } catch (e) {
-        if (!cancelled) setError(String(e));
-      }
-      if (!cancelled) timer = setTimeout(() => void refresh(), 2000);
-    }
-    setDetail(undefined);
-    void refresh();
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [sessionId]);
-  return (
-    <>
-      <header className="page-header">
-        <h1>Activity</h1>
-        <Help label="Activity">
-          Recent errors and recovery events from the current or latest session.
-          Earlier sessions are available in History.
-        </Help>
-      </header>
-      {error && (
-        <p role="alert" className="error">
-          {error}
-        </p>
-      )}
-      <section className="content-section">
-        {!detail?.activity.length ? (
-          <Empty>{error ? "Activity unavailable" : "No recent activity"}</Empty>
-        ) : (
-          detail.activity.map((item) => (
-            <div className="activity-row" key={item.sequence}>
-              <time>{time(item.at_ms)}</time>
-              <span>{item.message}</span>
-            </div>
-          ))
-        )}
-      </section>
-    </>
-  );
-}
-
 export default function App() {
   const [page, setPage] = useState("farming");
   const { snapshot, error } = useSnapshot();
@@ -392,7 +329,6 @@ export default function App() {
     ["walls", "Walls", mdiWall],
     ["deployment", "Deployment", mdiVectorPolygon],
     ["history", "History", mdiHistory],
-    ["activity", "Activity", mdiTextBoxOutline],
     ["settings", "Settings", mdiCogOutline],
   ];
   return (
@@ -437,9 +373,7 @@ export default function App() {
               }
             />
           ) : page === "history" ? (
-            <History />
-          ) : page === "activity" ? (
-            <Activity sessionId={snapshot.session?.id} />
+            <History sessionId={snapshot.session?.id} />
           ) : page === "deployment" ? (
             <Deployment snapshot={snapshot} offline={Boolean(error)} />
           ) : (

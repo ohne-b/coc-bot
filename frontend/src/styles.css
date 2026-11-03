@@ -133,6 +133,9 @@ main:focus-visible {
 .deployment-tabs {
   margin-bottom: 20px;
 }
+.history-tabs {
+  margin-bottom: 24px;
+}
 .editor-toolbar {
   display: flex;
   align-items: end;
