@@ -2,21 +2,23 @@
 
 :root {
   font-family: "Manrope Variable", Manrope, system-ui, sans-serif;
-  color: #f4f4f5;
-  background: #181818;
+  color: #f0efeb;
+  background: #191a19;
   color-scheme: dark;
   font-synthesis: none;
-  --canvas: #181818;
-  --surface: #202020;
-  --field: #242424;
-  --raised: #292929;
-  --hover: #333333;
-  --divider: #363636;
-  --control: #717171;
-  --text: #f4f4f5;
-  --soft: #e4e4e7;
-  --muted: #a1a1aa;
-  --accent: #b4a5ed;
+  --canvas: #191a19;
+  --surface: #20211f;
+  --field: #222321;
+  --raised: #2b2c29;
+  --hover: #30312d;
+  --divider: #343630;
+  --control: #666960;
+  --text: #f0efeb;
+  --soft: #ddded8;
+  --muted: #a3a69b;
+  --accent: #c9b789;
+  --accent-hover: #dfcea4;
+  --accent-subtle: #c9b78912;
 }
 * {
   box-sizing: border-box;
@@ -153,7 +155,7 @@ main:focus-visible {
   height: 32px;
   border-radius: 50%;
   border: 2px solid var(--accent);
-  background: #27232f;
+  background: var(--raised);
   color: #fff;
   touch-action: none;
   font-size: 12px;
@@ -203,8 +205,8 @@ h2 {
   display: flex;
   flex-direction: column;
   height: 100dvh;
-  background: #1c1c1e;
-  border-right: 1px solid var(--divider);
+  background: #161715;
+  overflow-y: auto;
 }
 .brand-row {
   min-height: 80px;
@@ -234,7 +236,7 @@ nav {
   gap: 12px;
   min-height: 42px;
   padding: 8px 12px;
-  border-radius: 6px;
+  border-radius: 24px;
   color: var(--muted);
   font-size: 13px;
   text-align: left;
@@ -244,8 +246,8 @@ nav {
   color: var(--soft);
 }
 .nav-item.active {
-  background: #2b2931;
-  color: var(--text);
+  background: var(--accent-subtle);
+  color: var(--accent);
   font-weight: 600;
 }
 .nav-item.active svg {
@@ -334,12 +336,12 @@ nav {
   background: var(--hover);
 }
 .button-primary {
-  border-color: var(--accent);
+  border-color: transparent;
   background: var(--accent);
-  color: #201c2e;
+  color: #24251f;
 }
 .button-primary:hover:not(:disabled) {
-  background: #c5b8f4;
+  background: var(--accent-hover);
 }
 .icon-button {
   display: inline-flex;
@@ -348,12 +350,12 @@ nav {
   width: 36px;
   height: 36px;
   border: none;
-  border-radius: 4px;
+  border-radius: 50%;
   background: transparent;
   color: var(--muted);
   flex-shrink: 0;
 }
-.icon-button:hover {
+.icon-button:hover:not(:disabled) {
   background: var(--hover);
   color: var(--text);
 }
@@ -456,7 +458,7 @@ nav {
   color: #c8a2d4;
 }
 .dark {
-  color: #afa6c7;
+  color: #b1b7b3;
 }
 .resource-content {
   flex: 1;
@@ -472,6 +474,7 @@ nav {
 .resource-label .icon-button {
   width: 24px;
   height: 24px;
+  min-height: 24px;
   margin-left: auto;
 }
 .resource strong {
@@ -751,6 +754,7 @@ td {
   }
   .icon-button {
     width: 44px;
+    height: 44px;
   }
   .panel {
     padding: 16px;
