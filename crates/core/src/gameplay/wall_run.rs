@@ -529,7 +529,169 @@ mod tests {
         },
         vision::{Detection, Detector, Digits},
     };
+    use opencv::{
+        core::{Rect, Scalar},
+        prelude::*,
+    };
     use std::{path::Path, sync::Arc};
+
+    #[tokio::test]
+    async fn wall_flow_scans_selects_checks_reserves_and_rejects_unconfirmed_spending() {
+        let profile = Profile::load(&root()).unwrap();
+        let digits = Digits::load(&root(), Path::new("calibration/digits")).unwrap();
+        let detector = Arc::new(
+            Detector::load(
+                &Calibration::load(&root().join("config.json")).unwrap(),
+                &root(),
+            )
+            .unwrap(),
+        );
+        let vision = GameVision {
+            profile: &profile,
+            digits: &digits,
+            detector,
+        };
+        for village in [Village::Home, Village::Builder] {
+            let (name, selection, listing, amount, cost, gem_y) = match village {
+                Village::Home => (
+                    "home",
+                    "home-wall-selection",
+                    "build_list_scroll2",
+                    5_048_373,
+                    2_500_000,
+                    174,
+                ),
+                Village::Builder => (
+                    "builder",
+                    "builder-wall-gold",
+                    "builder_build_list",
+                    2_899_915,
+                    240_000,
+                    124,
+                ),
+            };
+            let (_, selected) = Fake::new(&format!("english-numeric-{selection}.png"));
+            let (_, list) = Fake::new(&format!("english-{listing}.png"));
+            let (_, gold) = Fake::new(&format!("english-numeric-{name}-wall-confirm-gold.png"));
+            let (_, elixir) = Fake::new(&format!("english-numeric-{name}-wall-confirm-elixir.png"));
+            let (_, mut home) = Fake::new(&format!("english-{name}.png"));
+            // Replay the same captured balances/gems in both HUD positions; no upgrade was captured.
+            for (source, target) in [
+                (Rect::new(702, 26, 178, 26), Rect::new(1040, 26, 178, 26)),
+                (Rect::new(702, 76, 178, 26), Rect::new(1040, 74, 178, 26)),
+                (
+                    Rect::new(766, gem_y, 114, 26),
+                    Rect::new(1100, gem_y, 114, 26),
+                ),
+            ] {
+                Mat::roi_mut(&mut home, target)
+                    .unwrap()
+                    .set_to_def(&Scalar::all(0.0))
+                    .unwrap();
+                Mat::roi(&selected, source)
+                    .unwrap()
+                    .copy_to(&mut Mat::roi_mut(&mut home, target).unwrap())
+                    .unwrap();
+            }
+            for reserve in [1_000_000, 3_000_000] {
+                let temp = tempfile::tempdir().unwrap();
+                let mut wall = WallRun::new(None, 0, village, [reserve; 2]);
+                let mut confirmations = 0;
+                let mut finished = false;
+                for step in 1..40 {
+                    let image = match wall.phase {
+                        Phase::Begin | Phase::Verify { .. } | Phase::Close { .. } => &home,
+                        Phase::Open
+                        | Phase::Top { .. }
+                        | Phase::Scan { .. }
+                        | Phase::Find { .. } => &list,
+                        Phase::Select | Phase::Choose => &selected,
+                        Phase::Confirm {
+                            resource: Resource::Gold,
+                            ..
+                        } => &gold,
+                        Phase::Confirm { .. } => &elixir,
+                    };
+                    let fake = Fake::from_image(image);
+                    let mut adb = fake.adb(temp.path());
+                    let detection = vision.detector.detect(image).unwrap();
+                    let frame = FrameView {
+                        image,
+                        detection: &detection,
+                        elapsed_ms: step * 2000,
+                        captured_at_ms: 1_700_000_000_000,
+                    };
+                    let confirming = matches!(wall.phase, Phase::Confirm { .. });
+                    let result = wall
+                        .tick(&vision, &mut adb, &frame, false, &CancellationToken::new())
+                        .await;
+                    if confirming && wall.verification_pending() {
+                        confirmations += fake.taps.lock().unwrap().len();
+                    }
+                    match result {
+                        Err(Error::Gameplay(message)) if reserve == 1_000_000 => {
+                            assert!(
+                                message.contains("spending could not be verified"),
+                                "{message}"
+                            );
+                            assert!(wall.verification_pending());
+                            finished = true;
+                            break;
+                        }
+                        Ok(update) => {
+                            assert!(update.upgraded.is_none());
+                            if let Some(reason) = update.finished {
+                                assert!(matches!(reason, Finish::NeedResources));
+                                assert_eq!(reserve, 3_000_000);
+                                finished = true;
+                                break;
+                            }
+                        }
+                        Err(error) => panic!("step {step}: {error}"),
+                    }
+                }
+                assert!(finished, "Wall replay did not finish");
+                assert_eq!(confirmations, usize::from(reserve == 1_000_000));
+            }
+            // Verify accounting independently with a simulated pre-upgrade balance.
+            for known_gems in [1543, 1544] {
+                let temp = tempfile::tempdir().unwrap();
+                let fake = Fake::from_image(&home);
+                let mut adb = fake.adb(temp.path());
+                let mut wall = WallRun::new(Some(known_gems), 0, village, [1_000_000; 2]);
+                wall.phase = Phase::Verify {
+                    resource: Resource::Gold,
+                    cost,
+                    balance: amount + cost,
+                };
+                let detection = vision.detector.detect(&home).unwrap();
+                for step in 1..=2 {
+                    let frame = FrameView {
+                        image: &home,
+                        detection: &detection,
+                        elapsed_ms: step * 2000,
+                        captured_at_ms: 1_700_000_000_000,
+                    };
+                    let result = wall
+                        .tick(&vision, &mut adb, &frame, false, &CancellationToken::new())
+                        .await;
+                    if step == 1 {
+                        assert!(result.unwrap().upgraded.is_none());
+                    } else if known_gems == 1543 {
+                        assert_eq!(result.unwrap().upgraded, Some((Resource::Gold, cost)));
+                        assert!(!wall.verification_pending());
+                    } else {
+                        assert!(
+                            matches!(result, Err(Error::Gameplay(message)) if message.contains("Gem balance changed"))
+                        );
+                        assert!(wall.verification_pending());
+                    }
+                }
+                assert!(fake.taps.lock().unwrap().is_empty());
+            }
+        }
+    }
+
     #[tokio::test]
     async fn confirmation_delivered_before_transport_timeout_stays_unverified() {
         let profile = Profile::load(&root()).unwrap();

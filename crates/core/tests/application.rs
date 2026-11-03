@@ -225,6 +225,68 @@ async fn an_isolated_tooltip_cannot_authorize_a_village_resource_reading() {
 }
 
 #[tokio::test]
+async fn contextual_tooltips_publish_the_captured_balance_and_capacity_for_the_correct_village() {
+    let manifest: serde_json::Value = serde_json::from_slice(
+        &std::fs::read(assets().join("fixtures/english-readings.json")).unwrap(),
+    )
+    .unwrap();
+    let mut checked = 0;
+    for case in manifest["fixtures"].as_array().unwrap() {
+        if !case["id"].as_str().unwrap().ends_with("-tooltip") {
+            continue;
+        }
+        let folder = tempfile::tempdir().unwrap();
+        let app = Application::with_transport(
+            folder.path().join("data"),
+            assets(),
+            Fake::capture(case["file"].as_str().unwrap()),
+        )
+        .await
+        .unwrap();
+        app.save_settings(preferences(folder.path())).await.unwrap();
+        app.start(SessionMode::Observe).await.unwrap();
+        frame(&app).await;
+        let snapshot = app.snapshot();
+        let village = if case["screen"] == "home" {
+            Village::Home
+        } else {
+            Village::Builder
+        };
+        for (key, reading) in case["readings"].as_object().unwrap() {
+            let Some(currency) = key.strip_prefix("capacity.") else {
+                continue;
+            };
+            let resource =
+                serde_json::from_value::<coc_bot_core::telemetry::Resource>(currency.into())
+                    .unwrap();
+            let observed = snapshot
+                .resources
+                .iter()
+                .find(|r| r.latest.village == village && r.latest.resource == resource)
+                .unwrap();
+            let balance = observed.last_known.unwrap();
+            assert_eq!(
+                u64::from(balance.amount),
+                case["readings"][format!("balance.{currency}")]["value"]
+                    .as_u64()
+                    .unwrap(),
+                "{}",
+                case["id"]
+            );
+            assert_eq!(
+                balance.capacity.map(u64::from),
+                reading["value"].as_u64(),
+                "{}",
+                case["id"]
+            );
+            checked += 1;
+        }
+        app.shutdown().await.unwrap();
+    }
+    assert_eq!(checked, 5);
+}
+
+#[tokio::test]
 async fn stop_and_shutdown_cancel_an_owned_capture_and_drain_the_worker() {
     for shutdown in [false, true] {
         let folder = tempfile::tempdir().unwrap();

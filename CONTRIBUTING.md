@@ -111,8 +111,11 @@ checks, screenshots, recognition, dynamic deployment, bounded recovery and sessi
 Start enables guarded game input; Observe never does. Pause freezes active time and dispatches
 no gameplay steps. Settings remain locked until Stop. Farming, device and deployment saves
 patch their own sections so stale forms cannot overwrite unrelated preferences.
-Offline attack regressions cover Home and both Builder stages. Wall prices and currency
-checks use captured English dialogs; full wall-flow and live gameplay parity remain unverified.
+Offline attack regressions cover Home and both Builder stages. Wall replays cover both
+villages from list scanning through confirmation, reserve refusal and rejection of unchanged
+post-confirmation balances. Their HUD positions reuse captured pixels; successful spending
+accounting uses an explicitly simulated prior balance, not a captured live upgrade.
+Live gameplay parity remains unverified.
 Captured English result layouts require two independent guards and exactly one match. Absent currencies remain
 unavailable; a separately displayed bonus is added only with explicit inclusion semantics.
 The captured Home victory has unverified bonus inclusion, so its aggregate earnings remain

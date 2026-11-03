@@ -26,6 +26,9 @@ pub struct Fake {
 impl Fake {
     pub fn new(file: &str) -> (Self, Mat) {
         let image = read_image(&root().join("fixtures").join(file)).unwrap();
+        (Self::from_image(&image), image)
+    }
+    pub fn from_image(image: &Mat) -> Self {
         let mut rgba = Mat::default();
         imgproc::cvt_color_def(&image, &mut rgba, imgproc::COLOR_BGR2RGBA).unwrap();
         let frame = [1280_u32, 720, 1]
@@ -33,14 +36,11 @@ impl Fake {
             .flat_map(u32::to_le_bytes)
             .chain(rgba.data_bytes().unwrap().iter().copied())
             .collect();
-        (
-            Self {
-                frame: Arc::new(frame),
-                taps: Arc::default(),
-                fail_after_tap: false,
-            },
-            image,
-        )
+        Self {
+            frame: Arc::new(frame),
+            taps: Arc::default(),
+            fail_after_tap: false,
+        }
     }
     pub fn adb(&self, directory: &Path) -> Adb<Self> {
         std::fs::write(directory.join("adb.exe"), []).unwrap();
@@ -68,7 +68,7 @@ impl Transport for Fake {
             .map(|v| v.to_string_lossy())
             .collect::<Vec<_>>()
             .join(" ");
-        if args.contains("shell input tap") {
+        if args.contains("shell input tap") || args.contains("shell input swipe") {
             self.taps.lock().unwrap().push(args);
             return if self.fail_after_tap {
                 Err(Error::Timeout)
