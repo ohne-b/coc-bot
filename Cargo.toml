@@ -20,4 +20,3 @@ unsafe_code = "forbid"
 
 [workspace.lints.clippy]
 all = "warn"
-

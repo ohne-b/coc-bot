@@ -44,6 +44,19 @@ impl Digits {
                         "Digit templates must be 20 by 24 pixels".into(),
                     ));
                 }
+                let mut deviation = Scalar::default();
+                core::mean_std_dev(
+                    &image,
+                    &mut core::no_array(),
+                    &mut deviation,
+                    &core::no_array(),
+                )?;
+                if deviation[0] <= f64::EPSILON {
+                    return Err(Error::Calibration(format!(
+                        "Digit template is blank: {}",
+                        file.display()
+                    )));
+                }
                 let mut normalized = Mat::default();
                 image.convert_to(&mut normalized, core::CV_32F, 1.0 / 255.0, 0.0)?;
                 templates.push((digit, normalized));

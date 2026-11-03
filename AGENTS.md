@@ -19,8 +19,9 @@ alternate agent instruction files or links.
   Release publication is separate. Never weaken checks to make a PR appear complete.
 - Keep README a short entry point. Preserve the inherited `LEGACY.md` and `docs/` media;
   new user guides belong in the published wiki. Do not add plans or duplicate docs trees.
-- The new desktop UI is English only initially. Preserve Indonesian recognition anchors
-  until replacements are calibrated. Do not rename inherited text as cosmetic cleanup.
+- The desktop UI and calibration are English only. Indonesian profiles and text anchors
+  were removed at the maintainer's request. Keep shared icons and digits used by English;
+  missing English screens remain explicitly uncalibrated, with no language fallback.
 - Keep LICENSE, NOTICE and bundled font notices. No upstream project license was found;
   do not claim PolyForm relicenses imported code or that a translation resolves permission.
 
@@ -54,7 +55,7 @@ reset data. Keep personal app data separate from shared calibration and source.
 
 - Preserve Home Village and Builder Base farming, troop/spell/hero deployment, resource
   collection, wall upgrades and bounded crash/disconnect recovery.
-- The baseline expects 1280×720 at DPI 240 and partly Indonesian UI text. Resolution,
+- The current calibration expects English at 1280×720 and DPI 240. Resolution,
   scale, language and device coordinates are calibration inputs, not universal constants.
 - Gate input on a recognized screen. Unknown or unreadable state must not trigger blind
   taps. Keep dry-run input guards, cancellation, timeouts and bounded recovery attempts.

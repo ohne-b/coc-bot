@@ -16,12 +16,13 @@
       "anchors": [
         {
           "roi": [
-            30,
-            676,
-            118,
-            20
+            45,
+            675,
+            90,
+            25
           ],
-          "file": "calibration/home-attack-label.png"
+          "file": "calibration/english/home-0.png",
+          "margin": 6
         },
         {
           "roi": [
@@ -30,7 +31,7 @@
             26,
             26
           ],
-          "file": "calibration/home-be90728e938a4ad59ffaa2f69b8dcebc.png"
+          "file": "calibration/english/icons/home-be90728e938a4ad59ffaa2f69b8dcebc.png"
         }
       ],
       "actions": {
@@ -41,7 +42,7 @@
       },
       "targets": {
         "switch": {
-          "file": "calibration/home-boat-05a72ae9974a42059aa8483c901b1359.png",
+          "file": "calibration/english/icons/home-boat-05a72ae9974a42059aa8483c901b1359.png",
           "max_score": 0.12,
           "pan": [
             [
@@ -124,49 +125,29 @@
           ],
           "pan_attempts": 3
         }
-      },
-      "alt_anchors": [
-        [
-          {
-            "roi": [
-              30,
-              676,
-              118,
-              20
-            ],
-            "file": "calibration/home-attack-label.png"
-          },
-          {
-            "roi": [
-              1244,
-              74,
-              14,
-              26
-            ],
-            "file": "calibration/home-elixir-52c8cc22e8fb40cfbac3bc587cdef168.png"
-          }
-        ]
-      ]
+      }
     },
     "home_menu": {
       "anchors": [
         {
           "roi": [
-            95,
-            40,
-            155,
-            35
+            96,
+            42,
+            145,
+            25
           ],
-          "file": "calibration/home_menu-b04b6685200b47c685399c0b540fced7.png"
+          "file": "calibration/english/home_menu-0.png",
+          "margin": 6
         },
         {
           "roi": [
-            95,
-            445,
-            245,
-            32
+            135,
+            502,
+            190,
+            26
           ],
-          "file": "calibration/home_menu-6d501326ab2a426bb0b3df7c55d4e7e7.png"
+          "file": "calibration/english/home_menu-1.png",
+          "margin": 6
         }
       ],
       "actions": {
@@ -184,21 +165,23 @@
       "anchors": [
         {
           "roi": [
-            190,
+            205,
             60,
-            135,
-            28
+            110,
+            26
           ],
-          "file": "calibration/home_army-c9eb87446efb4ac9a1007c48becdef93.png"
+          "file": "calibration/english/home_army-0.png",
+          "margin": 6
         },
         {
           "roi": [
-            915,
+            564,
             60,
             170,
-            28
+            25
           ],
-          "file": "calibration/home_army-d5b5e761aa31441fbf41bda96951de02.png"
+          "file": "calibration/english/home_army-1.png",
+          "margin": 6
         }
       ],
       "actions": {
@@ -216,21 +199,23 @@
       "anchors": [
         {
           "roi": [
-            32,
-            520,
-            122,
-            36
+            31,
+            522,
+            130,
+            27
           ],
-          "file": "calibration/home_scout-e9289ace0ede493db86ce6780f16ff06.png"
+          "file": "calibration/english/home_scout-0.png",
+          "margin": 6
         },
         {
           "roi": [
-            1128,
-            478,
-            128,
-            26
+            1148,
+            480,
+            105,
+            32
           ],
-          "file": "calibration/home_scout-37a54428515c4598be7b1295dbee1411.png"
+          "file": "calibration/english/home_scout-1.png",
+          "margin": 6
         }
       ],
       "actions": {
@@ -664,61 +649,19 @@
             24,
             26
           ],
-          "file": "calibration/home_battle-8839b94d1a054e31ba8a928b3c88e53a.png",
+          "file": "calibration/english/icons/home_battle-8839b94d1a054e31ba8a928b3c88e53a.png",
           "margin": 4
         },
         {
           "roi": [
-            1088,
+            1084,
             505,
-            158,
-            14
+            170,
+            15
           ],
-          "file": "calibration/home_battle-04cb775b34c641309899d4cbef7660aa.png",
-          "margin": 4
+          "file": "calibration/english/home_battle-1.png",
+          "margin": 6
         }
-      ],
-      "alt_anchors": [
-        [
-          {
-            "roi": [
-              30,
-              522,
-              125,
-              28
-            ],
-            "file": "calibration/home_battle-surrender.png"
-          },
-          {
-            "roi": [
-              540,
-              20,
-              90,
-              11
-            ],
-            "file": "calibration/builder_battle2-ef024e562f1f4316869d262b9a1cfd8b.png"
-          }
-        ],
-        [
-          {
-            "roi": [
-              30,
-              514,
-              125,
-              44
-            ],
-            "file": "calibration/home_battle-end-71b27219916e4f79acede92a5277bf24.png"
-          },
-          {
-            "roi": [
-              540,
-              20,
-              90,
-              11
-            ],
-            "file": "calibration/builder_battle2-ef024e562f1f4316869d262b9a1cfd8b.png"
-          }
-        ]
       ],
       "actions": {
         "surrender": [
@@ -736,24 +679,27 @@
     "home_result": {
       "anchors": [
         {
-          "roi": [
-            580,
-            600,
-            160,
-            34
+          "file": "calibration/english/icons/home_result-ee063b1fccee453f81c0b547b971a754.png",
+          "search": [
+            672,
+            306,
+            46,
+            74
           ],
-          "file": "calibration/home_result-dbb8786f17004760b699e3b1e3e571b6.png",
-          "margin": 3
+          "scales": [
+            1.0
+          ],
+          "max_score": 0.02
         },
         {
           "roi": [
-            684,
-            321,
-            26,
-            24
+            594,
+            595,
+            95,
+            43
           ],
-          "file": "calibration/home_result-ee063b1fccee453f81c0b547b971a754.png",
-          "margin": 3
+          "file": "calibration/english/home_result-1.png",
+          "margin": 6
         }
       ],
       "actions": {
@@ -761,64 +707,19 @@
           640,
           617
         ]
-      },
-      "alt_anchors": [
-        [
-          {
-            "roi": [
-              576,
-              600,
-              128,
-              32
-            ],
-            "file": "calibration/home_result-loss-17958ac20a814bf0834bd4ffafd7f257.png",
-            "margin": 3
-          },
-          {
-            "roi": [
-              684,
-              343,
-              26,
-              24
-            ],
-            "file": "calibration/home_result-loss-d9fb642ed7f24cc199ff9c12baf76e84.png",
-            "margin": 3
-          }
-        ],
-        [
-          {
-            "roi": [
-              576,
-              600,
-              128,
-              32
-            ],
-            "file": "calibration/home_result-loss-17958ac20a814bf0834bd4ffafd7f257.png",
-            "margin": 3
-          },
-          {
-            "roi": [
-              684,
-              321,
-              26,
-              24
-            ],
-            "file": "calibration/home_result-ee063b1fccee453f81c0b547b971a754.png",
-            "margin": 3
-          }
-        ]
-      ]
+      }
     },
     "builder": {
       "anchors": [
         {
           "roi": [
-            30,
-            676,
-            118,
-            20
+            45,
+            675,
+            90,
+            25
           ],
-          "file": "calibration/builder-attack-label.png"
+          "file": "calibration/english/home-0.png",
+          "margin": 6
         },
         {
           "roi": [
@@ -827,7 +728,7 @@
             20,
             22
           ],
-          "file": "calibration/builder-gem-icon.png"
+          "file": "calibration/english/icons/builder-gem-icon.png"
         },
         {
           "roi": [
@@ -836,7 +737,7 @@
             14,
             26
           ],
-          "file": "calibration/builder-elixir-bfc89b8b51fd4ccf9ea502b6929c5087.png"
+          "file": "calibration/english/icons/builder-elixir-bfc89b8b51fd4ccf9ea502b6929c5087.png"
         }
       ],
       "trophies": [
@@ -853,7 +754,7 @@
       },
       "targets": {
         "switch": {
-          "file": "calibration/builder-boat-9d1a2aaa061a4c1985e316ed6e66dcf2.png",
+          "file": "calibration/english/icons/builder-boat-9d1a2aaa061a4c1985e316ed6e66dcf2.png",
           "max_score": 0.1,
           "pan": [
             [
@@ -937,7 +838,7 @@
           "pan_attempts": 3
         },
         "cart": {
-          "file": "calibration/builder-cart-9f3f874317214d978c0f2f24c20a55b8.png",
+          "file": "calibration/english/builder-cart-empty.png",
           "max_score": 0.12,
           "scales": [
             0.8,
@@ -1015,28 +916,28 @@
           "pan_attempts": 3,
           "alt_files": [
             {
-              "file": "calibration/builder-cart-full-73654d455f5c4be1bfc859ee5c2c6295.png",
+              "file": "calibration/english/icons/builder-cart-full-73654d455f5c4be1bfc859ee5c2c6295.png",
               "offset": [
                 0,
                 18
               ]
             },
             {
-              "file": "calibration/builder-cart-fullbubble-8aad1e6536344a138faf54daca1ddce5.png",
+              "file": "calibration/english/icons/builder-cart-fullbubble-8aad1e6536344a138faf54daca1ddce5.png",
               "offset": [
                 0,
                 18
               ]
             },
             {
-              "file": "calibration/builder-cart-heap-ef31006b4ad4463a9fccb45baafebb7a.png",
+              "file": "calibration/english/icons/builder-cart-heap-ef31006b4ad4463a9fccb45baafebb7a.png",
               "offset": [
                 0,
                 18
               ]
             },
             {
-              "file": "calibration/builder-cart-axes-f8b998ea5ec24140bc7ee1ab965f6aeb.png",
+              "file": "calibration/english/icons/builder-cart-axes-f8b998ea5ec24140bc7ee1ab965f6aeb.png",
               "offset": [
                 0,
                 28
@@ -1051,21 +952,23 @@
       "anchors": [
         {
           "roi": [
-            500,
-            118,
-            312,
-            38
+            520,
+            116,
+            271,
+            39
           ],
-          "file": "calibration/builder_menu-2dfe62c4ad1d40e9bdb9712f8bc927be.png"
+          "file": "calibration/english/builder_menu-0.png",
+          "margin": 6
         },
         {
           "roi": [
-            232,
-            220,
-            138,
-            26
+            868,
+            455,
+            166,
+            34
           ],
-          "file": "calibration/builder_menu-7a2258b2b0d0447f90b05e91acecc204.png"
+          "file": "calibration/english/builder_menu-1.png",
+          "margin": 6
         }
       ],
       "actions": {
@@ -1083,26 +986,23 @@
       "anchors": [
         {
           "roi": [
-            644,
-            20,
-            112,
-            11
+            186,
+            491,
+            132,
+            24
           ],
-          "file": "calibration/builder_stage2-countdown-9d1db97a1df94bc9943149af3127e61e.png",
-          "margin": 3
+          "file": "calibration/english/builder_scout-0.png",
+          "margin": 6
         },
         {
-          "file": "calibration/builder_scout-pembela-c87eba4df5fe47a48d1b16bb7beea543.png",
-          "search": [
-            40,
-            5,
-            140,
-            40
+          "roi": [
+            432,
+            483,
+            84,
+            38
           ],
-          "scales": [
-            1.0
-          ],
-          "max_score": 0.05
+          "file": "calibration/english/builder_scout-1.png",
+          "margin": 6
         }
       ],
       "actions": {},
@@ -1222,72 +1122,30 @@
             340
           ]
         ]
-      },
-      "alt_anchors": [
-        [
-          {
-            "roi": [
-              185,
-              482,
-              188,
-              38
-            ],
-            "file": "calibration/builder_scout-002a96267b204d7092784f558cd685bb.png"
-          },
-          {
-            "roi": [
-              402,
-              482,
-              190,
-              38
-            ],
-            "file": "calibration/builder_scout-bdd5eca50f8f4370beddcb066e8ff1ba.png"
-          }
-        ]
-      ]
+      }
     },
     "builder_battle": {
       "anchors": [
         {
           "roi": [
-            30,
+            32,
             488,
-            125,
-            26
+            121,
+            25
           ],
-          "file": "calibration/builder_battle-6a85ad64217d4ac581697c49367cc508.png"
+          "file": "calibration/english/builder_battle-0.png",
+          "margin": 6
         },
         {
           "roi": [
-            1080,
-            503,
-            165,
-            20
+            1084,
+            505,
+            160,
+            18
           ],
-          "file": "calibration/builder_battle-0e1c6c1e740c4d028d36e8a86a0ee813.png"
+          "file": "calibration/english/builder_battle-1.png",
+          "margin": 6
         }
-      ],
-      "alt_anchors": [
-        [
-          {
-            "roi": [
-              30,
-              488,
-              125,
-              26
-            ],
-            "file": "calibration/builder_battle-6a85ad64217d4ac581697c49367cc508.png"
-          },
-          {
-            "roi": [
-              540,
-              20,
-              90,
-              11
-            ],
-            "file": "calibration/builder_battle2-ef024e562f1f4316869d262b9a1cfd8b.png"
-          }
-        ]
       ],
       "actions": {
         "surrender": [
@@ -1320,22 +1178,23 @@
       "anchors": [
         {
           "roi": [
-            30,
-            485,
-            125,
-            40
+            31,
+            488,
+            126,
+            24
           ],
-          "file": "calibration/builder_stage2-6654f209497f443685faf73ff0342cdf.png"
+          "file": "calibration/english/builder_stage2-0.png",
+          "margin": 6
         },
         {
           "roi": [
-            644,
-            20,
-            112,
-            11
+            627,
+            19,
+            80,
+            12
           ],
-          "file": "calibration/builder_stage2-countdown-9d1db97a1df94bc9943149af3127e61e.png",
-          "margin": 3
+          "file": "calibration/english/builder_stage2-1.png",
+          "margin": 6
         }
       ],
       "actions": {
@@ -1500,22 +1359,23 @@
       "anchors": [
         {
           "roi": [
-            30,
-            485,
-            125,
-            40
+            31,
+            488,
+            126,
+            24
           ],
-          "file": "calibration/builder_battle2-4b1dd0ab8d9e4a6b90ed8ae1ab0960ea.png"
+          "file": "calibration/english/builder_battle2-0.png",
+          "margin": 6
         },
         {
           "roi": [
-            540,
-            20,
-            90,
-            11
+            582,
+            17,
+            120,
+            16
           ],
-          "file": "calibration/builder_battle2-ef024e562f1f4316869d262b9a1cfd8b.png",
-          "margin": 3
+          "file": "calibration/english/builder_battle2-1.png",
+          "margin": 6
         }
       ],
       "actions": {
@@ -1529,21 +1389,23 @@
       "anchors": [
         {
           "roi": [
-            580,
-            585,
-            120,
-            48
+            400,
+            387,
+            135,
+            18
           ],
-          "file": "calibration/builder_result-33acedda2f1d40ca9ca160b1ea0cfee4.png"
+          "file": "calibration/english/builder_result-0.png",
+          "margin": 6
         },
         {
           "roi": [
-            372,
-            387,
-            190,
-            18
+            594,
+            585,
+            98,
+            43
           ],
-          "file": "calibration/builder_result-9bcb809d676e47b8bf5da07008f3071e.png"
+          "file": "calibration/english/builder_result-1.png",
+          "margin": 6
         }
       ],
       "actions": {
@@ -1553,53 +1415,27 @@
         ]
       }
     },
-    "star_bonus": {
-      "anchors": [
-        {
-          "roi": [
-            392,
-            62,
-            510,
-            38
-          ],
-          "file": "calibration/star_bonus-0a56eabea70f42bfbf4db757468f7b1c.png"
-        },
-        {
-          "roi": [
-            592,
-            596,
-            108,
-            34
-          ],
-          "file": "calibration/star_bonus-2502b8b537384382852ded40bc07d058.png"
-        }
-      ],
-      "actions": {
-        "ok": [
-          646,
-          612
-        ]
-      }
-    },
     "builder_star_bonus": {
       "anchors": [
         {
           "roi": [
-            478,
-            128,
-            330,
-            40
+            510,
+            126,
+            262,
+            38
           ],
-          "file": "calibration/builder_star_bonus-fa7522b5a89042b6b9d0c941e42c859b.png"
+          "file": "calibration/english/builder_star_bonus-0.png",
+          "margin": 6
         },
         {
           "roi": [
-            586,
-            542,
-            108,
-            34
+            601,
+            544,
+            78,
+            31
           ],
-          "file": "calibration/builder_star_bonus-8e8e1c20a42043bc9d9b351299b43b10.png"
+          "file": "calibration/english/builder_star_bonus-1.png",
+          "margin": 6
         }
       ],
       "actions": {
@@ -1613,12 +1449,13 @@
       "anchors": [
         {
           "roi": [
-            497,
+            542,
             58,
-            290,
-            34
+            200,
+            37
           ],
-          "file": "calibration/builder_cart-e27b725d104d4caca2b12bf613b7e737.png"
+          "file": "calibration/english/builder_cart-0.png",
+          "margin": 6
         },
         {
           "roi": [
@@ -1627,7 +1464,7 @@
             44,
             40
           ],
-          "file": "calibration/builder_cart-ac7ae281167a4c749254b19cd6b40367.png"
+          "file": "calibration/english/icons/builder_cart-ac7ae281167a4c749254b19cd6b40367.png"
         }
       ],
       "actions": {
@@ -1641,100 +1478,17 @@
         ]
       }
     },
-    "reward_chest": {
-      "actions": {
-        "open": [
-          640,
-          400
-        ]
-      },
-      "anchors": [
-        {
-          "roi": [
-            130,
-            380,
-            90,
-            60
-          ],
-          "file": "calibration/reward_chest-d97b853f22774e87bb6e0135189d61a6.png"
-        },
-        {
-          "roi": [
-            60,
-            20,
-            60,
-            300
-          ],
-          "file": "calibration/reward_chest-2f8187f46fa14c72a6187bc6cd68551a.png"
-        }
-      ]
-    },
-    "reward_card": {
-      "actions": {
-        "continue": [
-          645,
-          652
-        ]
-      },
-      "anchors": [
-        {
-          "roi": [
-            600,
-            636,
-            92,
-            32
-          ],
-          "file": "calibration/reward_card-0b9a7e86417a4d499c7e0c9990d5230c.png"
-        },
-        {
-          "roi": [
-            130,
-            380,
-            90,
-            60
-          ],
-          "file": "calibration/reward_card-a5f7b4146eab4006b6fba10b5a400e78.png"
-        }
-      ]
-    },
-    "layout_blocked": {
-      "actions": {
-        "ok": [
-          778,
-          462
-        ]
-      },
-      "anchors": [
-        {
-          "roi": [
-            352,
-            205,
-            576,
-            34
-          ],
-          "file": "calibration/layout_blocked-79c98a38cc004045bcf046900b84c358.png"
-        },
-        {
-          "roi": [
-            382,
-            418,
-            234,
-            90
-          ],
-          "file": "calibration/layout_blocked-4617e86350a242839c27e1342bad80ba.png"
-        }
-      ]
-    },
     "league": {
       "anchors": [
         {
           "roi": [
-            150,
-            60,
-            190,
-            28
+            136,
+            63,
+            211,
+            30
           ],
-          "file": "calibration/league-301160298ecc4be7b6cae4dd1a361970.png"
+          "file": "calibration/english/league-0.png",
+          "margin": 6
         },
         {
           "roi": [
@@ -1743,7 +1497,7 @@
             50,
             46
           ],
-          "file": "calibration/league-dfad0514db5d4488a4d4358cf8add2a0.png"
+          "file": "calibration/english/icons/league-dfad0514db5d4488a4d4358cf8add2a0.png"
         }
       ],
       "actions": {
@@ -1757,12 +1511,13 @@
       "anchors": [
         {
           "roi": [
-            1044,
-            6,
-            134,
-            34
+            1030,
+            16,
+            155,
+            16
           ],
-          "file": "calibration/build_list-header-15b16a04c1b844c6bd5b8557e9922900.png"
+          "file": "calibration/english/build_list-0.png",
+          "margin": 6
         },
         {
           "roi": [
@@ -1771,7 +1526,7 @@
             38,
             34
           ],
-          "file": "calibration/build_list-close-9230279687b64ac497e8223c7152d496.png"
+          "file": "calibration/english/icons/build_list-close-9230279687b64ac497e8223c7152d496.png"
         }
       ],
       "actions": {
@@ -1784,7 +1539,7 @@
     "wall_selected": {
       "anchors": [
         {
-          "file": "calibration/wall_selected-pilih-1d61e4e797e049699eddfa8aed80eacd.png",
+          "file": "calibration/english/wall-select-row.png",
           "search": [
             0,
             380,
@@ -1798,7 +1553,7 @@
           "max_score": 0.03
         },
         {
-          "file": "calibration/wall-hammer-b6fafe3a343545f4aa4989149fc91bd8.png",
+          "file": "calibration/english/icons/wall-hammer-b6fafe3a343545f4aa4989149fc91bd8.png",
           "search": [
             0,
             380,
@@ -1832,22 +1587,23 @@
       "anchors": [
         {
           "roi": [
-            368,
-            30,
-            384,
-            38
+            420,
+            34,
+            282,
+            32
           ],
-          "file": "calibration/wall_confirm-title-b20e94a565334d03be35cc39156d94c9.png",
+          "file": "calibration/english/wall_confirm-0.png",
           "margin": 12
         },
         {
           "roi": [
-            1008,
-            588,
-            148,
-            88
+            655,
+            306,
+            450,
+            52
           ],
-          "file": "calibration/wall_confirm-time-4d3009d5d10743f68fbf875a65536313.png"
+          "file": "calibration/english/wall_confirm-1.png",
+          "margin": 6
         }
       ],
       "overrides": [
@@ -1865,54 +1621,27 @@
         ]
       }
     },
-    "welcome": {
-      "anchors": [
-        {
-          "roi": [
-            330,
-            62,
-            620,
-            44
-          ],
-          "file": "calibration/welcome-title-5a03be9cfb684af8919a18faed0e1f40.png"
-        },
-        {
-          "roi": [
-            520,
-            140,
-            240,
-            28
-          ],
-          "file": "calibration/welcome-away-08f06c77c9b84a73bc3345e91b1f8250.png"
-        }
-      ],
-      "actions": {
-        "ok": [
-          654,
-          598
-        ]
-      }
-    },
     "builder_wall_confirm": {
       "anchors": [
         {
           "roi": [
-            306,
-            104,
-            128,
-            34
+            333,
+            106,
+            70,
+            30
           ],
-          "file": "calibration/builder_wall_confirm-label-449b0efd4d9f4f18a9afbd0f31baadc7.png",
-          "margin": 12
+          "file": "calibration/english/builder_wall_confirm-0.png",
+          "margin": 6
         },
         {
           "roi": [
-            198,
-            276,
-            184,
-            78
+            238,
+            288,
+            104,
+            51
           ],
-          "file": "calibration/builder_wall_confirm-time-a08d9ca150144116987466668ea0b679.png"
+          "file": "calibration/english/builder_wall_confirm-1.png",
+          "margin": 6
         }
       ],
       "overrides": [
@@ -1930,113 +1659,27 @@
         ]
       }
     },
-    "search_failed": {
-      "anchors": [
-        {
-          "roi": [
-            345,
-            378,
-            592,
-            30
-          ],
-          "file": "calibration/search_failed-text-44bbad3de15845d3b642777685a35ebf.png"
-        },
-        {
-          "roi": [
-            20,
-            575,
-            130,
-            130
-          ],
-          "file": "calibration/search_failed-home-def4d22567c04923bf6fcd43a767a63a.png"
-        }
-      ],
-      "actions": {
-        "close": [
-          85,
-          640
-        ]
-      }
-    },
-    "gem_offer": {
-      "anchors": [
-        {
-          "roi": [
-            444,
-            188,
-            388,
-            36
-          ],
-          "file": "calibration/gem_offer-title-a4ae48e4d4904e43ac061e9d07f3d7a3.png"
-        },
-        {
-          "roi": [
-            868,
-            186,
-            66,
-            64
-          ],
-          "file": "calibration/gem_offer-close-9af592b14cae4585bb3bd8414bf4b0dd.png"
-        }
-      ],
-      "actions": {
-        "close": [
-          900,
-          218
-        ]
-      }
-    },
-    "other_device": {
-      "anchors": [
-        {
-          "roi": [
-            284,
-            276,
-            282,
-            32
-          ],
-          "file": "calibration/other_device-title-cdafdf1b920846acab00744e40264eb0.png"
-        },
-        {
-          "roi": [
-            284,
-            326,
-            410,
-            28
-          ],
-          "file": "calibration/other_device-text-b8726e4e271148d0b9680237e012971c.png"
-        }
-      ],
-      "overrides": [
-        "home",
-        "builder"
-      ],
-      "actions": {
-        "reload": [
-          349,
-          436
-        ]
-      }
-    },
     "surrender_confirm": {
       "anchors": [
         {
           "roi": [
-            445,
-            440,
-            110,
-            42
+            518,
+            204,
+            250,
+            35
           ],
-          "file": "calibration/surrender_confirm-batal-6db9039470af404d81f518516850cd2d.png"
+          "file": "calibration/english/surrender_confirm-0.png",
+          "margin": 6
         },
         {
           "roi": [
-            735,
-            440,
-            90,
-            42
+            369,
+            297,
+            542,
+            58
           ],
-          "file": "calibration/surrender_confirm-oke-911e6e20312c4268badda4b00e334025.png"
+          "file": "calibration/english/surrender_confirm-1.png",
+          "margin": 6
         }
       ],
       "overrides": [
@@ -2049,156 +1692,28 @@
           778,
           462
         ]
-      }
-    },
-    "idle": {
-      "anchors": [
-        {
-          "roi": [
-            284,
-            276,
-            256,
-            32
-          ],
-          "file": "calibration/idle-title-407df76e19254b0490095d6bc5d899f7.png"
-        },
-        {
-          "roi": [
-            284,
-            326,
-            450,
-            28
-          ],
-          "file": "calibration/idle-text-8286d6ff039c4b398625cbffea854ad7.png"
-        }
-      ],
-      "overrides": [
-        "home",
-        "builder",
-        "build_list",
-        "wall_selected"
-      ],
-      "actions": {
-        "reload": [
-          381,
-          436
-        ]
-      }
-    },
-    "builders_busy": {
-      "anchors": [
-        {
-          "roi": [
-            494,
-            186,
-            286,
-            36
-          ],
-          "file": "calibration/builders_busy-title-3d2f9939b05e4cdaaf5af1c8f46db6ea.png"
-        },
-        {
-          "roi": [
-            368,
-            308,
-            540,
-            28
-          ],
-          "file": "calibration/builders_busy-text-468cde8d5e3547cdae8d3518aa1747f8.png"
-        }
-      ],
-      "overrides": [
-        "home",
-        "builder",
-        "build_list",
-        "wall_selected"
-      ],
-      "actions": {
-        "close": [
-          900,
-          218
-        ]
-      }
-    },
-    "update_offer": {
-      "anchors": [
-        {
-          "roi": [
-            410,
-            196,
-            460,
-            40
-          ],
-          "file": "calibration/update_offer-title-5f2e4e3d56d540abb963ed4d050775ea.png"
-        },
-        {
-          "roi": [
-            540,
-            440,
-            195,
-            40
-          ],
-          "file": "calibration/update_offer-button-00c5f21cf3354b78aaa2c85022c9c288.png"
-        }
-      ],
-      "actions": {
-        "update": [
-          637,
-          460
-        ]
-      }
-    },
-    "disconnected": {
-      "anchors": [
-        {
-          "roi": [
-            284,
-            276,
-            282,
-            32
-          ],
-          "file": "calibration/disconnected-title-5aff079c63124cdead90c42f6d8d7fc5.png"
-        },
-        {
-          "roi": [
-            284,
-            326,
-            450,
-            28
-          ],
-          "file": "calibration/disconnected-text-84847c41ae1440d38389da336bfc4886.png"
-        }
-      ],
-      "overrides": [
-        "home",
-        "builder",
-        "build_list",
-        "wall_selected"
-      ],
-      "actions": {
-        "retry": [
-          336,
-          436
-        ]
       },
       "alt_anchors": [
         [
           {
             "roi": [
-              284,
-              276,
-              304,
-              32
+              519,
+              204,
+              249,
+              35
             ],
-            "file": "calibration/connection_error-title-c381584ee94f44ed8b045f5786b5165c.png"
+            "file": "calibration/english/surrender_confirm-alt-0.png",
+            "margin": 6
           },
           {
             "roi": [
-              284,
-              326,
-              450,
-              28
+              377,
+              298,
+              527,
+              55
             ],
-            "file": "calibration/connection_error-text-56968fea68184783a9624963c9cf6370.png"
+            "file": "calibration/english/surrender_confirm-alt-1.png",
+            "margin": 6
           }
         ]
       ]
@@ -2217,7 +1732,7 @@
       150
     ],
     "selection": {
-      "file": "calibration/selected-info-0f2edaacf9d84544b28cb7b2615fec77.png",
+      "file": "calibration/english/icons/selected-info-0f2edaacf9d84544b28cb7b2615fec77.png",
       "max_score": 0.08
     }
   },
@@ -2299,7 +1814,7 @@
           26
         ],
         "label": {
-          "file": "calibration/tooltip-maks-6bd3d99a78874bb8a28c17db728e4fd3.png",
+          "file": "calibration/english/tooltip-max.png",
           "region": [
             1030,
             122,
@@ -2327,7 +1842,7 @@
           26
         ],
         "label": {
-          "file": "calibration/tooltip-maks-6bd3d99a78874bb8a28c17db728e4fd3.png",
+          "file": "calibration/english/tooltip-max.png",
           "region": [
             1030,
             74,
@@ -2355,7 +1870,7 @@
           28
         ],
         "label": {
-          "file": "calibration/tooltip-maks-6bd3d99a78874bb8a28c17db728e4fd3.png",
+          "file": "calibration/english/tooltip-max.png",
           "region": [
             1030,
             170,
@@ -2385,7 +1900,7 @@
           26
         ],
         "label": {
-          "file": "calibration/tooltip-maks-6bd3d99a78874bb8a28c17db728e4fd3.png",
+          "file": "calibration/english/tooltip-max.png",
           "region": [
             1030,
             122,
@@ -2413,7 +1928,7 @@
           26
         ],
         "label": {
-          "file": "calibration/tooltip-maks-6bd3d99a78874bb8a28c17db728e4fd3.png",
+          "file": "calibration/english/tooltip-max.png",
           "region": [
             1030,
             74,
@@ -2432,7 +1947,7 @@
     26
   ],
   "speed_button": {
-    "file": "calibration/speed-1x-f61cc27faff74ea8b4a84795e4c9b98e.png",
+    "file": "calibration/english/icons/speed-1x-f61cc27faff74ea8b4a84795e4c9b98e.png",
     "max_score": 0.05,
     "scales": [
       0.95,
@@ -2455,7 +1970,7 @@
         640
       ],
       "row": {
-        "file": "calibration/wall-row-0ebe283d13c24291b8a2891002a29e59.png",
+        "file": "calibration/english/wall-row.png",
         "region": [
           940,
           56,
@@ -2503,10 +2018,10 @@
       "confirm": {
         "screen": "wall_confirm",
         "price": [
-          806,
-          624,
-          146,
-          32
+          812,
+          616,
+          130,
+          24
         ],
         "icon": [
           940,
@@ -2517,11 +2032,12 @@
         "min_white": 300,
         "max_score": 0.05,
         "icons": {
-          "gold": "calibration/wall-icon-gold-239c7df7d5f54b5d8e5afdbd3a0caf01.png",
-          "elixir": "calibration/wall-icon-elixir-d81a618d1ebb49f095bdb41dd5459204.png"
-        }
+          "gold": "calibration/english/icons/wall-icon-gold-239c7df7d5f54b5d8e5afdbd3a0caf01.png",
+          "elixir": "calibration/english/icons/wall-icon-elixir-d81a618d1ebb49f095bdb41dd5459204.png"
+        },
+        "price_color": "green"
       },
-      "gold_reserve": 200000,
+      "gold_reserve": 1000000,
       "hud_gold": {
         "list": [
           650,
@@ -2537,7 +2053,7 @@
         ]
       },
       "button": {
-        "file": "calibration/wall-hammer-b6fafe3a343545f4aa4989149fc91bd8.png",
+        "file": "calibration/english/icons/wall-hammer-b6fafe3a343545f4aa4989149fc91bd8.png",
         "search": [
           0,
           380,
@@ -2560,6 +2076,22 @@
           19
         ],
         "icon_min": 40
+      },
+      "elixir_reserve": 1000000,
+      "farm_threshold": 20000000,
+      "hud_elixir": {
+        "list": [
+          650,
+          76,
+          230,
+          26
+        ],
+        "village": [
+          1040,
+          76,
+          178,
+          26
+        ]
       }
     },
     "builder": {
@@ -2568,7 +2100,7 @@
         640
       ],
       "row": {
-        "file": "calibration/wall-row-0ebe283d13c24291b8a2891002a29e59.png",
+        "file": "calibration/english/wall-row.png",
         "region": [
           940,
           56,
@@ -2630,12 +2162,12 @@
         "min_white": 300,
         "max_score": 0.05,
         "icons": {
-          "gold": "calibration/wall-icon-builder-gold-aa1d2c3cfa14435e863de2fd1e1536e6.png",
-          "elixir": "calibration/wall-icon-builder-elixir-f41855d738aa4709af5072749108d4b0.png"
+          "gold": "calibration/english/icons/wall-icon-builder-gold-aa1d2c3cfa14435e863de2fd1e1536e6.png",
+          "elixir": "calibration/english/icons/wall-icon-builder-elixir-f41855d738aa4709af5072749108d4b0.png"
         }
       },
       "button": {
-        "file": "calibration/wall-hammer-b6fafe3a343545f4aa4989149fc91bd8.png",
+        "file": "calibration/english/icons/wall-hammer-b6fafe3a343545f4aa4989149fc91bd8.png",
         "search": [
           0,
           380,
@@ -2662,9 +2194,44 @@
     }
   },
   "remote": {
-    "supabase_url": "https://mctutlxqkpjqldbfxqcs.supabase.co",
-    "supabase_key": "sb_publishable_YhJFWOLMBDYGRgmC-B_EBQ_uiWZ4tBN",
-    "port": 8765,
-    "dashboard": "https://coc.0xpnj.dev"
-  }
+    "port": 8766
+  },
+  "calibration_language": "en",
+  "calibration_observed_screens": [
+    "home",
+    "builder",
+    "builder_menu",
+    "builder_scout",
+    "builder_battle",
+    "builder_battle2",
+    "builder_stage2",
+    "builder_result",
+    "builder_cart",
+    "builder_wall_confirm",
+    "builder_star_bonus",
+    "league",
+    "home_menu",
+    "home_army",
+    "home_scout",
+    "home_battle",
+    "surrender_confirm",
+    "home_result",
+    "build_list",
+    "wall_confirm",
+    "wall_selected"
+  ],
+  "calibration_pending_screens": [
+    "builders_busy",
+    "disconnected",
+    "gem_offer",
+    "idle",
+    "layout_blocked",
+    "other_device",
+    "reward_card",
+    "reward_chest",
+    "search_failed",
+    "star_bonus",
+    "update_offer",
+    "welcome"
+  ]
 }

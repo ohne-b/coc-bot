@@ -46,13 +46,14 @@ cargo fmt --all -- --check
 cargo test --workspace --all-targets --locked
 cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo run -p coc-bot-core --example inspect -- `
-    legacy/python/config.english.json legacy/python/fixtures/english-home.png
+    legacy/python/config.json legacy/python/fixtures/english-home.png
 ```
 
 The inspection example reads a saved screenshot and prints a structured detection;
 it never starts ADB or sends input. Recognition rejects unknown and ambiguous screens,
-wrong dimensions and weak numeric readings. English screens listed as pending are
-excluded from matching even though the legacy profile still holds their old anchors.
+wrong dimensions and weak numeric readings. English screens listed as pending have
+no matching templates. Indonesian profiles and text anchors have been removed; shared
+icons and digits remain. Integrate ongoing English calibration additions with their fixtures.
 
 The Python baseline remains an offline comparison suite during migration:
 

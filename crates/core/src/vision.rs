@@ -62,7 +62,10 @@ impl Detector {
                                 &mut deviation,
                                 &core::no_array(),
                             )?;
-                            if template.cols() > width as i32
+                            if (spec.roi.is_some()
+                                && (template.cols() != width as i32
+                                    || template.rows() != height as i32))
+                                || template.cols() > width as i32
                                 || template.rows() > height as i32
                                 || deviation.0[..3].iter().all(|s| *s < 5.0)
                             {

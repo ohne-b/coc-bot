@@ -15,7 +15,7 @@ class EnglishCalibrationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # Read the shared profile only: tests never load this PC's overrides or contact ADB.
-        cls.config = bot.read_config(ROOT / 'config.english.json')
+        cls.config = bot.read_config(ROOT / 'config.json')
         cls.runner = bot.Bot(cls.config, ROOT, None)
         cls.fixtures = json.loads((ROOT / 'fixtures/english.json').read_text(encoding='utf-8'))
 
@@ -31,7 +31,7 @@ class EnglishCalibrationTests(unittest.TestCase):
         observed = set(self.config['calibration_observed_screens'])
         pending = set(self.config['calibration_pending_screens'])
         self.assertFalse(observed & pending)
-        self.assertEqual(observed | pending, set(self.config['screens']))
+        self.assertEqual(observed, set(self.config['screens']))
         self.assertEqual(observed, {item['state'] for item in self.fixtures.values() if item['state']})
 
     def test_recognizes_captured_english_ui_without_account_identifiers(self):
@@ -82,15 +82,22 @@ class EnglishCalibrationTests(unittest.TestCase):
                          [(3_500_000, 234), (2_500_000, 519)])
         self.assertFalse(self.runner.wall_rows(self.frame('build_list'), spec))
 
-    def test_indonesian_profile_and_unchanged_icon_assets_are_reused(self):
-        original = bot.read_config(ROOT / 'config.json')
-        for name, index in (('home', 1), ('builder', 1), ('builder', 2), ('home_battle', 0),
-                            ('build_list', 1), ('builder_cart', 1)):
-            self.assertEqual(self.config['screens'][name]['anchors'][index],
-                             original['screens'][name]['anchors'][index])
-        self.assertEqual(self.config['walls']['home']['confirm']['icons'],
-                         original['walls']['home']['confirm']['icons'])
-        self.assertNotIn('english', original['screens']['home']['anchors'][0]['file'])
+    def test_only_english_calibration_and_shared_digits_remain(self):
+        self.assertEqual(self.config['calibration_language'], 'en')
+        self.assertFalse((ROOT / 'config.legacy.json').exists())
+        self.assertFalse(list((ROOT / 'calibration-legacy').glob('*.png')))
+        self.assertFalse(list((ROOT / 'calibration').glob('*.png')))
+        def check(value):
+            if isinstance(value, dict):
+                for item in value.values():
+                    check(item)
+            elif isinstance(value, list):
+                for item in value:
+                    check(item)
+            elif isinstance(value, str) and value.endswith('.png'):
+                self.assertTrue(value.startswith('calibration/english/'), value)
+                self.assertTrue((ROOT / value).is_file(), value)
+        check(self.config)
 
 
 if __name__ == '__main__':

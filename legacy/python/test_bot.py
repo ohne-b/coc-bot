@@ -163,15 +163,16 @@ class BotTests(unittest.TestCase):
             return image
         return config, bot.Detector(config, root), frame
 
-    def test_the_bundled_calibration_never_takes_a_low_town_hall_for_the_builder_base(self):
+    def test_a_shared_gem_icon_cannot_identify_the_builder_base(self):
         config, detector, frame = self.bundled()
         screens = config['screens']
-        home, builder, low = screens['home']['anchors'], screens['builder']['anchors'], screens['home']['alt_anchors'][0]
-        self.assertEqual(detector.detect(frame(*home, *low)), 'home')
+        home, builder = screens['home']['anchors'], screens['builder']['anchors']
+        self.assertEqual(detector.detect(frame(*home)), 'home')
         self.assertEqual(detector.detect(frame(*builder)), 'builder')
         # Below Town Hall 7 there is no dark elixir, and the gem count moves up to where the Builder Base shows it.
         gems = next(anchor for anchor in builder if 'gem' in anchor['file'])
-        self.assertEqual(detector.detect(frame(*low, gems)), 'home')
+        with self.assertRaises(bot.UnknownScreen):
+            detector.detect(frame(gems))
 
     def test_the_bundled_stage_two_is_recognised_whatever_army_the_bar_shows(self):
         config, detector, frame = self.bundled()
@@ -596,8 +597,8 @@ class BotTests(unittest.TestCase):
         config, _, _ = self.bundled()
         root = Path(bot.__file__).parent
         detector = bot.Detector(config, root)
-        selected = cv2.imread(str(root / 'fixtures' / 'home-wall-selected.png'))
-        village = cv2.imread(str(root / 'fixtures' / 'builder-trophies-2482.png'))
+        selected = cv2.imread(str(root / 'fixtures' / 'english-wall_selected.png'))
+        village = cv2.imread(str(root / 'fixtures' / 'english-builder.png'))
         self.assertEqual(detector.detect(selected), 'wall_selected')
         self.assertEqual(detector.detect(village), 'builder')
         for image in (selected, village):
@@ -613,9 +614,12 @@ class BotTests(unittest.TestCase):
                             self.assertAlmostEqual(bot.match_min(region, scaled), full, delta=0.001)
 
     def test_builder_trophies_under_the_floor_are_fought_for_without_surrender(self):
-        config, _, _ = self.bundled()
+        config, _, frame = self.bundled()
         root = Path(bot.__file__).parent
-        image = cv2.imread(str(root / 'fixtures' / 'builder-trophies-2482.png'))
+        image = frame(*config['screens']['builder']['anchors'])
+        digits = cv2.imread(str(root / 'fixtures' / 'builder-trophies-2482.png'))
+        x, y, w, h = config['screens']['builder']['trophies']
+        image[y:y+h, x:x+w] = digits[y:y+h, x:x+w]
         for floor, below in ((0, False), (2482, False), (2483, True), (3000, True)):
             runner = bot.Bot(config, root, Device({'builder': image}, 'builder'), live=True, trophy_floor=floor)
             with self.subTest(floor=floor):
@@ -2259,19 +2263,18 @@ class BotTests(unittest.TestCase):
         with self.assertRaises(bot.GemSpent):
             runner.start_gem_watch(spec)
 
-    def test_the_bundled_wall_list_prices_read_white_and_red(self):
+    def test_captured_wall_list_prices_read_white_red_and_touching_digits(self):
         config, _, _ = self.bundled()
         root = Path(bot.__file__).parent
         row = config['walls']['home']['row']
-        template = cv2.imread(str(root / row['file']))
         templates = bot.load_digit_templates(root, config['digits'])
         # "merged": neighbouring zeros touch; its last row is the selected building's, drawn smaller.
-        for name, expected in (('affordable', [3_000_000, 2_000_000, 1_500_000]), ('short', [3_000_000]),
-                               ('merged-short', [3_000_000]),
-                               ('merged-affordable', [2_000_000, 1_500_000, 1_000_000])):
+        # Recorded row positions keep numeric regression coverage without Indonesian title templates.
+        for name, ys, expected in (('affordable', [356, 470, 527], [3_000_000, 2_000_000, 1_500_000]),
+                                   ('short', [386], [3_000_000]), ('merged-short', [305], [3_000_000]),
+                                   ('merged-affordable', [78, 135, 249], [2_000_000, 1_500_000, 1_000_000])):
             image = np.zeros((720, 1280, 3), dtype=np.uint8)
             image[50:670, 940:1280] = cv2.imread(str(root / 'fixtures' / f'wall-list-{name}.png'))
-            ys = bot.find_rows(image, template, row['region'], row['max_score'], row['scales'])
             with self.subTest(list=name):
                 self.assertEqual([bot.row_price(image, row['price'], y, templates) for y in ys], expected)
 

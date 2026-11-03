@@ -17,7 +17,7 @@ fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../legacy/python")
 }
 fn profile() -> Calibration {
-    Calibration::load(&root().join("config.english.json")).unwrap()
+    Calibration::load(&root().join("config.json")).unwrap()
 }
 
 #[test]
@@ -69,26 +69,17 @@ fn rejects_black_frames_wrong_dimensions_and_ambiguous_screens() {
 #[test]
 fn pending_english_templates_never_authorize_input() {
     let mut calibration = profile();
-    calibration
-        .screens
-        .get_mut(&Screen::Disconnected)
-        .unwrap()
-        .anchors = calibration.screens[&Screen::Home].anchors.clone();
-    let detector = Detector::load(&calibration, &root()).unwrap();
-    assert_eq!(
-        detector
-            .detect(&read_image(&root().join("fixtures/english-home.png")).unwrap())
-            .unwrap(),
-        Detection::Known(Screen::Home)
+    calibration.screens.insert(
+        Screen::Disconnected,
+        calibration.screens[&Screen::Home].clone(),
     );
+    assert!(Detector::load(&calibration, &root()).is_err());
 }
 
 #[test]
 fn profiles_validate_and_bad_regions_paths_and_tolerances_fail_closed() {
-    for file in ["config.json", "config.english.json", "config.legacy.json"] {
-        let profile = Calibration::load(&root().join(file)).unwrap();
-        Detector::load(&profile, &root()).unwrap();
-    }
+    let calibration = profile();
+    Detector::load(&calibration, &root()).unwrap();
     assert!(Calibration::load(&root().join("config.example.json")).is_err());
     for region in [
         Region(0, 0, 0, 1),
@@ -119,6 +110,43 @@ fn profiles_validate_and_bad_regions_paths_and_tolerances_fail_closed() {
     let mut invalid = profile();
     invalid.calibration_pending_screens.insert(Screen::Home);
     assert!(invalid.validate().is_err());
+    let mut invalid = profile();
+    invalid.calibration_language = "id".into();
+    assert!(invalid.validate().is_err());
+}
+
+#[test]
+fn recognition_requires_independent_correctly_sized_anchors() {
+    let mut single = profile();
+    single
+        .screens
+        .get_mut(&Screen::Home)
+        .unwrap()
+        .anchors
+        .truncate(1);
+    assert!(Detector::load(&single, &root()).is_err());
+
+    let mut duplicate = profile();
+    let anchors = &mut duplicate.screens.get_mut(&Screen::Home).unwrap().anchors;
+    anchors[1] = anchors[0].clone();
+    assert!(Detector::load(&duplicate, &root()).is_err());
+
+    let mut overlapping = profile();
+    let anchors = &mut overlapping.screens.get_mut(&Screen::Home).unwrap().anchors;
+    let Region(x, y, _, _) = anchors[0].roi.unwrap();
+    anchors[1].roi = Some(Region(x + 1, y, 26, 26));
+    assert!(Detector::load(&overlapping, &root()).is_err());
+
+    let mut alternative = profile();
+    let screen = alternative.screens.get_mut(&Screen::Home).unwrap();
+    screen.alt_anchors.push(vec![screen.anchors[0].clone()]);
+    assert!(Detector::load(&alternative, &root()).is_err());
+
+    let mut wider = profile();
+    let anchor = &mut wider.screens.get_mut(&Screen::Home).unwrap().anchors[0];
+    let Region(x, y, w, h) = anchor.roi.unwrap();
+    anchor.roi = Some(Region(x, y, w + 1, h));
+    assert!(Detector::load(&wider, &root()).is_err());
 }
 
 #[test]
@@ -145,8 +173,7 @@ fn raw_framebuffer_accepts_both_headers_without_swapping_channels() {
 fn real_capacity_gem_and_damage_digits_match_the_baseline() {
     let digits = Digits::load(&root(), Path::new("calibration/digits")).unwrap();
     let config: serde_json::Value =
-        serde_json::from_slice(&std::fs::read(root().join("config.english.json")).unwrap())
-            .unwrap();
+        serde_json::from_slice(&std::fs::read(root().join("config.json")).unwrap()).unwrap();
     for resource in ["gold", "elixir"] {
         let region: Region =
             serde_json::from_value(config["capacity"]["home"][resource]["max"].clone()).unwrap();
@@ -185,4 +212,28 @@ fn real_capacity_gem_and_damage_digits_match_the_baseline() {
     assert!(digits.number(&blank, 0.65).is_err());
     assert!(digits.trailing(&blank, 0.65, 70).is_err());
     assert!(digits.fraction(&blank).is_err());
+}
+
+#[test]
+fn blank_digit_templates_and_font_variants_are_rejected() {
+    for name in ["3.png", "3-blank.png"] {
+        let directory = tempfile::tempdir().unwrap();
+        let folder = directory.path().join("digits");
+        std::fs::create_dir(&folder).unwrap();
+        for digit in 0..=9 {
+            let name = format!("{digit}.png");
+            std::fs::copy(
+                root().join("calibration/digits").join(&name),
+                folder.join(name),
+            )
+            .unwrap();
+        }
+        assert!(Digits::load(directory.path(), Path::new("digits")).is_ok());
+        let blank =
+            Mat::new_rows_cols_with_default(24, 20, core::CV_8UC1, Scalar::all(255.0)).unwrap();
+        let mut bytes = core::Vector::<u8>::new();
+        opencv::imgcodecs::imencode_def(".png", &blank, &mut bytes).unwrap();
+        std::fs::write(folder.join(name), bytes.as_slice()).unwrap();
+        assert!(Digits::load(directory.path(), Path::new("digits")).is_err());
+    }
 }

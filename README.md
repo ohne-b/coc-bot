@@ -28,17 +28,16 @@ links and optional relay/deployment instructions. Those hosted services are not 
 the Rust desktop plan. Development and offline checks are in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 > [!IMPORTANT]
-> The inherited calibration targets LDPlayer at 1280×720, DPI 240, with the game in
-> Bahasa Indonesia. Other resolutions or languages need calibration. Automation violates
+> Calibration targets LDPlayer at 1280×720, DPI 240, with the game in English.
+> Other resolutions or languages are unsupported. Automation violates
 > Supercell's rules and can result in an account ban. Not affiliated with Supercell.
 
-The separate [English profile](legacy/python/config.english.json) uses the same resolution
-and DPI; the Indonesian profile remains unchanged. It retains 20M gold **and**
+The [English profile](legacy/python/config.json) retains 20M gold **and**
 elixir batching and 1M reserves for Home walls. The current Home price calibration
 targets green Hammer Jam discounts; revalidate it when that event ends. Screens not
 yet captured in English are listed in `calibration_pending_screens`; an unfamiliar
-dialog fails recognition and cannot be confirmed automatically. Rust excludes those
-pending templates entirely.
+dialog fails recognition and cannot be confirmed automatically. Pending screens have
+no templates; the Indonesian calibration has been removed.
 Builder stage two is recognized, but surviving-camp selection and its stack deployment
 point still need correction and another live check; unattended use remains Home-only.
 
@@ -49,8 +48,8 @@ Report problems through [GitHub issues](https://github.com/ohne-b/coc-bot/issues
 redacted logs and your commit, emulator version, resolution and game language.
 See [SECURITY.md](SECURITY.md) for private vulnerability reports.
 
-The new desktop UI will be English only initially. Existing Python messages and the
-Indonesian calibration are retained alongside the English recognition profile.
+The new desktop UI will be English only. The temporary Python baseline retains its
+inherited messages while the Rust port is in progress.
 
 ## License and credits
 

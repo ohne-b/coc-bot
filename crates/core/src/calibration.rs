@@ -142,6 +142,7 @@ pub struct ScreenProfile {
 /// The recognition part of the shared profile; device settings are never loaded here.
 #[derive(Clone, Debug, Deserialize)]
 pub struct Calibration {
+    pub calibration_language: String,
     pub resolution: Resolution,
     pub screens: BTreeMap<Screen, ScreenProfile>,
     #[serde(default)]
@@ -162,6 +163,9 @@ impl Calibration {
 
     pub fn validate(&self) -> Result<()> {
         self.resolution.validate()?;
+        if self.calibration_language != "en" {
+            return Err(invalid("Only English calibration is supported"));
+        }
         if self.screens.is_empty() {
             return Err(invalid("Calibration has no screens"));
         }
@@ -169,14 +173,10 @@ impl Calibration {
             let all: BTreeSet<_> = self.screens.keys().copied().collect();
             if observed.is_empty()
                 || !observed.is_disjoint(&self.calibration_pending_screens)
-                || observed
-                    .union(&self.calibration_pending_screens)
-                    .copied()
-                    .collect::<BTreeSet<_>>()
-                    != all
+                || *observed != all
             {
                 return Err(invalid(
-                    "Observed and pending screens must partition the calibration",
+                    "Only observed screens may have English calibration templates",
                 ));
             }
         } else if !self.calibration_pending_screens.is_empty() {
@@ -194,11 +194,23 @@ impl Calibration {
                 return Err(invalid("Too many alternative anchors"));
             }
             for anchors in std::iter::once(&spec.anchors).chain(&spec.alt_anchors) {
-                if anchors.is_empty() || anchors.len() > 16 {
-                    return Err(invalid("Each screen needs 1 to 16 anchors"));
+                if !(2..=16).contains(&anchors.len()) {
+                    return Err(invalid("Each screen needs 2 to 16 distinct anchors"));
                 }
                 for anchor in anchors {
                     anchor.validate(self.resolution)?;
+                }
+                let boxes: Vec<_> = anchors.iter().filter_map(|anchor| anchor.roi).collect();
+                for (i, &Region(x, y, w, h)) in boxes.iter().enumerate() {
+                    for &Region(other_x, other_y, other_w, other_h) in &boxes[..i] {
+                        if x < other_x + other_w
+                            && other_x < x + w
+                            && y < other_y + other_h
+                            && other_y < y + h
+                        {
+                            return Err(invalid("Fixed anchor regions must not overlap"));
+                        }
+                    }
                 }
             }
         }
