@@ -1694,6 +1694,80 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn visible_elixir_cart_is_opened_without_panning() {
+        let profile = Profile::load(&root()).unwrap();
+        let digits = Digits::load(&root(), Path::new("calibration/digits")).unwrap();
+        let detector = Arc::new(
+            Detector::load(
+                &Calibration::load(&root().join("config.json")).unwrap(),
+                &root(),
+            )
+            .unwrap(),
+        );
+        let vision = GameVision {
+            profile: &profile,
+            digits: &digits,
+            detector: detector.clone(),
+        };
+        let (fake, image) = Fake::new("english-builder-visible-cart.png");
+        assert_eq!(
+            detector.detect(&image).unwrap(),
+            Detection::Known(Screen::Builder)
+        );
+        let target = &profile.screens[&Screen::Builder].targets["cart"];
+        let point = target.locate(&image).unwrap().unwrap();
+        assert!((795..=836).contains(&point.0) && (340..=370).contains(&point.1));
+        let temp = tempfile::tempdir().unwrap();
+        let mut adb = fake.adb(temp.path());
+        let mut engine = Engine::new(
+            Options {
+                villages: vec![Village::Builder],
+                ..Options::default()
+            },
+            SessionMode::Farming,
+            &profile,
+        )
+        .unwrap();
+        engine.stage = Stage::Cart(CartPhase::Find);
+        engine
+            .tick(
+                &vision,
+                &mut adb,
+                &FrameView {
+                    image: &image,
+                    detection: &Detection::Known(Screen::Builder),
+                    elapsed_ms: 3000,
+                    captured_at_ms: 3000,
+                },
+                &CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            *fake.taps.lock().unwrap(),
+            vec![format!(
+                "-s emulator-5554 shell input tap {} {}",
+                point.0, point.1
+            )]
+        );
+        assert_eq!(engine.pans, 0);
+        assert!(matches!(engine.stage, Stage::Cart(CartPhase::Claim)));
+
+        // The elixir bubble alone must not identify a cart or another collector.
+        let mut no_cart = image.try_clone().unwrap();
+        opencv::imgproc::rectangle(
+            &mut no_cart,
+            core::Rect::new(789, 337, 52, 38),
+            core::Scalar::all(0.0),
+            -1,
+            opencv::imgproc::LINE_8,
+            0,
+        )
+        .unwrap();
+        assert!(target.locate(&no_cart).unwrap().is_none());
+    }
+
+    #[tokio::test]
     async fn cart_goal_requires_stable_readings_and_stops_after_missing_visits() {
         let mut profile = Profile::load(&root()).unwrap();
         let digits = Digits::load(&root(), Path::new("calibration/digits")).unwrap();

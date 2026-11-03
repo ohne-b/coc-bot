@@ -7,6 +7,10 @@
     "file": "english-builder.png",
     "state": "builder"
   },
+  "builder_visible_cart": {
+    "file": "english-builder-visible-cart.png",
+    "state": "builder"
+  },
   "home_menu": {
     "file": "english-home_menu.png",
     "state": "home_menu"

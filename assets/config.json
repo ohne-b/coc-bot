@@ -1162,6 +1162,13 @@
           "pan_attempts": 3,
           "alt_files": [
             {
+              "file": "calibration/english/builder-cart-elixir.png",
+              "offset": [
+                0,
+                15
+              ]
+            },
+            {
               "file": "calibration/english/icons/builder-cart-full-73654d455f5c4be1bfc859ee5c2c6295.png",
               "offset": [
                 0,
