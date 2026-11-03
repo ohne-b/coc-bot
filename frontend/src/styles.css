@@ -258,7 +258,7 @@ nav {
   gap: 12px;
   min-height: 42px;
   padding: 8px 12px;
-  border-radius: 24px;
+  border-radius: 6px;
   color: var(--muted);
   font-size: 13px;
   text-align: left;
@@ -304,15 +304,6 @@ nav {
   color: var(--muted);
   font-size: 12px;
 }
-.status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #717171;
-}
-.status-dot.active {
-  background: #9dc6a9;
-}
 .content-section {
   min-width: 0;
 }
@@ -339,7 +330,7 @@ nav {
   background: transparent;
   min-height: 36px;
   padding: 7px 14px;
-  border-radius: 20px;
+  border-radius: 4px;
   font-size: 13px;
   font-weight: 550;
   white-space: nowrap;
@@ -573,6 +564,7 @@ dd {
 .session-loot dd {
   margin: 0;
   text-align: right;
+  overflow-wrap: anywhere;
 }
 .session-loot {
   margin-top: 24px;
@@ -869,10 +861,6 @@ td {
   }
 }
 @media (max-width: 480px) {
-  .page-actions {
-    width: 100%;
-    justify-content: flex-end;
-  }
   .resource-list {
     grid-template-columns: 1fr;
     gap: 0;

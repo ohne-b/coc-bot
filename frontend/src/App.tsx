@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Icon } from "@mdi/react";
 import {
-  mdiPlayOutline,
+  mdiPlay,
   mdiStop,
   mdiCogOutline,
   mdiHistory,
@@ -15,7 +15,7 @@ import {
   mdiVectorPolygon,
 } from "@mdi/js";
 import logo from "../../.github/assets/clash-shield.svg?no-inline";
-import { Button, Empty, Help } from "./ui";
+import { Empty, Help, IconButton } from "./ui";
 import { dateTime, duration, fresh, number, time, title } from "./format";
 import { useScreenshot, useSnapshot } from "./useSnapshot";
 import Settings from "./Settings";
@@ -68,18 +68,6 @@ function Overview({
     <>
       <header className="page-header">
         <h1>{mode === "walls" ? "Walls" : "Farming"}</h1>
-        <span className="status-label">
-          <span
-            className={`status-dot ${running && !offline ? "active" : ""}`}
-          />
-          {offline
-            ? "Disconnected"
-            : running
-              ? (snapshot.progress?.operation ?? "Observing")
-              : snapshot.session
-                ? title(snapshot.session.state)
-                : "Ready"}
-        </span>
         <div className="page-actions">
           <Help label="Observation">
             Start runs the selected mode with saved settings. Observe reads
@@ -89,40 +77,38 @@ function Overview({
           {active ? (
             <>
               {snapshot.session?.mode !== "observe" && (
-                <Button
+                <IconButton
+                  path={paused ? mdiPlay : mdiPause}
+                  label={paused ? "Resume" : "Pause"}
                   disabled={busy || stopping || offline}
                   onClick={() => void control("pause", { paused: !paused })}
-                >
-                  <Icon path={paused ? mdiPlayOutline : mdiPause} />
-                  {paused ? "Resume" : "Pause"}
-                </Button>
+                />
               )}
-              <Button disabled={stopping} onClick={() => void control("stop")}>
-                <Icon path={mdiStop} />
-                Stop
-              </Button>
+              <IconButton
+                path={mdiStop}
+                label="Stop"
+                disabled={stopping}
+                onClick={() => void control("stop")}
+              />
             </>
           ) : (
             <>
-              <Button
+              <IconButton
+                path={mdiEyeOutline}
+                label="Observe"
                 disabled={
                   busy || stopping || offline || !snapshot.settings.device
                 }
                 onClick={() => void control("start", { mode: "observe" })}
-              >
-                <Icon path={mdiEyeOutline} />
-                Observe
-              </Button>
-              <Button
-                primary
+              />
+              <IconButton
+                path={mdiPlay}
+                label="Start"
                 disabled={
                   busy || stopping || offline || !snapshot.settings.device
                 }
                 onClick={() => void control("start", { mode })}
-              >
-                <Icon path={mdiPlayOutline} />
-                Start
-              </Button>
+              />
             </>
           )}
         </div>
@@ -250,6 +236,18 @@ function Overview({
             <h2>Session</h2>
           </div>
           <dl className="session-summary">
+            <div>
+              <dt>Status</dt>
+              <dd>
+                {offline
+                  ? "Disconnected"
+                  : running
+                    ? (snapshot.progress?.operation ?? "Observing")
+                    : snapshot.session
+                      ? title(snapshot.session.state)
+                      : "Ready"}
+              </dd>
+            </div>
             <div>
               <dt>Active time</dt>
               <dd>{duration(snapshot.session?.active_ms ?? 0)}</dd>
