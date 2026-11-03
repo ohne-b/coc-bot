@@ -66,6 +66,14 @@ mark unfinished sessions interrupted only after acquiring the desktop single-ins
 Foreign, corrupt or newer databases fail without being reset. Settings and UI integration
 are not implemented yet.
 
+Device tests replace the ADB/LDPlayer transport and use saved frames. Process tests
+start disposable PowerShell children to check binary pipes, cancellation, timeouts and
+output limits; they never contact an emulator. Observation mode rejects all input and
+lifecycle changes. Live input requires the selected instance, calibrated display at
+240 DPI, a freshly recognized expected screen and a non-cancelled operation.
+Multitouch validates the Android kernel and touch axes and attempts a bounded release
+after failure or cancellation. These offline checks do not establish live device compatibility.
+
 The Python baseline remains an offline comparison suite during migration:
 
 ```powershell
@@ -90,7 +98,7 @@ Never commit a virtual environment, runtime captures, logs, credentials or datab
 
 | Location | Current purpose |
 | --- | --- |
-| `crates/core/` | Rust recognition, calibration validation, typed telemetry and SQLite session history |
+| `crates/core/` | Rust recognition, guarded device control, typed telemetry and SQLite session history |
 | `crates/core/tests/` | Offline Rust regressions against captured fixtures |
 | `legacy/python/` | Python source, dashboard, settings examples, calibration and fixtures |
 | `scripts/` | Native Windows build dependency setup |

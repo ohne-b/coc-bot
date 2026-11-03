@@ -1,4 +1,5 @@
 pub mod calibration;
+pub mod device;
 pub mod storage;
 pub mod telemetry;
 pub mod vision;
@@ -17,6 +18,20 @@ pub enum Error {
     History(String),
     #[error(transparent)]
     Sqlite(#[from] rusqlite::Error),
+    #[error("{0}")]
+    Device(String),
+    #[error("Operation cancelled")]
+    Cancelled,
+    #[error("Device command timed out")]
+    Timeout,
+    #[error("Device output exceeded its limit")]
+    OutputLimit,
+    #[error("Input is disabled in observation mode")]
+    InputDisabled,
+    #[error("The expected screen was not freshly recognized; no input was sent")]
+    InputGuard,
+    #[error("Background recognition failed: {0}")]
+    Worker(#[from] tokio::task::JoinError),
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error(transparent)]
