@@ -206,7 +206,7 @@ impl Digits {
         let mut canvases = Vec::new();
         let mut last_left = None;
         for (id, rect) in solid {
-            if (rect.y - reference.y).abs() > 2 || (rect.height - reference.height).abs() > 2 {
+            if (rect.y - reference.y).abs() > 2 || rect.height < reference.height - 2 {
                 continue;
             }
             if last_left.is_some_and(|left| {
@@ -214,7 +214,15 @@ impl Digits {
             }) {
                 break;
             }
-            let glyph = components.glyph(id)?;
+            let mut glyph = components.glyph(id)?;
+            if rect.height > reference.height + 2 {
+                // A tooltip border can join a HUD digit below its text line at the crop edge.
+                if rect.y + rect.height != image.rows() || rect.height > 2 * reference.height {
+                    return Err(Error::Unreadable);
+                }
+                glyph =
+                    Mat::roi(&glyph, Rect::new(0, 0, rect.width, reference.height))?.try_clone()?;
+            }
             let pieces = if rect.width as f64 > 1.4 * rect.height as f64 {
                 split_glyphs(
                     &glyph,

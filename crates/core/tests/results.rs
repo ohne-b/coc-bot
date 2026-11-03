@@ -43,7 +43,7 @@ fn guarded_numeric_reader_rejects_ambiguous_or_wrong_layouts_and_preserves_unkno
     .unwrap();
     assert_eq!(
         (read.loot.gold, read.loot.elixir, read.loot.dark),
-        (None, Some(1_646_314), Some(10_150))
+        (Some(1_557_102), Some(1_646_314), Some(10_150))
     );
     assert!(read.damage.is_none() && read.stars.is_none());
     variant.loot.remove("dark");

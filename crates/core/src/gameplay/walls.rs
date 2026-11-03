@@ -6,7 +6,7 @@ use crate::{
     vision::{Digits, crop, target::Template},
 };
 use opencv::{
-    core::{self, Mat, Scalar, Size, Vec3b},
+    core::{self, Mat, Size, Vec3b},
     imgproc,
     prelude::*,
 };
@@ -345,15 +345,7 @@ impl Spec {
         }
         let mut price = crop(image, self.confirm.price)?;
         if self.confirm.price_color.as_deref() == Some("green") {
-            let colour = hsv(&price)?;
-            let mut mask = Mat::default();
-            core::in_range(
-                &colour,
-                &Scalar::new(35.0, 120.0, 200.0, 0.0),
-                &Scalar::new(85.0, 255.0, 255.0, 0.0),
-                &mut mask,
-            )?;
-            imgproc::cvt_color_def(&mask, &mut price, imgproc::COLOR_GRAY2BGR)?;
+            price = crate::vision::green_text(&price)?;
         }
         if white(&price)? < self.confirm.min_white {
             return Err(Error::InputGuard);

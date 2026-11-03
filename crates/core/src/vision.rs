@@ -16,6 +16,21 @@ mod digits;
 pub mod target;
 pub use digits::Digits;
 
+pub fn green_text(image: &Mat) -> Result<Mat> {
+    let mut hsv = Mat::default();
+    imgproc::cvt_color_def(image, &mut hsv, imgproc::COLOR_BGR2HSV)?;
+    let mut mask = Mat::default();
+    core::in_range(
+        &hsv,
+        &Scalar::new(35.0, 120.0, 200.0, 0.0),
+        &Scalar::new(85.0, 255.0, 255.0, 0.0),
+        &mut mask,
+    )?;
+    let mut result = Mat::default();
+    imgproc::cvt_color_def(&mask, &mut result, imgproc::COLOR_GRAY2BGR)?;
+    Ok(result)
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(tag = "status", content = "screens", rename_all = "snake_case")]
 pub enum Detection {

@@ -16,11 +16,18 @@ pub struct ResultLayout {
     #[serde(default)]
     pub loot: BTreeMap<String, Region>,
     pub damage: Option<Region>,
+    pub damage_color: Option<DamageColor>,
     #[serde(default)]
     pub stars: Vec<Region>,
     #[serde(default)]
     pub bonus: BTreeMap<String, Region>,
     pub bonus_included: Option<bool>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DamageColor {
+    Green,
 }
 
 #[derive(Default)]
@@ -128,6 +135,10 @@ pub fn read(
         damage: layout
             .damage
             .and_then(|region| crop(image, region).ok())
+            .and_then(|patch| match layout.damage_color {
+                Some(DamageColor::Green) => crate::vision::green_text(&patch).ok(),
+                None => Some(patch),
+            })
             .and_then(|patch| {
                 digits
                     .percent_up_to(

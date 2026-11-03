@@ -113,9 +113,14 @@ no gameplay steps. Settings remain locked until Stop. Farming, device and deploy
 patch their own sections so stale forms cannot overwrite unrelated preferences.
 Offline attack regressions cover Home and both Builder stages. Wall prices and currency
 checks use captured English dialogs; full wall-flow and live gameplay parity remain unverified.
-Result layouts require two independent guards and exactly one match. Absent currencies remain
+Captured English result layouts require two independent guards and exactly one match. Absent currencies remain
 unavailable; a separately displayed bonus is added only with explicit inclusion semantics.
-Uncaptured result fields and recovery screens remain unavailable rather than inferred.
+The captured Home victory has unverified bonus inclusion, so its aggregate earnings remain
+unavailable. Home silver stars and uncaptured recovery screens are also unavailable rather
+than inferred. Native numeric regressions consume `fixtures/english-readings.json`, including
+the HUD balance whose leading digits the Python baseline drops. The Rust reader preserves
+that captured value without lowering confidence thresholds; the Python comparison test
+continues to document its inherited expected failure.
 Capacity is displayed only when both the village and its calibrated storage tooltip are
 recognized; isolated tooltip fixtures cannot identify a village. The UI uses TDM's dark
 palette, spacing, Manrope and Material Design Icons, with explanations behind info buttons.
