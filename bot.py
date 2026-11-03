@@ -1030,14 +1030,21 @@ def validate_walls(config: dict, root: Path, villages: tuple) -> None:
         for region in gems.values():
             rectangle(region, resolution)
         integer(spec.get('min_white'), 1, 100_000, 'walls min_white')
-        if 'gold_reserve' in spec:
-            integer(spec['gold_reserve'], 0, 100_000_000, 'walls gold_reserve')
-            hud = spec.get('hud_gold')
-            if not isinstance(hud, dict) or set(hud) != {'list', 'village'}:
-                raise BotError('walls gold_reserve perlu hud_gold list dan village')
-            for region in hud.values():
-                rectangle(region, resolution)
+        if 'farm_threshold' in spec:
+            integer(spec['farm_threshold'], 1, 100_000_000, 'walls farm_threshold')
+            if not all(key in config.get('capacity', {}).get(village, {}) for key in WALL_RESOURCES):
+                raise BotError('walls farm_threshold perlu capacity gold dan elixir')
+        for resource in WALL_RESOURCES:
+            if f'{resource}_reserve' in spec:
+                integer(spec[f'{resource}_reserve'], 0, 100_000_000, f'walls {resource}_reserve')
+                hud = spec.get(f'hud_{resource}')
+                if not isinstance(hud, dict) or set(hud) != {'list', 'village'}:
+                    raise BotError(f'walls {resource}_reserve perlu hud_{resource} list dan village')
+                for region in hud.values():
+                    rectangle(region, resolution)
         confirm = spec.get('confirm', {})
+        if confirm.get('price_color', 'white') not in ('white', 'green'):
+            raise BotError('walls confirm price_color harus white atau green')
         if confirm.get('screen') not in MENU_SCREENS:
             raise BotError('walls confirm screen tidak valid')
         rectangle(confirm.get('price'), resolution)
@@ -2356,6 +2363,9 @@ class Bot:
             amounts = {key: read_number(crop(image, spec['bar']), self.templates(), FRACTION_MIN_SCORE)
                        for key, spec in capacity.items()}
             maxima = {key: self.storage_max(village, key, spec) for key, spec in capacity.items()}
+            threshold = self.config.get('walls', {}).get(village, {}).get('farm_threshold') if village in self.wall_order else None
+            if threshold:
+                maxima = {key: min(maximum, threshold) for key, maximum in maxima.items()}
             LOG.info('Gudang %s: %s', village, {key: f'{amounts[key]:,}/{maxima[key]:,}' for key in capacity})
             return all(amounts[key] >= maxima[key] for key in capacity)
         bars = {key: bar for key, bar in self.config.get('storage', {}).get(village, {}).items()
@@ -2386,8 +2396,8 @@ class Bot:
             if village == 'builder':
                 self.collect_cart()
             self.wait({village}, set(), 30)
-            _, image = self.observe()
-            if self.village_done(village, image):
+            self.observe()
+            if self.read_until(lambda image: self.village_done(village, image), LOOT_READ_SECONDS if self.poll else 0):
                 full.add(village)
                 pending = [name for name in self.goals if name not in full]
                 if not pending:
@@ -2599,27 +2609,36 @@ class Bot:
                 f'{resource} {"putih" if affordable else "merah"}' for resource, _, affordable in buttons) or 'tidak ada')
             return False
 
-    def hud_gold(self, spec: dict) -> int:
-        """Gold once two fresh frames agree; the bars slide while the builder list opens or closes."""
-        regions = spec['hud_gold']
+    def hud_resource(self, spec: dict, resource: str) -> int:
+        """Balance once two fresh frames agree; the bars slide while the builder list opens or closes."""
+        regions = spec[f'hud_{resource}']
         return self.read_stable(
             lambda image: read_trailing_number(crop(image, regions['list' if self.list_open(image) else 'village']),
                                                self.templates(), FRACTION_MIN_SCORE),
             GEM_READ_SECONDS if self.poll else 0)
 
-    def confirm_price(self, image: np.ndarray, spec: dict) -> int:
-        return read_trailing_number(crop(image, spec['confirm']['price']), self.templates(), FRACTION_MIN_SCORE)
+    def confirm_price_image(self, image: np.ndarray, spec: dict) -> np.ndarray:
+        price = crop(image, spec['confirm']['price'])
+        if spec['confirm'].get('price_color') == 'green':
+            # Discounted prices are green; isolate their bright strokes from the pale green button.
+            hsv = cv2.cvtColor(price, cv2.COLOR_BGR2HSV)
+            price = cv2.cvtColor(cv2.inRange(hsv, (35, 120, 200), (85, 255, 255)), cv2.COLOR_GRAY2BGR)
+        return price
 
-    def keeps_reserve(self, image: np.ndarray, spec: dict, gold: int, reserve: int) -> bool:
+    def confirm_price(self, image: np.ndarray, spec: dict) -> int:
+        return read_trailing_number(self.confirm_price_image(image, spec), self.templates(), FRACTION_MIN_SCORE)
+
+    def keeps_reserve(self, image: np.ndarray, spec: dict, balance: int, reserve: int) -> bool:
         try:
-            return gold - self.confirm_price(image, spec) >= reserve
+            return balance - self.confirm_price(image, spec) >= reserve
         except BotError:
             return False
 
     def confirm_safe(self, image: np.ndarray, spec: dict, resource: str) -> bool:
         """Konfirmasi is tapped only for a white price next to the chosen resource's icon, never a gem one."""
         confirm = spec['confirm']
-        if white_pixels(image, confirm['price']) < confirm['min_white']:
+        price = self.confirm_price_image(image, spec)
+        if white_pixels(price, [0, 0, price.shape[1], price.shape[0]]) < confirm['min_white']:
             return False
         icon = cv2.imread(str(asset_path(self.root, confirm['icons'][resource])))
         try:
@@ -2638,14 +2657,14 @@ class Bot:
             self.check_gems(spec)
         if self.affordable_button(image, spec) is None and not self.affordable_soon(spec):
             return False
-        reserve, gold = spec.get('gold_reserve'), None
-        if reserve and 'gold' not in self.wall_excluded:
-            try:
-                gold = self.hud_gold(spec)
-            except BotError:
-                LOG.warning('Gold di HUD tidak terbaca; cadangan gold tidak bisa dijaga, tembok pakai elixir saja')
-                self.wall_excluded.add('gold')
-                return self.upgrade_wall(spec)
+        balances = {}
+        for resource in WALL_RESOURCES:
+            if spec.get(f'{resource}_reserve') and resource not in self.wall_excluded:
+                try:
+                    balances[resource] = self.hud_resource(spec, resource)
+                except BotError:
+                    LOG.warning('%s di HUD tidak terbaca; resource ini tidak dipakai untuk tembok', resource)
+                    self.wall_excluded.add(resource)
         picked = []
 
         def locate(frame: np.ndarray) -> list:
@@ -2669,12 +2688,12 @@ class Bot:
             self.action(dialog, 'close')
             self.wait(after, {dialog}, WALL_TAP_SECONDS)
             return False
-        if resource == 'gold' and reserve and not self.keeps_reserve(image, spec, gold, reserve):
-            # Searching for an opponent costs gold; with none left the game offers to sell it for gems.
-            LOG.info('Gold %s disisakan untuk mencari lawan; tembok berikutnya pakai elixir', f'{reserve:,}')
+        reserve = spec.get(f'{resource}_reserve')
+        if reserve and not self.keeps_reserve(image, spec, balances[resource], reserve):
+            LOG.info('%s %s disisakan; upgrade dibatalkan', resource, f'{reserve:,}')
             self.action(dialog, 'close')
             self.wait(after, {dialog}, WALL_TAP_SECONDS)
-            self.wall_excluded.add('gold')
+            self.wall_excluded.add(resource)
             return self.upgrade_wall(spec)
         self.action(dialog, 'confirm')
         self.wait(after, {dialog}, WALL_TAP_SECONDS)
@@ -2781,6 +2800,10 @@ class Bot:
         for village in self.wall_order:
             farmed = False
             while village not in self.walls_done:
+                if self.config.get('walls', {}).get(village, {}).get('farm_threshold') and not farmed:
+                    self.goals = {village: {'gold', 'elixir'}}
+                    self.run_until_full(searches)
+                    farmed = True
                 try:
                     upgraded = self.upgrade_walls(village)
                 except NoFreeBuilder as exc:
@@ -2870,6 +2893,16 @@ class Bot:
                 LOG.warning('LDPlayer belum berjalan; menyalakan emulator')
                 # A VM that was just quit is still shutting down; launching at once leaves it unbooted.
                 time.sleep(EMULATOR_SETTLE_SECONDS if self.poll else 0)
+                if self.config.get('ldconsole'):
+                    path = ldplayer.instance_config(self.config['ldconsole'], self.config.get('ld_index', 0))
+                    if path.is_file():
+                        # LDPlayer can reset these settings on exit; restore them before every recovery launch.
+                        width, height = self.config['resolution']
+                        try:
+                            ldplayer.write_display(path, {'width': width, 'height': height,
+                                                   'dpi': self.config.get('dpi', ldplayer.CALIBRATED_DPI)}, adb_debug=1)
+                        except (OSError, ValueError) as exc:
+                            raise SetupError('Setelan layar/ADB LDPlayer tidak bisa dipulihkan') from exc
                 self.emulator.launch()
                 self.emulator_started = time.monotonic()
                 deadline = time.monotonic() + RECOVER_ADB_SECONDS

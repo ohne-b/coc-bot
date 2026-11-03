@@ -248,6 +248,18 @@ number of digits stops the run for good, without any recovery. A count with othe
 as a misread: nothing is tapped and recovery reads it again. In the Home Village it also keeps a gold reserve (`walls.home.gold_reserve`, 200,000) for opponent searches, which cost gold: a gold upgrade that would dip below it is closed and that session continues with elixir. A village needs a
 `walls.<village>` calibration before `--walls` accepts it.
 
+To keep resources after wall upgrades, set `walls.home.gold_reserve` and
+`walls.home.elixir_reserve` in `config.local.json` (for example, `1000000` each).
+An elixir reserve also requires `hud_elixir` with `list` and `village` number regions,
+like `hud_gold`. An upgrade is confirmed only when the selected resource's balance
+minus its price leaves the reserve; an unreadable balance or price skips that resource.
+These reserves apply to wall upgrades; opponent searches still cost gold.
+Set `walls.home.farm_threshold` to `20000000` to farm until both gold and elixir
+reach 20 million before each wall session, including after a recovery or restart.
+The target is capped at actual storage capacity and only applies to wall mode.
+For discounted green confirmation prices, calibrate the current price's region
+(exclude the crossed-out old price) and set `walls.home.confirm.price_color` to `green`.
+
 ### CLI options — `bot.py`
 
 | Option | Default | Description |

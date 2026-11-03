@@ -2061,7 +2061,7 @@ class BotTests(unittest.TestCase):
         # The bars slide while the builder list closes; the first frame reads another number.
         reads = iter([471_121, 2_006_334, 2_006_334])
         with patch('bot.read_trailing_number', lambda image, templates, score: next(reads)):
-            self.assertEqual(runner.hud_gold(spec), 2_006_334)
+            self.assertEqual(runner.hud_resource(spec, 'gold'), 2_006_334)
 
     def test_wall_is_not_touched_when_no_price_is_affordable(self):
         spec, _, _ = self.wall_spec()
@@ -2147,11 +2147,69 @@ class BotTests(unittest.TestCase):
                   ('wall_selected', both), ('wall_confirm', self.confirm_frame(spec, icons['elixir']))]
         runner, taps = self.wall_runner(frames, [500, 500, 500])
         runner.wall_excluded = set()
-        runner.hud_gold = lambda spec: 2_100_000
+        runner.hud_resource = lambda spec, resource: 2_100_000
         runner.confirm_price = lambda image, spec: 2_000_000
         self.assertTrue(runner.upgrade_wall(spec))
         self.assertEqual(taps, [(26, 74), ('wall_confirm', 'close'), (66, 74), ('wall_confirm', 'confirm')])
         self.assertEqual(runner.wall_excluded, {'gold'})
+
+    def test_discounted_wall_price_is_read_without_the_struck_out_price(self):
+        root = Path(__file__).resolve().parent
+        image = cv2.imread(str(root / 'fixtures/wall-discount-price.png'))
+        self.assertIsNotNone(image)
+        spec, _, _ = self.wall_spec()
+        spec['confirm'].update(price=[0, 0, image.shape[1], image.shape[0]], price_color='green')
+        runner = self.make_bot(Device(self.frames))
+        runner.templates = lambda: bot.load_digit_templates(root, 'calibration/digits')
+        self.assertEqual(runner.confirm_price(image, spec), 1_000_000)
+
+    def test_discounted_wall_confirm_requires_green_price_and_resource_icon(self):
+        spec, icons, _ = self.wall_spec()
+        spec['confirm']['price_color'] = 'green'
+        runner = self.make_bot(Device(self.frames))
+        for color, expected in (((0, 255, 0), True), ((0, 0, 255), False)):
+            image = self.confirm_frame(spec, icons['gold'])
+            x, y, w, h = spec['confirm']['price']
+            image[y:y+h, x:x+w] = color
+            self.assertEqual(runner.confirm_safe(image, spec, 'gold'), expected)
+            self.assertFalse(runner.confirm_safe(image, spec, 'elixir'))
+
+    def test_wall_reserves_allow_exactly_one_million_and_reject_less(self):
+        for resource in ('gold', 'elixir'):
+            for balance in (3_000_000, 2_999_999, 999_999):
+                with self.subTest(resource=resource, balance=balance):
+                    spec, icons, _ = self.wall_spec()
+                    spec[f'{resource}_reserve'] = 1_000_000
+                    selected = self.priced(spec, {resource}, shown=(resource,))
+                    frames = [('wall_selected', selected),
+                              ('wall_confirm', self.confirm_frame(spec, icons[resource])),
+                              ('wall_selected', selected)]
+                    runner, taps = self.wall_runner(frames, [500, 500])
+                    runner.hud_resource = lambda spec, resource: balance
+                    runner.confirm_price = lambda image, spec: 2_000_000
+                    runner.affordable_soon = lambda spec: False
+                    allowed = balance == 3_000_000
+                    self.assertEqual(runner.upgrade_wall(spec), allowed)
+                    self.assertEqual(('wall_confirm', 'confirm') in taps, allowed)
+                    self.assertEqual(('wall_confirm', 'close') in taps, not allowed)
+
+    def test_unreadable_reserved_balance_or_price_never_confirms_a_wall(self):
+        for resource in ('gold', 'elixir'):
+            for unreadable in ('hud_resource', 'confirm_price'):
+                with self.subTest(resource=resource, unreadable=unreadable):
+                    spec, icons, _ = self.wall_spec()
+                    spec[f'{resource}_reserve'] = 1_000_000
+                    selected = self.priced(spec, {resource}, shown=(resource,))
+                    frames = [('wall_selected', selected),
+                              ('wall_confirm', self.confirm_frame(spec, icons[resource])),
+                              ('wall_selected', selected)]
+                    runner, taps = self.wall_runner(frames, [500, 500])
+                    runner.hud_resource = lambda spec, resource: 3_000_000
+                    runner.confirm_price = lambda image, spec: 2_000_000
+                    runner.affordable_soon = lambda spec: False
+                    with patch.object(runner, unreadable, side_effect=bot.BotError('Unreadable')):
+                        self.assertFalse(runner.upgrade_wall(spec))
+                    self.assertNotIn(('wall_confirm', 'confirm'), taps)
 
     def test_a_gem_offer_is_closed_and_never_accepted(self):
         offer = np.random.default_rng(29).integers(0, 256, (90, 160, 3), dtype=np.uint8)
@@ -2332,6 +2390,69 @@ class BotTests(unittest.TestCase):
                                  ('walls', 'builder'), ('farm', {'builder': {'gold', 'elixir'}}),
                                  ('walls', 'builder')])
 
+    def test_farming_retries_a_transient_storage_read_before_attacking(self):
+        runner = self.make_bot(Device(self.frames, initial='home'), True)
+        runner.goals = {'home': {'gold', 'elixir'}}
+        runner.poll = 0.001
+        readings = iter([bot.BotError('ambiguous storage digits'), False, True])
+        attacks = []
+
+        def done(village, image):
+            value = next(readings)
+            if isinstance(value, Exception):
+                raise value
+            return value
+        runner.village_done = done
+        runner.home_attack = lambda searches: attacks.append('home')
+        self.assertEqual(runner.run_until_full(0), 1)
+        self.assertEqual(attacks, ['home'])
+
+    def test_farming_stops_when_storage_read_stays_ambiguous(self):
+        runner = self.make_bot(Device(self.frames, initial='home'), True)
+        runner.goals = {'home': {'gold', 'elixir'}}
+        runner.village_done = lambda village, image: (_ for _ in ()).throw(bot.BotError('ambiguous storage digits'))
+        runner.home_attack = lambda searches: self.fail('attacked without a trusted storage reading')
+        with self.assertRaises(bot.BotError):
+            runner.run_until_full(0)
+
+    def test_wall_threshold_requires_both_resources_and_only_applies_to_wall_mode(self):
+        runner = self.make_bot(Device(self.frames), True)
+        spec = {'bar': [0, 0, 10, 10]}
+        runner.config = {**runner.config, 'capacity': {'home': {'gold': spec, 'elixir': spec}},
+                         'walls': {'home': {'farm_threshold': 20_000_000}}}
+        runner.templates = lambda: {}
+        runner.storage_max = lambda village, key, spec: 26_000_000
+        runner.wall_order = ('home',)
+        for amounts, expected in (((20_000_000, 19_999_999), False), ((20_000_000, 20_000_000), True)):
+            with patch('bot.read_number', side_effect=amounts):
+                self.assertEqual(runner.village_full('home', self.frames['home']), expected)
+        runner.wall_order = ()
+        with patch('bot.read_number', return_value=20_000_000):
+            self.assertFalse(runner.village_full('home', self.frames['home']))
+        runner.wall_order = ('home',)
+        runner.storage_max = lambda village, key, spec: 10_000_000
+        with patch('bot.read_number', return_value=10_000_000):
+            self.assertTrue(runner.village_full('home', self.frames['home']))
+
+    def test_wall_threshold_farms_before_upgrading_even_after_recovery(self):
+        runner = self.make_bot(Device(self.frames), True)
+        runner.wall_order = ('home',)
+        runner.config = {**runner.config, 'walls': {'home': {'farm_threshold': 20_000_000}}}
+        calls = []
+        attempts = iter([bot.WaitTimeout('interrupted farming'), None])
+
+        def farm(searches):
+            calls.append('farm')
+            failure = next(attempts)
+            if failure:
+                raise failure
+        runner.run_until_full = farm
+        runner.upgrade_walls = lambda village: calls.append('walls') or None
+        with self.assertRaises(bot.WaitTimeout):
+            runner.run_walls(0)
+        runner.run_walls(0)
+        self.assertEqual(calls, ['farm', 'farm', 'walls'])
+
     def test_walls_stop_when_full_storage_upgrades_nothing(self):
         runner = self.make_bot(Device(self.frames), True)
         runner.wall_order = ('builder',)
@@ -2354,6 +2475,23 @@ class BotTests(unittest.TestCase):
         bot.validate_walls(config, self.root, ('home',))
         with self.assertRaises(bot.BotError):
             bot.validate_walls(config, self.root, ('builder',))
+
+    def test_wall_reserves_require_valid_balances_and_hud_regions(self):
+        spec, _, _ = self.wall_spec()
+        anchors = self.config['screens']['home']['anchors']
+        screens = {name: {'anchors': anchors, 'actions': {'close': [10, 10], 'confirm': [20, 20]}}
+                   for name in bot.MENU_SCREENS}
+        config = {**self.config, 'walls': {'home': spec},
+                  'screens': {**self.config['screens'], **screens}}
+        for resource in ('gold', 'elixir'):
+            spec[f'{resource}_reserve'] = -1
+            with self.assertRaises(bot.BotError):
+                bot.validate_walls(config, self.root, ('home',))
+            spec[f'{resource}_reserve'] = 1_000_000
+            with self.assertRaises(bot.BotError):
+                bot.validate_walls(config, self.root, ('home',))
+            spec[f'hud_{resource}'] = {'list': [0, 0, 10, 10], 'village': [0, 0, 10, 10]}
+            bot.validate_walls(config, self.root, ('home',))
 
     def test_unreadable_loot_is_read_again_then_the_base_is_skipped(self):
         device = Device(self.frames, loot=[{'gold': 100, 'elixir': 200}])
@@ -2670,6 +2808,39 @@ class BotTests(unittest.TestCase):
                 Emulator.events.append('launch')
                 device.up = True
         return device, Emulator()
+
+    def test_recovery_restores_display_and_local_adb_before_launch(self):
+        device, emulator = self.restartable()
+        device.up, device.front = False, False
+        console = self.root / 'ldconsole.exe'
+        path = bot.ldplayer.instance_config(str(console), 0)
+        path.parent.mkdir(parents=True)
+        path.write_text(json.dumps({'other': 'preserved'}))
+        config = {**self.config, 'ldconsole': str(console), 'ld_index': 0}
+        runner = bot.Bot(config, self.root, device, live=True, poll=0, emulator=emulator)
+        launch = emulator.launch
+
+        def checked_launch():
+            self.assertEqual(bot.ldplayer.read_display(path), {'width': 160, 'height': 90, 'dpi': 240})
+            self.assertEqual(bot.ldplayer.adb_debug(path), 1)
+            self.assertEqual(json.loads(path.read_text())['other'], 'preserved')
+            launch()
+        emulator.launch = checked_launch
+        runner.recover()
+        self.assertEqual(emulator.events, ['launch'])
+
+    def test_recovery_does_not_launch_when_display_settings_cannot_be_restored(self):
+        device, emulator = self.restartable()
+        device.up = False
+        console = self.root / 'ldconsole.exe'
+        path = bot.ldplayer.instance_config(str(console), 0)
+        path.parent.mkdir(parents=True)
+        path.write_text('{}')
+        config = {**self.config, 'ldconsole': str(console)}
+        runner = bot.Bot(config, self.root, device, live=True, poll=0, emulator=emulator)
+        with patch('bot.ldplayer.write_display', side_effect=OSError('locked')), self.assertRaises(bot.SetupError):
+            runner.recover()
+        self.assertEqual(emulator.events, [])
 
     def test_low_pc_memory_restarts_emulator_between_attacks(self):
         device, emulator = self.restartable()
