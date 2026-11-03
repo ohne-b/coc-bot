@@ -1,0 +1,19 @@
+name: Feature request
+description: Propose a concrete improvement to the Windows desktop project.
+title: "feat: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: User problem
+      description: What are you trying to accomplish?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Include alternatives and how you would know the change works.
+    validations:
+      required: true
