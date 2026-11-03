@@ -55,6 +55,7 @@ export async function mock(
             surrender_stars: 0,
             trophy_floor: 0,
             recoveries: 3,
+            upgrade_walls: false,
             wall_upgrades: 0,
             gold_reserve: 1000000,
             elixir_reserve: 1000000,
@@ -268,6 +269,11 @@ export async function mock(
             if (command === "start") {
               snapshot.session.state = "running";
               snapshot.session.mode = String(args.mode ?? "observe");
+              if (
+                args.mode === "farming" &&
+                snapshot.settings.farming.upgrade_walls
+              )
+                snapshot.session.mode = "walls";
               snapshot.revision++;
               return;
             }

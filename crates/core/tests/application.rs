@@ -669,6 +669,53 @@ async fn settings_patches_preserve_other_editors_and_failed_updates_are_atomic()
 }
 
 #[tokio::test]
+async fn saved_wall_option_selects_workflow_without_enabling_observation_input() {
+    let folder = tempfile::tempdir().unwrap();
+    let fake = Fake::new();
+    fake.stall.store(true, Ordering::SeqCst);
+    let app = Application::with_transport(folder.path().join("data"), assets(), fake)
+        .await
+        .unwrap();
+    for (enabled, requested, expected) in [
+        (false, SessionMode::Farming, SessionMode::Farming),
+        (true, SessionMode::Farming, SessionMode::Walls),
+        (true, SessionMode::Observe, SessionMode::Observe),
+        (false, SessionMode::Walls, SessionMode::Walls),
+    ] {
+        let mut settings = preferences(folder.path());
+        settings.farming.upgrade_walls = enabled;
+        app.save_settings(settings).await.unwrap();
+        app.start(requested).await.unwrap();
+        assert_eq!(app.snapshot().session.unwrap().mode, expected);
+        app.stop().await.unwrap();
+    }
+    app.shutdown().await.unwrap();
+}
+
+#[test]
+fn old_settings_keep_wall_upgrades_disabled_and_preserve_reserves() {
+    let folder = tempfile::tempdir().unwrap();
+    let path = folder.path().join("history.sqlite3");
+    let mut store = Store::open(&path).unwrap();
+    let mut settings = preferences(folder.path());
+    settings.farming.gold_reserve = 2_000_000;
+    store.save_settings(&settings).unwrap();
+    let mut old = serde_json::to_value(&settings).unwrap();
+    old["farming"]
+        .as_object_mut()
+        .unwrap()
+        .remove("upgrade_walls");
+    rusqlite::Connection::open(&path)
+        .unwrap()
+        .execute("UPDATE settings SET data = ?1", [old.to_string()])
+        .unwrap();
+    assert_eq!(Store::open(&path).unwrap().settings().unwrap(), settings);
+    settings.farming.upgrade_walls = true;
+    store.save_settings(&settings).unwrap();
+    assert_eq!(Store::open(&path).unwrap().settings().unwrap(), settings);
+}
+
+#[tokio::test]
 async fn pause_freezes_active_time_and_keeps_settings_locked() {
     let folder = tempfile::tempdir().unwrap();
     let app = Application::with_transport(folder.path().join("data"), assets(), Fake::new())

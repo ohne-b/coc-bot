@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Icon } from "@mdi/react";
 import {
@@ -10,7 +10,6 @@ import {
   mdiWaterOutline,
   mdiEyeOutline,
   mdiPause,
-  mdiWall,
   mdiVectorPolygon,
   mdiGithub,
 } from "@mdi/js";
@@ -32,12 +31,21 @@ import type { Snapshot, Village } from "./types";
 function Overview({
   snapshot,
   offline,
-  mode = "farming",
+  preferences,
+  onPreferencesChange,
 }: {
   snapshot: Snapshot;
   offline: boolean;
-  mode?: "farming" | "walls";
+  preferences: boolean;
+  onPreferencesChange: (open: boolean) => void;
 }) {
+  const settingsButton = useRef<HTMLButtonElement>(null);
+  const wasPreferencesOpen = useRef(false);
+  useEffect(() => {
+    if (wasPreferencesOpen.current && !preferences)
+      settingsButton.current?.focus();
+    wasPreferencesOpen.current = preferences;
+  }, [preferences]);
   const { image: screenshot, error: screenshotError } = useScreenshot(snapshot);
   const [village, setVillage] = useState<Village>("home");
   const [busy, setBusy] = useState(false);
@@ -72,7 +80,7 @@ function Overview({
   return (
     <>
       <header className="page-header overview-header">
-        <h1>{mode === "walls" ? "Walls" : "Farming"}</h1>
+        <h1>Farming</h1>
         <div className="header-village">
           <Help label="Resources">
             Balances come from recognized village screens. A last known value
@@ -97,18 +105,20 @@ function Overview({
         </div>
         <div className="page-actions">
           {snapshot.settings.farming && (
-            <Farming
-              options={snapshot.settings.farming}
-              active={active || offline}
-              walls={mode === "walls"}
+            <IconButton
+              ref={settingsButton}
+              path={mdiCogOutline}
+              label="Farming settings"
+              onClick={() => onPreferencesChange(true)}
             />
           )}
           <Help label="Observation">
-            Start runs the selected mode with saved settings. Observe reads
-            screenshots without sending input. Pause suspends automation; Stop
-            cancels pending work. Missing readings remain unknown. Selected
-            instance: {snapshot.settings.device?.index ?? "none"}. Session mode:{" "}
-            {title(snapshot.session?.mode ?? mode)}. Last capture:{" "}
+            Start farms with saved settings, including wall upgrades when
+            enabled. Observe reads screenshots without sending input. Pause
+            suspends automation; Stop cancels pending work. Missing readings
+            remain unknown. Selected instance:{" "}
+            {snapshot.settings.device?.index ?? "none"}. Session mode:{" "}
+            {title(snapshot.session?.mode ?? "farming")}. Last capture:{" "}
             {time(screenshot?.at ?? null)}. Screen:{" "}
             {screenshot?.screen ? title(screenshot.screen) : "unknown"}.
           </Help>
@@ -145,7 +155,7 @@ function Overview({
                 disabled={
                   busy || stopping || offline || !snapshot.settings.device
                 }
-                onClick={() => void control("start", { mode })}
+                onClick={() => void control("start", { mode: "farming" })}
               />
             </>
           )}
@@ -268,7 +278,7 @@ function Overview({
           </dl>
           <section className="session-loot">
             <div className="section-heading">
-              <h2>{mode === "walls" ? "Spending" : "Loot"}</h2>
+              <h2>Loot</h2>
               <Help label="Session statistics">
                 Only confirmed result readings count as earned loot. Rates use
                 active time, including searching and recovery, excluding pauses.
@@ -277,43 +287,46 @@ function Overview({
               </Help>
             </div>
             <dl className="summary-row">
-              {mode === "walls" ? (
-                <>
-                  <div>
-                    <dt>Gold spent</dt>
-                    <dd>{number(stats?.wall_gold)}</dd>
-                  </div>
-                  <div>
-                    <dt>Elixir spent</dt>
-                    <dd>{number(stats?.wall_elixir)}</dd>
-                  </div>
-                </>
-              ) : (
-                (
-                  [
-                    "gold",
-                    "elixir",
-                    ...(village === "home" ? ["dark"] : []),
-                  ] as const
-                ).map((key) => (
-                  <div key={key}>
-                    <dt>{key === "dark" ? "Dark Elixir" : title(key)}</dt>
-                    <dd>
+              {(
+                [
+                  "gold",
+                  "elixir",
+                  ...(village === "home" ? ["dark"] : []),
+                ] as const
+              ).map((key) => (
+                <div key={key}>
+                  <dt>{key === "dark" ? "Dark Elixir" : title(key)}</dt>
+                  <dd>
+                    {number(stats?.[key as "gold" | "elixir" | "dark"].amount)}
+                    <span className="stat-rate">
                       {number(
-                        stats?.[key as "gold" | "elixir" | "dark"].amount,
+                        stats?.[key as "gold" | "elixir" | "dark"].per_hour,
                       )}
-                      <span className="stat-rate">
-                        {number(
-                          stats?.[key as "gold" | "elixir" | "dark"].per_hour,
-                        )}
-                        /h
-                      </span>
-                    </dd>
-                  </div>
-                ))
-              )}
+                      /h
+                    </span>
+                  </dd>
+                </div>
+              ))}
             </dl>
           </section>
+          {(snapshot.session?.mode === "walls" ||
+            (stats?.wall_upgrades ?? 0) > 0) && (
+            <section className="session-loot" aria-label="Wall spending">
+              <div className="section-heading">
+                <h2>Wall spending</h2>
+              </div>
+              <dl className="summary-row">
+                <div>
+                  <dt>Gold spent</dt>
+                  <dd>{number(stats?.wall_gold)}</dd>
+                </div>
+                <div>
+                  <dt>Elixir spent</dt>
+                  <dd>{number(stats?.wall_elixir)}</dd>
+                </div>
+              </dl>
+            </section>
+          )}
         </section>
       </div>
     </>
@@ -322,13 +335,21 @@ function Overview({
 
 export default function App() {
   const [page, setPage] = useState("farming");
+  const [preferences, setPreferences] = useState(false);
+  function navigate(next: string) {
+    setPage(next);
+    setPreferences(false);
+  }
   const { status: update } = useUpdates();
   const updating =
     update?.phase === "installing" || Boolean(update?.restart_required);
   const { snapshot, error } = useSnapshot();
+  const active =
+    updating ||
+    snapshot?.session?.state === "running" ||
+    snapshot?.session?.state === "paused";
   const nav = [
     ["farming", "Farming", mdiEyeOutline],
-    ["walls", "Walls", mdiWall],
     ["deployment", "Deployment", mdiVectorPolygon],
     ["history", "History", mdiHistory],
     ["settings", "Settings", mdiCogOutline],
@@ -349,7 +370,7 @@ export default function App() {
               className={`nav-item ${page === id ? "active" : ""}`}
               aria-current={page === id ? "page" : undefined}
               key={id}
-              onClick={() => setPage(id)}
+              onClick={() => navigate(id)}
             >
               <Icon path={icon} aria-hidden="true" />
               <span>{label}</span>
@@ -367,7 +388,7 @@ export default function App() {
           >
             <Icon path={mdiGithub} aria-hidden="true" />
           </a>
-          <DesktopUpdateLink onClick={() => setPage("settings")} />
+          <DesktopUpdateLink onClick={() => navigate("settings")} />
         </div>
       </aside>
       <main id="main" tabIndex={-1} className="workspace">
@@ -377,40 +398,44 @@ export default function App() {
               {error}
             </p>
           )}
-          {!snapshot ? (
-            page === "settings" ? (
-              <>
-                <header className="page-header">
-                  <h1>Settings</h1>
-                </header>
-                <DesktopUpdates />
-              </>
-            ) : (
-              <Empty>{error ? "Application unavailable" : "Loading…"}</Empty>
-            )
-          ) : page === "settings" ? (
-            <Settings
-              settings={snapshot.settings}
-              running={
-                updating ||
-                snapshot.session?.state === "running" ||
-                snapshot.session?.state === "paused"
-              }
-            />
-          ) : page === "history" ? (
-            <History sessionId={snapshot.session?.id} />
-          ) : page === "deployment" ? (
-            <Deployment
-              snapshot={snapshot}
-              offline={Boolean(error) || updating}
-            />
-          ) : (
-            <Overview
-              snapshot={snapshot}
-              offline={Boolean(error) || updating}
-              mode={page === "walls" ? "walls" : "farming"}
+          {snapshot?.settings.farming && (
+            <Farming
+              options={snapshot.settings.farming}
+              active={active || Boolean(error)}
+              open={preferences}
+              onBack={() => setPreferences(false)}
             />
           )}
+          <div hidden={preferences}>
+            {!snapshot ? (
+              page === "settings" ? (
+                <>
+                  <header className="page-header">
+                    <h1>Settings</h1>
+                  </header>
+                  <DesktopUpdates />
+                </>
+              ) : (
+                <Empty>{error ? "Application unavailable" : "Loading…"}</Empty>
+              )
+            ) : page === "settings" ? (
+              <Settings settings={snapshot.settings} running={active} />
+            ) : page === "history" ? (
+              <History sessionId={snapshot.session?.id} />
+            ) : page === "deployment" ? (
+              <Deployment
+                snapshot={snapshot}
+                offline={Boolean(error) || updating}
+              />
+            ) : (
+              <Overview
+                snapshot={snapshot}
+                offline={Boolean(error) || updating}
+                preferences={preferences}
+                onPreferencesChange={setPreferences}
+              />
+            )}
+          </div>
         </div>
       </main>
     </div>

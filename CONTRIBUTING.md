@@ -103,6 +103,9 @@ checks, screenshots, recognition, dynamic deployment, bounded recovery and sessi
 Start enables guarded game input; Observe never does. Pause freezes active time and dispatches
 no gameplay steps. Settings remain locked until Stop. Farming, device and deployment saves
 patch their own sections so stale forms cannot overwrite unrelated preferences.
+Farming settings include an opt-in wall-upgrade option. Start uses the saved option to select
+the existing wall workflow; old settings default to farming without wall upgrades. The shared
+overview shows earned loot and confirmed wall spending separately.
 The Builder Elixir Cart can be a stopping target. It needs two stable post-collection
 capacity readings; five failed cart visits stop farming without treating missing data as full.
 Low available Windows memory can trigger bounded emulator recovery between attacks after

@@ -52,30 +52,41 @@ main:focus-visible {
   outline-offset: 3px;
 }
 
-.settings-dialog {
-  width: min(940px, calc(100vw - 32px));
-  max-height: calc(100dvh - 32px);
-  padding: 24px;
-  border: 1px solid var(--divider);
-  border-radius: 8px;
-  background: var(--canvas);
-  color: var(--text);
-  overflow: auto;
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #717171 transparent;
 }
-.settings-dialog::backdrop {
-  background: #0009;
+@supports selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: auto;
+    scrollbar-color: auto;
+  }
+  *::-webkit-scrollbar {
+    width: 3px;
+    height: 3px;
+    background: transparent;
+  }
+  *::-webkit-scrollbar-track,
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: #717171;
+    border-radius: 999px;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: #a1a1aa;
+  }
+  *::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+  }
 }
-.dialog-header {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background: var(--canvas);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.settings-dialog form {
-  margin-top: 24px;
+@media (forced-colors: active) {
+  * {
+    scrollbar-color: auto;
+  }
 }
 .preference-section {
   display: grid;
@@ -413,6 +424,9 @@ progress.update-progress {
   min-height: 40px;
   margin-bottom: 24px;
   flex-wrap: wrap;
+}
+.page-header h1:focus {
+  outline: none;
 }
 .page-actions {
   margin-left: auto;
