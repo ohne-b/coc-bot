@@ -30,6 +30,7 @@ struct State {
     fail_touch: bool,
     cancel_touch: bool,
     cancel_capture: bool,
+    cancel_discovery: bool,
     capture_delay: Duration,
 }
 
@@ -53,6 +54,10 @@ impl Transport for Fake {
         }
         let mut state = self.0.lock().unwrap();
         state.calls.push(command);
+        if args.contains("Get-Process") && state.cancel_discovery {
+            cancel.cancel();
+            return Ok(vec![]);
+        }
         if let Some(value) = state.overrides.get(&args) {
             return Ok(value.clone());
         }
@@ -363,6 +368,11 @@ async fn failed_multitouch_releases_every_finger_with_a_separate_deadline() {
         .filter(|call| call.args.iter().any(|arg| arg == "dd"))
         .collect();
     assert_eq!(commands.len(), 2);
+    for command in &commands {
+        assert!(command.args.iter().any(|arg| arg == "ibs=24"));
+        assert!(command.args.iter().any(|arg| arg == "obs=24"));
+        assert!(!command.args.iter().any(|arg| arg == "bs=24"));
+    }
     assert_eq!(commands[1].timeout, Duration::from_secs(2));
     assert_eq!(commands[1].input[0].bytes.len(), 6 * 24);
     assert!(
@@ -477,4 +487,15 @@ async fn ldplayer_discovery_is_read_only_and_lifecycle_targets_one_instance() {
     .await
     .unwrap();
     assert_eq!(folders, vec![folder.path().canonicalize().unwrap()]);
+    fake.0.lock().unwrap().cancel_discovery = true;
+    assert!(matches!(
+        ldplayer::installed_folders(
+            Some(folder.path().to_owned()),
+            vec![folder.path().to_owned()],
+            &fake,
+            &token,
+        )
+        .await,
+        Err(Error::Cancelled)
+    ));
 }

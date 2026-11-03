@@ -242,8 +242,12 @@ pub async fn installed_folders<T: Transport>(
             Err(_) => {} // Installed-folder search still works when process enumeration is unavailable.
         }
     }
+    let worker_cancel = cancel.clone();
     let folders = tokio::task::spawn_blocking(move || {
         for root in roots.into_iter().take(26) {
+            if worker_cancel.is_cancelled() {
+                return Err(Error::Cancelled);
+            }
             for prefix in [
                 "",
                 "LDPlayer",
@@ -251,10 +255,16 @@ pub async fn installed_folders<T: Transport>(
                 "Program Files (x86)",
                 "XuanZhi",
             ] {
+                if worker_cancel.is_cancelled() {
+                    return Err(Error::Cancelled);
+                }
                 let Ok(entries) = std::fs::read_dir(root.join(prefix)) else {
                     continue;
                 };
                 for entry in entries.take(1024).flatten() {
+                    if worker_cancel.is_cancelled() {
+                        return Err(Error::Cancelled);
+                    }
                     if entry
                         .file_name()
                         .to_string_lossy()
@@ -268,6 +278,9 @@ pub async fn installed_folders<T: Transport>(
         }
         let mut folders = Vec::new();
         for path in candidates {
+            if worker_cancel.is_cancelled() {
+                return Err(Error::Cancelled);
+            }
             if path.join("adb.exe").is_file()
                 && path.join("ldconsole.exe").is_file()
                 && let Ok(path) = path.canonicalize()
@@ -276,9 +289,9 @@ pub async fn installed_folders<T: Transport>(
                 folders.push(path);
             }
         }
-        folders
+        Ok(folders)
     })
-    .await?;
+    .await??;
     if cancel.is_cancelled() {
         return Err(Error::Cancelled);
     }

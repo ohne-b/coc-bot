@@ -252,7 +252,9 @@ impl<T: Transport> Adb<T> {
                 "exec-in",
                 "dd",
                 &format!("of={}", touch.node),
-                "bs=24",
+                // Separate sizes buffer short pipe reads into complete input_event records.
+                "ibs=24",
+                "obs=24",
             ]
             .map(Into::into)
             .to_vec(),
