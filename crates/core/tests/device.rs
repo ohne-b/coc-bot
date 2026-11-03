@@ -374,6 +374,9 @@ async fn failed_multitouch_releases_every_finger_with_a_separate_deadline() {
     for command in &commands {
         assert!(command.args.iter().any(|arg| arg == "-T"));
         assert!(!command.args.iter().any(|arg| arg == "exec-in"));
+        let replay = command.args[6].to_string_lossy();
+        assert!(replay.contains("set -o pipefail || exit"));
+        assert!(replay.contains("toybox dd ibs=4096 obs=24"));
         for frame in &command.input {
             assert!(frame.bytes.is_ascii());
             assert_eq!(frame.bytes.last(), Some(&b'\n'));

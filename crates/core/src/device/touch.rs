@@ -246,8 +246,8 @@ impl<T: Transport> Adb<T> {
         }
         self.guard(detector, expected, cancel).await?;
         let replay = concat!(
-            "'while IFS= read -r frame; do printf %s \"$frame\" | ",
-            "toybox base64 -d > \"$1\" || exit; done'"
+            "'set -o pipefail || exit; while IFS= read -r frame; do printf %s \"$frame\" | ",
+            "toybox base64 -d | toybox dd ibs=4096 obs=24 of=\"$1\" status=none || exit; done'"
         );
         let invocation = |input: Vec<WriteFrame>, timeout| {
             Invocation {
