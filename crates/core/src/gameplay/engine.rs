@@ -49,7 +49,7 @@ enum Stage {
     Settle,
     Navigate,
     Zoom(u8),
-    Cart(u8),
+    Cart(CartPhase),
     Check {
         index: usize,
         opened: bool,
@@ -81,6 +81,13 @@ enum Stage {
         presses: u8,
     },
     Done,
+}
+
+#[derive(Clone, Copy)]
+enum CartPhase {
+    Find,
+    Claim,
+    Close,
 }
 
 pub struct Engine {
@@ -258,11 +265,11 @@ impl Engine {
         name: &str,
         now: u64,
         cancel: &CancellationToken,
-    ) -> Result<()> {
+    ) -> Result<bool> {
         let profile = vision.profile;
         let detector = vision.detector.clone();
         if self.last_action != 0 && now.saturating_sub(self.last_action) < 2000 {
-            return Ok(());
+            return Ok(false);
         }
         adb.tap_checked(
             detector,
@@ -273,7 +280,7 @@ impl Engine {
         .await?;
         self.last_action = now.max(1);
         self.delay(now, 500);
-        Ok(())
+        Ok(true)
     }
     fn surrender_reached(
         &mut self,
@@ -426,16 +433,24 @@ impl Engine {
             return Ok(outcome);
         }
         if screen == Screen::GemOffer && matches!(self.stage, Stage::Next { .. }) {
-            self.action(vision, adb, screen, "close", now, cancel)
-                .await?;
+            if !self
+                .action(vision, adb, screen, "close", now, cancel)
+                .await?
+            {
+                return Ok(outcome);
+            }
             self.out_of_gold = true;
             self.go(Stage::Scout, now);
             self.delay(now, 1000);
             return Ok(outcome);
         }
         if screen == Screen::BuildersBusy && matches!(self.stage, Stage::Walls) {
-            self.action(vision, adb, screen, "close", now, cancel)
-                .await?;
+            if !self
+                .action(vision, adb, screen, "close", now, cancel)
+                .await?
+            {
+                return Ok(outcome);
+            }
             self.full.push(self.village());
             outcome.completed = self.next_village(now);
             return Ok(outcome);
@@ -452,8 +467,12 @@ impl Engine {
             let version = adb.game_version(cancel).await?.ok_or_else(|| {
                 Error::Gameplay("Installed game version could not be read".into())
             })?;
-            self.action(vision, adb, screen, "update", now, cancel)
-                .await?;
+            if !self
+                .action(vision, adb, screen, "update", now, cancel)
+                .await?
+            {
+                return Ok(outcome);
+            }
             self.go(
                 Stage::Update {
                     version,
@@ -487,8 +506,12 @@ impl Engine {
         {
             self.finish_attack(screen, now, at, &mut outcome);
             if let Some(attack) = &mut outcome.attack {
-                let result =
-                    super::results::read(&profile.screen(screen)?.result_readings, image, digits)?;
+                let result = super::results::read(
+                    &profile.screen(screen)?.result_readings,
+                    image,
+                    digits,
+                    self.village(),
+                )?;
                 attack.loot = result.loot;
                 attack.damage = result.damage;
                 attack.stars = result.stars;
@@ -628,7 +651,7 @@ impl Engine {
                     } else {
                         self.go(
                             if self.village() == Village::Builder && self.options.collect_cart {
-                                Stage::Cart(0)
+                                Stage::Cart(CartPhase::Find)
                             } else {
                                 Stage::Check {
                                     index: 0,
@@ -657,12 +680,15 @@ impl Engine {
                 }
             }
             Stage::Cart(step) => {
-                if screen == Screen::Builder && step == 0 {
+                if screen == Screen::Builder && matches!(step, CartPhase::Find) {
                     if let Some(target) = profile.screen(screen)?.targets.get("cart") {
                         if target.locate(image)?.is_some() {
-                            self.action(vision, adb, screen, "cart", now, cancel)
-                                .await?;
-                            self.stage = Stage::Cart(1);
+                            if self
+                                .action(vision, adb, screen, "cart", now, cancel)
+                                .await?
+                            {
+                                self.stage = Stage::Cart(CartPhase::Claim);
+                            }
                         } else if let Some([start, end]) =
                             target.pan.filter(|_| self.pans < target.pan_attempts)
                         {
@@ -688,18 +714,25 @@ impl Engine {
                         );
                     }
                 } else if screen == Screen::BuilderCart {
-                    self.action(
-                        vision,
-                        adb,
-                        screen,
-                        if step < 2 { "claim" } else { "close" },
-                        now,
-                        cancel,
-                    )
-                    .await?;
-                    self.stage = Stage::Cart(step + 1);
+                    if self
+                        .action(
+                            vision,
+                            adb,
+                            screen,
+                            if matches!(step, CartPhase::Close) {
+                                "close"
+                            } else {
+                                "claim"
+                            },
+                            now,
+                            cancel,
+                        )
+                        .await?
+                    {
+                        self.stage = Stage::Cart(CartPhase::Close);
+                    }
                 } else if screen == Screen::Builder
-                    && (step >= 2 || now.saturating_sub(self.since) > 5000)
+                    && (matches!(step, CartPhase::Close) || now.saturating_sub(self.since) > 5000)
                 {
                     self.go(
                         Stage::Check {
@@ -1354,4 +1387,76 @@ fn changed(previous: &Mat, current: &Mat) -> Result<bool> {
         }
     }
     Ok(f64::from(count) / f64::from(delta.rows() * delta.cols()) > 0.02)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        calibration::Calibration,
+        gameplay::{
+            FrameView, GameVision,
+            test_device::{Fake, root},
+        },
+        vision::Detector,
+    };
+    use std::{path::Path, sync::Arc};
+
+    #[tokio::test]
+    async fn fast_cart_popup_waits_for_claim_and_stuck_close_never_reclaims_or_overflows() {
+        let profile = Profile::load(&root()).unwrap();
+        let digits = Digits::load(&root(), Path::new("calibration/digits")).unwrap();
+        let detector = Arc::new(
+            Detector::load(
+                &Calibration::load(&root().join("config.json")).unwrap(),
+                &root(),
+            )
+            .unwrap(),
+        );
+        let vision = GameVision {
+            profile: &profile,
+            digits: &digits,
+            detector,
+        };
+        let (fake, image) = Fake::new("english-builder_cart.png");
+        let temp = tempfile::tempdir().unwrap();
+        let mut adb = fake.adb(temp.path());
+        let mut engine = Engine::new(
+            Options {
+                villages: vec![Village::Builder],
+                ..Options::default()
+            },
+            SessionMode::Farming,
+            &profile,
+        )
+        .unwrap();
+        engine.stage = Stage::Cart(CartPhase::Claim);
+        engine.last_action = 1000;
+        let cancel = CancellationToken::new();
+        let mut frame = FrameView {
+            image: &image,
+            detection: &Detection::Known(Screen::BuilderCart),
+            elapsed_ms: 1500,
+            captured_at_ms: 1_700_000_000_000,
+        };
+        engine
+            .tick(&vision, &mut adb, &frame, &cancel)
+            .await
+            .unwrap();
+        assert!(fake.taps.lock().unwrap().is_empty());
+        assert!(matches!(engine.stage, Stage::Cart(CartPhase::Claim)));
+        for tick in 0..260 {
+            frame.elapsed_ms = 3000 + tick * 500;
+            engine
+                .tick(&vision, &mut adb, &frame, &cancel)
+                .await
+                .unwrap();
+        }
+        let taps = fake.taps.lock().unwrap();
+        assert_eq!(
+            taps.iter().filter(|tap| tap.ends_with("941 606")).count(),
+            1
+        );
+        assert!(taps.iter().filter(|tap| tap.ends_with("1072 71")).count() >= 60);
+    }
 }

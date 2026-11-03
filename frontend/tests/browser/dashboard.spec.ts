@@ -10,6 +10,9 @@ async function mock(
     delayFrame?: boolean;
     holdSettings?: boolean;
     holdNextSessionFrame?: boolean;
+    holdPause?: boolean;
+    holdNextFrame?: boolean;
+    screen?: string;
   } = {},
 ) {
   const frame = readFileSync(
@@ -56,7 +59,7 @@ async function mock(
           },
         },
         session,
-        detection: { status: "known", screens: "home" },
+        detection: { status: "known", screens: options.screen ?? "home" },
         captured_at_ms: Date.now(),
         frame_sequence: 1,
         resources: [
@@ -149,6 +152,8 @@ async function mock(
             if (options.error) throw "Unable to read the history database";
             if (command === "snapshot") return structuredClone(snapshot);
             if (command === "screenshot") {
+              if (options.holdNextFrame && Number(args.sequence) > 1)
+                await new Promise(() => {});
               if (options.holdNextSessionFrame && args.sessionId === 2)
                 await new Promise((_, reject) => {
                   Object.assign(window, {
@@ -174,6 +179,7 @@ async function mock(
               return;
             }
             if (command === "pause") {
+              if (options.holdPause) await new Promise(() => {});
               snapshot.session.state = args.paused ? "paused" : "running";
               snapshot.revision++;
               return;
@@ -538,4 +544,49 @@ test("deployment points support keyboard, bounds, save and reset without replaci
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
+});
+
+test("Stop remains available while Pause is waiting for the worker", async ({
+  page,
+}) => {
+  await mock(page, { holdPause: true });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Start", exact: true }).click();
+  await page.getByRole("button", { name: "Pause", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Pause", exact: true }),
+  ).toBeDisabled();
+  await page.getByRole("button", { name: "Stop", exact: true }).click();
+  await expect(page.getByText("Stopped", { exact: true })).toBeVisible();
+});
+
+test("deployment never relabels an older frame after a scout screen changes", async ({
+  page,
+}) => {
+  await mock(page, { holdNextFrame: true, screen: "home_scout" });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Deployment", exact: true }).click();
+  const reference = page.getByRole("img", {
+    name: "Deployment reference screenshot",
+  });
+  await expect(reference).toBeVisible();
+  await page.evaluate(() => {
+    const snapshot = (
+      window as unknown as {
+        fixtureSnapshot: {
+          detection: { screens: string };
+          revision: number;
+          frame_sequence: number;
+        };
+      }
+    ).fixtureSnapshot;
+    snapshot.detection.screens = "builder_stage2";
+    snapshot.frame_sequence = 2;
+    snapshot.revision++;
+  });
+  await page
+    .getByRole("button", { name: "Builder stage 2", exact: true })
+    .click();
+  await expect(reference).toHaveCount(0);
+  await expect(page.getByText("No matching scout screenshot")).toBeVisible();
 });

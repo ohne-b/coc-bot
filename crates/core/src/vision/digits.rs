@@ -109,6 +109,13 @@ impl Digits {
     }
 
     pub fn percent(&self, image: &Mat) -> Result<u8> {
+        self.percent_up_to(image, 100)
+    }
+
+    pub fn percent_up_to(&self, image: &Mat, maximum: u8) -> Result<u8> {
+        if maximum > 200 {
+            return Err(Error::Unreadable);
+        }
         let digits = glyphs(image)?
             .iter()
             .map(|glyph| self.classify(glyph, 0.75))
@@ -123,7 +130,7 @@ impl Digits {
                 .collect::<Option<Vec<_>>>()
                 .ok_or(Error::Unreadable)?,
         );
-        if number > 100 {
+        if number > u64::from(maximum) {
             return Err(Error::Unreadable);
         }
         Ok(number as u8)
@@ -522,6 +529,17 @@ mod tests {
         let seven = glyphs(&rendered("7")).unwrap().remove(0);
         digits.templates.push((9, seven));
         assert!(digits.number(&rendered("7"), 0.75).is_err());
+    }
+
+    #[test]
+    fn builder_percent_has_an_explicit_two_stage_bound() {
+        let reader = digits();
+        for value in [101, 199, 200] {
+            let image = rendered(&format!("{value}%"));
+            assert_eq!(reader.percent_up_to(&image, 200).unwrap(), value);
+            assert!(reader.percent(&image).is_err());
+        }
+        assert!(reader.percent_up_to(&rendered("201%"), 200).is_err());
     }
 
     #[test]

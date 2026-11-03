@@ -34,7 +34,13 @@ fn guarded_numeric_reader_rejects_ambiguous_or_wrong_layouts_and_preserves_unkno
     let digits = Digits::load(&root(), Path::new("calibration/digits")).unwrap();
     let image = read_image(&root().join("fixtures/english-home_scout.png")).unwrap();
     let mut variant = layout();
-    let read = results::read(std::slice::from_ref(&variant), &image, &digits).unwrap();
+    let read = results::read(
+        std::slice::from_ref(&variant),
+        &image,
+        &digits,
+        coc_bot_core::telemetry::Village::Home,
+    )
+    .unwrap();
     assert_eq!(
         (read.loot.gold, read.loot.elixir, read.loot.dark),
         (None, Some(1_646_314), Some(10_150))
@@ -42,52 +48,82 @@ fn guarded_numeric_reader_rejects_ambiguous_or_wrong_layouts_and_preserves_unkno
     assert!(read.damage.is_none() && read.stars.is_none());
     variant.loot.remove("dark");
     assert!(
-        results::read(std::slice::from_ref(&variant), &image, &digits)
-            .unwrap()
-            .loot
-            .dark
-            .is_none()
+        results::read(
+            std::slice::from_ref(&variant),
+            &image,
+            &digits,
+            coc_bot_core::telemetry::Village::Home
+        )
+        .unwrap()
+        .loot
+        .dark
+        .is_none()
     );
     variant
         .bonus
         .insert("elixir".into(), variant.loot["elixir"]);
     assert!(
-        results::read(std::slice::from_ref(&variant), &image, &digits)
-            .unwrap()
-            .loot
-            .elixir
-            .is_none()
+        results::read(
+            std::slice::from_ref(&variant),
+            &image,
+            &digits,
+            coc_bot_core::telemetry::Village::Home
+        )
+        .unwrap()
+        .loot
+        .elixir
+        .is_none()
     );
     variant.bonus_included = Some(true);
     assert_eq!(
-        results::read(std::slice::from_ref(&variant), &image, &digits)
-            .unwrap()
-            .loot
-            .elixir,
+        results::read(
+            std::slice::from_ref(&variant),
+            &image,
+            &digits,
+            coc_bot_core::telemetry::Village::Home
+        )
+        .unwrap()
+        .loot
+        .elixir,
         Some(1_646_314)
     );
     variant.bonus_included = Some(false);
     assert_eq!(
-        results::read(std::slice::from_ref(&variant), &image, &digits)
-            .unwrap()
-            .loot
-            .elixir,
+        results::read(
+            std::slice::from_ref(&variant),
+            &image,
+            &digits,
+            coc_bot_core::telemetry::Village::Home
+        )
+        .unwrap()
+        .loot
+        .elixir,
         Some(3_292_628)
     );
     assert!(
-        results::read(&[variant, layout()], &image, &digits)
-            .unwrap()
-            .loot
-            .elixir
-            .is_none()
+        results::read(
+            &[variant, layout()],
+            &image,
+            &digits,
+            coc_bot_core::telemetry::Village::Home
+        )
+        .unwrap()
+        .loot
+        .elixir
+        .is_none()
     );
     let wrong = read_image(&root().join("fixtures/english-home.png")).unwrap();
     assert!(
-        results::read(&[layout()], &wrong, &digits)
-            .unwrap()
-            .loot
-            .elixir
-            .is_none()
+        results::read(
+            &[layout()],
+            &wrong,
+            &digits,
+            coc_bot_core::telemetry::Village::Home
+        )
+        .unwrap()
+        .loot
+        .elixir
+        .is_none()
     );
 }
 

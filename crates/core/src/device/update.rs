@@ -6,6 +6,64 @@ use tokio_util::sync::CancellationToken;
 
 const STORE: &str = "com.android.vending";
 
+fn bounds(node: roxmltree::Node<'_, '_>, resolution: Resolution) -> Option<[u32; 4]> {
+    let bounds = node
+        .attribute("bounds")?
+        .strip_prefix('[')?
+        .strip_suffix(']')?;
+    let (left, right) = bounds.split_once("][")?;
+    let (x, y) = left.split_once(',')?;
+    let (right, bottom) = right.split_once(',')?;
+    let [x, y, right, bottom] = [x, y, right, bottom].map(str::parse::<u32>);
+    let result = [x.ok()?, y.ok()?, right.ok()?, bottom.ok()?];
+    (result[0] < result[2]
+        && result[1] < result[3]
+        && result[2] <= resolution.0
+        && result[3] <= resolution.1)
+        .then_some(result)
+}
+
+fn game_context(button: roxmltree::Node<'_, '_>, resolution: Resolution) -> bool {
+    // The captured Store dialog and detail header associate the title with its own action group.
+    let Some([left, top, right, _]) = bounds(button, resolution) else {
+        return false;
+    };
+    button.document().descendants().any(|title| {
+        if title.attribute("package") != Some(STORE) {
+            return false;
+        }
+        if title.attribute("text") == Some("Clash of Clans") {
+            let Some(header) = title.parent() else {
+                return false;
+            };
+            let Some([x, _, end, bottom]) = bounds(header, resolution) else {
+                return false;
+            };
+            header
+                .descendants()
+                .any(|node| node.attribute("text") == Some("Supercell"))
+                && left >= x
+                && right <= end
+                && top >= bottom
+                && top - bottom <= 250
+        } else if title
+            .attribute("content-desc")
+            .and_then(|text| text.lines().next())
+            == Some("App: Clash of Clans")
+        {
+            button
+                .parent()
+                .filter(|group| {
+                    group.attribute("resource-id") == Some("com.android.vending:id/button_group")
+                })
+                .and_then(|group| group.parent())
+                .is_some_and(|dialog| dialog.descendants().any(|node| node == title))
+        } else {
+            false
+        }
+    })
+}
+
 pub fn update_button(xml: &str, resolution: Resolution) -> Option<Point> {
     if xml.len() > 2 * 1024 * 1024 {
         return None;
@@ -21,15 +79,6 @@ pub fn update_button(xml: &str, resolution: Resolution) -> Option<Point> {
         },
     )
     .ok()?;
-    if !doc.descendants().any(|node| {
-        node.attribute("package") == Some(STORE)
-            && ["text", "content-desc"].iter().any(|key| {
-                node.attribute(*key)
-                    .is_some_and(|value| value.contains("Clash of Clans"))
-            })
-    }) {
-        return None;
-    }
     let mut points = Vec::new();
     for node in doc.descendants().filter(|node| {
         node.attribute("package") == Some(STORE)
@@ -41,26 +90,13 @@ pub fn update_button(xml: &str, resolution: Resolution) -> Option<Point> {
         let button = node
             .ancestors()
             .find(|node| node.attribute("clickable") == Some("true"))?;
-        if button.attribute("package") != Some(STORE) || button.attribute("enabled") != Some("true")
+        if button.attribute("package") != Some(STORE)
+            || button.attribute("enabled") != Some("true")
+            || !game_context(button, resolution)
         {
             continue;
         }
-        let bounds = button
-            .attribute("bounds")?
-            .strip_prefix('[')?
-            .strip_suffix(']')?;
-        let (left, right) = bounds.split_once("][")?;
-        let (x, y) = left.split_once(',')?;
-        let (right, bottom) = right.split_once(',')?;
-        let (x, y, right, bottom) = (
-            x.parse::<u32>().ok()?,
-            y.parse::<u32>().ok()?,
-            right.parse::<u32>().ok()?,
-            bottom.parse::<u32>().ok()?,
-        );
-        if x >= right || y >= bottom || right > resolution.0 || bottom > resolution.1 {
-            return None;
-        }
+        let [x, y, right, bottom] = bounds(button, resolution)?;
         let point = Point(x + (right - x) / 2, y + (bottom - y) / 2);
         if !points.contains(&point) {
             points.push(point);
@@ -152,7 +188,9 @@ mod tests {
     #[test]
     fn only_an_enabled_english_update_for_the_game_is_accepted() {
         let res = Resolution(1280, 720);
-        assert_eq!(update_button(OFFER, res), Some(Point(829, 497)));
+        let offer = OFFER.replace("Aplikasi: Clash of Clans", "App: Clash of Clans");
+        assert_eq!(update_button(&offer, res), Some(Point(829, 497)));
+        assert_eq!(update_button(OFFER, res), None);
         assert_eq!(update_button(PAGE, res), Some(Point(466, 466)));
         for (from, to) in [
             ("Update", "Install"),
@@ -162,10 +200,14 @@ mod tests {
             ("com.android.vending", "other.package"),
             ("enabled=\"true\"", "enabled=\"false\""),
         ] {
-            assert_eq!(update_button(&OFFER.replace(from, to), res), None);
+            assert_eq!(update_button(&offer.replace(from, to), res), None);
         }
         assert_eq!(update_button("<hierarchy><node></hierarchy>", res), None);
-        assert_eq!(update_button(OFFER, Resolution(100, 100)), None);
+        assert_eq!(update_button(&offer, Resolution(100, 100)), None);
+        let other_app = PAGE
+            .replace("text=\"Clash of Clans\"", "text=\"Other Game\"")
+            .replace("Crownstone Survival", "Clash of Clans");
+        assert_eq!(update_button(&other_app, res), None);
     }
     #[test]
     fn version_requires_all_installed_package_fields() {

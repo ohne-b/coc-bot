@@ -284,7 +284,9 @@ export default function Deployment({
   const [screen, setScreen] = useState<DeployScreen>("home_scout");
   const screenshot = useScreenshot(snapshot);
   const current =
-    snapshot.detection.status === "known" ? snapshot.detection.screens : null;
+    screenshot.image?.sequence === snapshot.frame_sequence
+      ? screenshot.image.screen
+      : null;
   const matches =
     screen === "home_scout"
       ? current === "home_scout" || current === "home_battle"

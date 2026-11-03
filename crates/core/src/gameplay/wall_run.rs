@@ -387,6 +387,16 @@ impl WallRun {
                         self.excluded.push(resource);
                         self.go(Phase::Select, now);
                     } else {
+                        // A failed ADB reply cannot prove the purchase tap was not delivered.
+                        let cost = spec.confirm_cost(image, digits, resource, balance, reserve)?;
+                        self.go(
+                            Phase::Verify {
+                                resource,
+                                cost,
+                                balance,
+                            },
+                            now,
+                        );
                         let cost = adb
                             .tap_checked(
                                 detector,
@@ -494,5 +504,59 @@ impl WallRun {
             }
         }
         Ok(update)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        calibration::Calibration,
+        gameplay::{
+            FrameView, GameVision,
+            profile::Profile,
+            test_device::{Fake, root},
+        },
+        vision::{Detection, Detector, Digits},
+    };
+    use std::{path::Path, sync::Arc};
+    #[tokio::test]
+    async fn confirmation_delivered_before_transport_timeout_stays_unverified() {
+        let profile = Profile::load(&root()).unwrap();
+        let digits = Digits::load(&root(), Path::new("calibration/digits")).unwrap();
+        let detector = Arc::new(
+            Detector::load(
+                &Calibration::load(&root().join("config.json")).unwrap(),
+                &root(),
+            )
+            .unwrap(),
+        );
+        let vision = GameVision {
+            profile: &profile,
+            digits: &digits,
+            detector,
+        };
+        let (mut fake, image) = Fake::new("english-wall_confirm_gold.png");
+        fake.fail_after_tap = true;
+        let temp = tempfile::tempdir().unwrap();
+        let mut adb = fake.adb(temp.path());
+        let mut wall = WallRun::new(Some(543), 0, Village::Home, [1_000_000, 1_000_000]);
+        wall.phase = Phase::Confirm {
+            resource: Resource::Gold,
+            balance: 30_000_000,
+        };
+        let frame = FrameView {
+            image: &image,
+            detection: &Detection::Known(Screen::WallConfirm),
+            elapsed_ms: 1000,
+            captured_at_ms: 1_700_000_000_000,
+        };
+        assert!(matches!(
+            wall.tick(&vision, &mut adb, &frame, false, &CancellationToken::new())
+                .await,
+            Err(Error::Timeout)
+        ));
+        assert_eq!(fake.taps.lock().unwrap().len(), 1);
+        assert!(wall.verification_pending());
     }
 }

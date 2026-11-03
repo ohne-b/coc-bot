@@ -2,6 +2,8 @@ mod engine;
 mod options;
 pub mod profile;
 pub mod results;
+#[cfg(test)]
+mod test_device;
 mod wall_run;
 pub mod walls;
 pub use engine::{Engine, Outcome, Progress};

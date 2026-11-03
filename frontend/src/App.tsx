@@ -36,6 +36,7 @@ function Overview({
   const { image: screenshot, error: screenshotError } = useScreenshot(snapshot);
   const [village, setVillage] = useState<Village>("home");
   const [busy, setBusy] = useState(false);
+  const [stopping, setStopping] = useState(false);
   const [error, setError] = useState<string>();
   const running = snapshot.session?.state === "running";
   const paused = snapshot.session?.state === "paused";
@@ -51,14 +52,16 @@ function Overview({
     command: "start" | "stop" | "pause",
     args?: Record<string, unknown>,
   ) {
-    setBusy(true);
+    if (command === "stop") setStopping(true);
+    else setBusy(true);
     setError(undefined);
     try {
       await invoke(command, args);
     } catch (e) {
       setError(String(e));
     } finally {
-      setBusy(false);
+      if (command === "stop") setStopping(false);
+      else setBusy(false);
     }
   }
   return (
@@ -87,14 +90,14 @@ function Overview({
             <>
               {snapshot.session?.mode !== "observe" && (
                 <Button
-                  disabled={busy || offline}
+                  disabled={busy || stopping || offline}
                   onClick={() => void control("pause", { paused: !paused })}
                 >
                   <Icon path={paused ? mdiPlayOutline : mdiPause} />
                   {paused ? "Resume" : "Pause"}
                 </Button>
               )}
-              <Button disabled={busy} onClick={() => void control("stop")}>
+              <Button disabled={stopping} onClick={() => void control("stop")}>
                 <Icon path={mdiStop} />
                 Stop
               </Button>
@@ -102,7 +105,9 @@ function Overview({
           ) : (
             <>
               <Button
-                disabled={busy || offline || !snapshot.settings.device}
+                disabled={
+                  busy || stopping || offline || !snapshot.settings.device
+                }
                 onClick={() => void control("start", { mode: "observe" })}
               >
                 <Icon path={mdiEyeOutline} />
@@ -110,7 +115,9 @@ function Overview({
               </Button>
               <Button
                 primary
-                disabled={busy || offline || !snapshot.settings.device}
+                disabled={
+                  busy || stopping || offline || !snapshot.settings.device
+                }
                 onClick={() => void control("start", { mode })}
               >
                 <Icon path={mdiPlayOutline} />
@@ -128,7 +135,7 @@ function Overview({
       <div className="overview-grid">
         <section className="panel capture-panel">
           <div className="section-heading">
-            <h2>{currentScreen ? title(currentScreen) : "Screen"}</h2>
+            <h2>{screenshot?.screen ? title(screenshot.screen) : "Screen"}</h2>
             <span className="muted capture-time">
               {time(screenshot?.at ?? null)}
             </span>

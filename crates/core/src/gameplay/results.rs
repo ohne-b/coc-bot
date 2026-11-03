@@ -2,7 +2,7 @@ use super::profile::Target;
 use crate::{
     Error, Result,
     calibration::{Region, Resolution},
-    telemetry::Loot,
+    telemetry::{Loot, Village},
     vision::{Digits, army, crop},
 };
 use opencv::core::Mat;
@@ -80,7 +80,12 @@ impl ResultLayout {
     }
 }
 
-pub fn read(layouts: &[ResultLayout], image: &Mat, digits: &Digits) -> Result<BattleResult> {
+pub fn read(
+    layouts: &[ResultLayout],
+    image: &Mat,
+    digits: &Digits,
+    village: Village,
+) -> Result<BattleResult> {
     let mut selected = None;
     for layout in layouts {
         let mut matches = true;
@@ -123,7 +128,18 @@ pub fn read(layouts: &[ResultLayout], image: &Mat, digits: &Digits) -> Result<Ba
         damage: layout
             .damage
             .and_then(|region| crop(image, region).ok())
-            .and_then(|patch| digits.percent(&patch).ok()),
+            .and_then(|patch| {
+                digits
+                    .percent_up_to(
+                        &patch,
+                        if village == Village::Builder {
+                            200
+                        } else {
+                            100
+                        },
+                    )
+                    .ok()
+            }),
         stars: if layout.stars.is_empty() {
             None
         } else {
