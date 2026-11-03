@@ -1,3 +1,4 @@
+use base64::{Engine as _, prelude::BASE64_STANDARD};
 use coc_bot_core::{
     Error, Result,
     calibration::{Calibration, Resolution, Screen},
@@ -108,17 +109,18 @@ impl Transport for Fake {
             state.screen = next.into();
             return Ok(vec![]);
         }
-        if args.contains("exec-in dd") {
+        if args.contains("toybox base64 -d") {
             state.inputs += 1;
             let deploy = invocation
                 .input
                 .iter()
-                .flat_map(|f| f.bytes.chunks_exact(24))
-                .any(|event| {
-                    u16::from_le_bytes(event[16..18].try_into().unwrap()) == 3
-                        && u16::from_le_bytes(event[18..20].try_into().unwrap()) == 54
-                        && i32::from_le_bytes(event[20..24].try_into().unwrap()) < 580
-                });
+                .flat_map(|f| BASE64_STANDARD.decode(f.bytes.trim_ascii()).unwrap())
+                .collect::<Vec<_>>();
+            let deploy = deploy.chunks_exact(24).any(|event| {
+                u16::from_le_bytes(event[16..18].try_into().unwrap()) == 3
+                    && u16::from_le_bytes(event[18..20].try_into().unwrap()) == 54
+                    && i32::from_le_bytes(event[20..24].try_into().unwrap()) < 580
+            });
             if deploy {
                 state.screen = match state.screen.as_str() {
                     "home_scout" => "home_battle",
