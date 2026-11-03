@@ -60,8 +60,10 @@ pub async fn open(assets: PathBuf) -> Result<(Application, tempfile::TempDir)> {
             folder: data.path().to_owned(),
             index: 0,
         }),
+        ..Settings::default()
     })
     .await?;
-    app.start().await?;
+    app.start(coc_bot_core::telemetry::SessionMode::Observe)
+        .await?;
     Ok((app, data))
 }

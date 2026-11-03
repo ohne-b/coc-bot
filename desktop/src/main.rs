@@ -7,8 +7,8 @@ use std::sync::{
 
 use coc_bot_core::{
     application::{Application, Installation, SessionDetail, Snapshot},
-    settings::Settings,
-    telemetry::Session,
+    settings::SettingsUpdate,
+    telemetry::{Session, SessionMode},
 };
 use tauri::{Manager, State};
 
@@ -46,10 +46,10 @@ fn screenshot(
         .map_err(|e| e.to_string())
 }
 #[tauri::command]
-async fn save_settings(state: State<'_, Desktop>, settings: Settings) -> Result<(), String> {
+async fn save_settings(state: State<'_, Desktop>, update: SettingsUpdate) -> Result<(), String> {
     state
         .core()?
-        .save_settings(settings)
+        .update_settings(update)
         .await
         .map_err(|e| e.to_string())
 }
@@ -58,8 +58,16 @@ async fn discover(state: State<'_, Desktop>) -> Result<Vec<Installation>, String
     state.core()?.discover().await.map_err(|e| e.to_string())
 }
 #[tauri::command]
-async fn start(state: State<'_, Desktop>) -> Result<(), String> {
-    state.core()?.start().await.map_err(|e| e.to_string())
+async fn start(state: State<'_, Desktop>, mode: Option<SessionMode>) -> Result<(), String> {
+    state
+        .core()?
+        .start(mode.unwrap_or(SessionMode::Observe))
+        .await
+        .map_err(|e| e.to_string())
+}
+#[tauri::command]
+async fn pause(state: State<'_, Desktop>, paused: bool) -> Result<(), String> {
+    state.core()?.pause(paused).await.map_err(|e| e.to_string())
 }
 #[tauri::command]
 async fn stop(state: State<'_, Desktop>) -> Result<(), String> {
@@ -125,6 +133,7 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            pause,
             snapshot,
             screenshot,
             save_settings,

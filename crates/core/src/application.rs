@@ -5,12 +5,8 @@ use std::{
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
-use opencv::{
-    core::{Mat, Vector},
-    imgcodecs,
-    prelude::*,
-};
-use serde::{Deserialize, Serialize};
+use opencv::{core::Vector, imgcodecs, prelude::*};
+use serde::Serialize;
 use tokio::{
     sync::{mpsc, oneshot, watch},
     task::JoinHandle,
@@ -19,16 +15,17 @@ use tokio_util::sync::CancellationToken;
 
 use crate::{
     Error, Result,
-    calibration::{Calibration, Region, Screen, asset_path},
+    calibration::{Calibration, Screen},
     device::{
         Adb, InputMode,
         ldplayer::{self, Instance, LdPlayer},
         process::{Process, Transport},
     },
-    settings::Settings,
+    gameplay::{Engine, Progress, profile::Profile},
+    settings::{Settings, SettingsUpdate},
     storage::Store,
     telemetry::*,
-    vision::{Detection, Detector, Digits, crop, match_min, read_image},
+    vision::{Detection, Detector, Digits, army::Layout, crop},
 };
 
 #[derive(Clone, Debug, Serialize)]
@@ -41,6 +38,9 @@ pub struct Snapshot {
     pub frame_sequence: Option<u64>,
     pub resources: Vec<ResourceValue>,
     pub error: Option<String>,
+    pub progress: Option<Progress>,
+    pub statistics: Vec<Statistics>,
+    pub default_layouts: BTreeMap<Screen, Layout>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -68,8 +68,10 @@ struct Frame {
 
 enum Command {
     Save(Settings, oneshot::Sender<Result<()>>),
+    Update(SettingsUpdate, oneshot::Sender<Result<()>>),
     Discover(oneshot::Sender<Result<Vec<Installation>>>),
-    Start(CancellationToken, oneshot::Sender<Result<()>>),
+    Start(SessionMode, CancellationToken, oneshot::Sender<Result<()>>),
+    Pause(bool, oneshot::Sender<Result<()>>),
     Stop(oneshot::Sender<Result<()>>),
     History(Option<i64>, oneshot::Sender<Result<Vec<Session>>>),
     Detail(i64, oneshot::Sender<Result<SessionDetail>>),
@@ -109,6 +111,9 @@ impl Application {
             frame_sequence: None,
             resources: vec![],
             error: None,
+            progress: None,
+            statistics: vec![],
+            default_layouts: BTreeMap::new(),
         });
         let (ready, initialized) = oneshot::channel();
         let worker = tokio::task::spawn_blocking(move || {
@@ -174,13 +179,19 @@ impl Application {
         response.await.map_err(|_| closed())?
     }
 
+    pub async fn update_settings(&self, update: SettingsUpdate) -> Result<()> {
+        let (reply, response) = oneshot::channel();
+        self.send(Command::Update(update, reply))?;
+        response.await.map_err(|_| closed())?
+    }
+
     pub async fn discover(&self) -> Result<Vec<Installation>> {
         let (reply, response) = oneshot::channel();
         self.send(Command::Discover(reply))?;
         response.await.map_err(|_| closed())?
     }
 
-    pub async fn start(&self) -> Result<()> {
+    pub async fn start(&self, mode: SessionMode) -> Result<()> {
         let mut token = self.control.lock().await;
         if self
             .snapshot()
@@ -192,7 +203,7 @@ impl Application {
         let next = self.shutdown.child_token();
         let (reply, response) = oneshot::channel();
         *token = next.clone();
-        self.send(Command::Start(next.clone(), reply))?;
+        self.send(Command::Start(mode, next.clone(), reply))?;
         response.await.map_err(|_| closed())??;
         Ok(())
     }
@@ -202,6 +213,12 @@ impl Application {
         token.cancel();
         let (reply, response) = oneshot::channel();
         self.send(Command::Stop(reply))?;
+        response.await.map_err(|_| closed())?
+    }
+
+    pub async fn pause(&self, paused: bool) -> Result<()> {
+        let (reply, response) = oneshot::channel();
+        self.send(Command::Pause(paused, reply))?;
         response.await.map_err(|_| closed())?
     }
 
@@ -232,42 +249,36 @@ impl Drop for Application {
     }
 }
 
-#[derive(Deserialize)]
-struct HudProfile {
-    digits: PathBuf,
-    capacity: BTreeMap<String, BTreeMap<String, HudRegion>>,
-}
-
-#[derive(Deserialize)]
-struct HudRegion {
-    bar: Region,
-    #[serde(rename = "max")]
-    maximum: Region,
-    label: HudLabel,
-}
-
-#[derive(Deserialize)]
-struct HudLabel {
-    file: PathBuf,
-    region: Region,
-    max_score: f64,
-    #[serde(skip)]
-    image: Mat,
-}
-
 struct Running<T> {
     adb: Adb<T>,
     token: CancellationToken,
     session: Session,
     started: Instant,
+    active_ms: i64,
+    paused: bool,
+    engine: Option<Engine>,
+    activity_sequence: u32,
+    player: LdPlayer<T>,
+    recovering: bool,
+    guard_failures: u8,
+}
+impl<T> Running<T> {
+    fn elapsed(&self) -> i64 {
+        self.active_ms
+            + if self.paused {
+                0
+            } else {
+                elapsed(self.started)
+            }
+    }
 }
 
 struct Worker<T> {
     store: Store,
     calibration: Calibration,
-    detector: Detector,
+    detector: Arc<Detector>,
     digits: Digits,
-    hud: HudProfile,
+    profile: Profile,
     transport: T,
     snapshot: watch::Sender<Snapshot>,
     frame: Arc<Mutex<Option<Frame>>>,
@@ -289,26 +300,16 @@ impl<T: Transport + Clone> Worker<T> {
         store.interrupt_open_sessions(now()?)?;
         let settings = store.settings()?;
         let calibration = Calibration::load(&assets.join("config.json"))?;
-        let detector = Detector::load(&calibration, assets)?;
-        let mut hud: HudProfile =
-            serde_json::from_slice(&std::fs::read(assets.join("config.json"))?)?;
-        for resources in hud.capacity.values_mut() {
-            for region in resources.values_mut() {
-                region.bar.validate(calibration.resolution)?;
-                region.maximum.validate(calibration.resolution)?;
-                region.label.region.validate(calibration.resolution)?;
-                region.label.image = read_image(&asset_path(assets, &region.label.file)?)?;
-                if !(0.0..=0.05).contains(&region.label.max_score)
-                    || region.label.image.cols() > region.label.region.2 as i32
-                    || region.label.image.rows() > region.label.region.3 as i32
-                {
-                    return Err(Error::Calibration("Invalid storage tooltip label".into()));
-                }
-            }
-        }
-        let digits = Digits::load(assets, &hud.digits)?;
+        let detector = Arc::new(Detector::load(&calibration, assets)?);
+        let profile = Profile::load(assets)?;
+        let digits = Digits::load(assets, &profile.digits)?;
         snapshot.send_modify(|s| {
             s.settings = settings;
+            s.default_layouts = profile
+                .screens
+                .iter()
+                .filter_map(|(screen, spec)| spec.auto.clone().map(|layout| (*screen, layout)))
+                .collect();
             s.revision += 1;
         });
         Ok(Self {
@@ -316,7 +317,7 @@ impl<T: Transport + Clone> Worker<T> {
             calibration,
             detector,
             digits,
-            hud,
+            profile,
             transport,
             snapshot,
             frame,
@@ -326,9 +327,9 @@ impl<T: Transport + Clone> Worker<T> {
     }
 
     async fn run(&mut self, mut commands: mpsc::Receiver<Command>) -> Result<()> {
-        let mut interval = tokio::time::interval(Duration::from_secs(1));
+        let mut interval = tokio::time::interval(Duration::from_millis(500));
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-        loop {
+        'worker: loop {
             tokio::select! {
                 biased;
                 _ = self.shutdown.cancelled() => break,
@@ -337,13 +338,24 @@ impl<T: Transport + Clone> Worker<T> {
                     None => break,
                 },
                 _ = interval.tick(), if self.running.is_some() => {
-                    if let Err(error) = self.observe().await {
+                    if let Err(mut error) = self.observe().await {
+                        loop {
+                            match self.recover(&error).await {
+                                Ok(true) => continue 'worker,
+                                Ok(false) => break,
+                                Err(next) => {
+                                    let retry = recoverable(&next);
+                                    error = next;
+                                    if !retry { break; }
+                                }
+                            }
+                        }
                         if matches!(error, Error::Cancelled) {
                             self.finish(SessionState::Stopped)?;
                         } else {
                             let message = error.to_string();
                             if let Some(run) = &self.running {
-                                let activity = Activity { sequence: 1, at_ms: now()?, kind: ActivityKind::Error, message: message.chars().take(400).collect() };
+                                let activity = Activity { sequence: run.activity_sequence+1, at_ms: now()?, kind: ActivityKind::Error, message: message.chars().take(400).collect() };
                                 if let Err(storage) = self.store.record_activity(run.session.id, &activity) {
                                     self.publish_error(format!("{message}; history: {storage}"));
                                 } else { self.publish_error(message); }
@@ -366,6 +378,24 @@ impl<T: Transport + Clone> Worker<T> {
 
     async fn command(&mut self, command: Command) {
         match command {
+            Command::Update(update, reply) => {
+                let result = (|| {
+                    if self.running.is_some() {
+                        return Err(Error::Device(
+                            "Stop the session before changing settings".into(),
+                        ));
+                    }
+                    let mut settings = self.store.settings()?;
+                    settings.apply(update)?;
+                    self.store.save_settings(&settings)?;
+                    self.snapshot.send_modify(|s| {
+                        s.settings = settings;
+                        s.revision += 1;
+                    });
+                    Ok(())
+                })();
+                let _ = reply.send(result);
+            }
             Command::Save(settings, reply) => {
                 let result = if self.running.is_some() {
                     Err(Error::Device(
@@ -385,8 +415,12 @@ impl<T: Transport + Clone> Worker<T> {
                 let result = self.discover().await;
                 let _ = reply.send(result);
             }
-            Command::Start(token, reply) => {
-                let result = self.start(token);
+            Command::Start(mode, token, reply) => {
+                let result = self.start(mode, token);
+                let _ = reply.send(result);
+            }
+            Command::Pause(paused, reply) => {
+                let result = self.pause(paused);
                 let _ = reply.send(result);
             }
             Command::Stop(reply) => {
@@ -413,7 +447,7 @@ impl<T: Transport + Clone> Worker<T> {
         }
     }
 
-    fn start(&mut self, token: CancellationToken) -> Result<()> {
+    fn start(&mut self, mode: SessionMode, token: CancellationToken) -> Result<()> {
         if self.running.is_some() {
             return Err(Error::Device("A session is already running".into()));
         }
@@ -424,12 +458,28 @@ impl<T: Transport + Clone> Worker<T> {
         let selected = settings
             .device
             .ok_or_else(|| Error::Device("Select an LDPlayer instance in Settings".into()))?;
-        let adb = Adb::new(
-            selected.config(self.calibration.resolution),
-            InputMode::Observe,
+        let engine = if mode == SessionMode::Observe {
+            None
+        } else {
+            Some(Engine::new(settings.farming, mode, &self.profile)?)
+        };
+        let input = if mode == SessionMode::Observe {
+            InputMode::Observe
+        } else {
+            InputMode::Live
+        };
+        let player = LdPlayer::new(
+            selected.folder.join("ldconsole.exe"),
+            selected.index,
+            input,
             self.transport.clone(),
         )?;
-        let session = self.store.begin_session(SessionMode::Observe, now()?)?;
+        let adb = Adb::new(
+            selected.config(self.calibration.resolution),
+            input,
+            self.transport.clone(),
+        )?;
+        let session = self.store.begin_session(mode, now()?)?;
         *self.frame.lock().map_err(|_| closed())? = None;
         self.snapshot.send_modify(|s| {
             s.revision += 1;
@@ -439,22 +489,155 @@ impl<T: Transport + Clone> Worker<T> {
             s.frame_sequence = None;
             s.resources.clear();
             s.error = None;
+            s.progress = engine.as_ref().map(Engine::progress);
+            s.statistics.clear();
         });
         self.running = Some(Running {
             adb,
             token,
             session,
             started: Instant::now(),
+            active_ms: 0,
+            paused: false,
+            engine,
+            activity_sequence: 0,
+            player,
+            recovering: false,
+            guard_failures: 0,
         });
         Ok(())
+    }
+
+    fn pause(&mut self, paused: bool) -> Result<()> {
+        let run = self
+            .running
+            .as_mut()
+            .ok_or_else(|| Error::Device("No session is running".into()))?;
+        if run.paused == paused {
+            return Ok(());
+        }
+        let active_ms = run.elapsed();
+        let session = self.store.update_session(
+            run.session.id,
+            if paused {
+                SessionState::Paused
+            } else {
+                SessionState::Running
+            },
+            active_ms,
+            now()?,
+        )?;
+        run.active_ms = active_ms;
+        run.started = Instant::now();
+        run.paused = paused;
+        self.snapshot.send_modify(|s| {
+            s.session = Some(session);
+            s.revision += 1;
+        });
+        Ok(())
+    }
+
+    async fn recover(&mut self, error: &Error) -> Result<bool> {
+        let Some(run) = self.running.as_mut() else {
+            return Ok(false);
+        };
+        if run.engine.is_none() || run.paused || run.token.is_cancelled() {
+            return Ok(false);
+        }
+        if matches!(error, Error::InputGuard) {
+            run.guard_failures += 1;
+            return Ok(run.guard_failures <= 3);
+        }
+        if !recoverable(error) {
+            return Ok(false);
+        }
+        let active_ms = run.elapsed();
+        let attempt = run
+            .engine
+            .as_mut()
+            .ok_or_else(closed)?
+            .recover(active_ms as u64)?;
+        run.activity_sequence += 1;
+        self.store.record_activity(
+            run.session.id,
+            &Activity {
+                sequence: run.activity_sequence,
+                at_ms: now()?,
+                kind: ActivityKind::RecoveryStarted,
+                message: format!("Recovery {attempt}: {error}")
+                    .chars()
+                    .take(400)
+                    .collect(),
+            },
+        )?;
+        run.recovering = true;
+        self.snapshot.send_modify(|s| {
+            if let Some(progress) = &mut s.progress {
+                progress.operation = "Recovering".into();
+            }
+            s.revision += 1;
+        });
+        match run.adb.verify(&run.token).await {
+            Ok(_) => {}
+            Err(Error::Resolution) => return Err(Error::Resolution),
+            Err(Error::Cancelled) => return Err(Error::Cancelled),
+            Err(_) => {
+                if run.player.running(&run.token).await? {
+                    run.player.quit(&run.token).await?;
+                }
+                tokio::select! {_ = run.token.cancelled()=>return Err(Error::Cancelled),_ = tokio::time::sleep(Duration::from_secs(3))=>{}}
+                run.player.launch(&run.token).await?;
+                let deadline = Instant::now() + Duration::from_secs(90);
+                loop {
+                    match run.adb.verify(&run.token).await {
+                        Ok(_) => break,
+                        Err(Error::Resolution) => return Err(Error::Resolution),
+                        Err(Error::Cancelled) => return Err(Error::Cancelled),
+                        Err(_) if Instant::now() < deadline => {}
+                        Err(error) => return Err(error),
+                    }
+                    tokio::select! {_ = run.token.cancelled()=>return Err(Error::Cancelled),_ = tokio::time::sleep(Duration::from_secs(2))=>{}}
+                }
+            }
+        }
+        if !run.adb.game_in_front(&run.token).await? {
+            run.adb.launch_game(&run.token).await?;
+        } else {
+            let capture = run.adb.capture(&run.token).await?;
+            match self.detector.detect(&capture.image)? {
+                Detection::Known(
+                    screen @ (Screen::Disconnected | Screen::Idle | Screen::SearchFailed),
+                ) => {
+                    let name = match screen {
+                        Screen::Disconnected => "retry",
+                        Screen::Idle => "reload",
+                        _ => "close",
+                    };
+                    run.adb
+                        .tap_checked(
+                            self.detector.clone(),
+                            &[screen],
+                            |frame| Ok((self.profile.action(screen, name, frame)?, ())),
+                            &run.token,
+                        )
+                        .await?;
+                }
+                Detection::Unknown if attempt >= 2 => {
+                    run.adb.stop_game(&run.token).await?;
+                    run.adb.launch_game(&run.token).await?;
+                }
+                _ => {}
+            }
+        }
+        Ok(true)
     }
 
     fn finish(&mut self, state: SessionState) -> Result<()> {
         if let Some(run) = self.running.take() {
             run.token.cancel();
-            let result =
-                self.store
-                    .update_session(run.session.id, state, elapsed(run.started), now()?);
+            let result = self
+                .store
+                .update_session(run.session.id, state, run.elapsed(), now()?);
             match result {
                 Ok(session) => self.snapshot.send_modify(|s| {
                     s.session = Some(session);
@@ -508,13 +691,27 @@ impl<T: Transport + Clone> Worker<T> {
         let at = now()?;
         let capture = run.adb.capture(&run.token).await?;
         let detection = self.detector.detect(&capture.image)?;
+        if run.recovering && matches!(detection, Detection::Known(Screen::Home | Screen::Builder)) {
+            run.activity_sequence += 1;
+            self.store.record_activity(
+                run.session.id,
+                &Activity {
+                    sequence: run.activity_sequence,
+                    at_ms: at,
+                    kind: ActivityKind::RecoveryCompleted,
+                    message: "Village recovered".into(),
+                },
+            )?;
+            run.recovering = false;
+        }
+        let mut observations = Vec::new();
         let village = match detection {
             Detection::Known(Screen::Home) => Some((Village::Home, "home")),
             Detection::Known(Screen::Builder) => Some((Village::Builder, "builder")),
             _ => None,
         };
         if let Some((village, name)) = village
-            && let Some(regions) = self.hud.capacity.get(name)
+            && let Some(regions) = self.profile.capacity.get(name)
         {
             for (resource, key) in [
                 (Resource::Gold, "gold"),
@@ -522,11 +719,7 @@ impl<T: Transport + Clone> Worker<T> {
                 (Resource::Dark, "dark"),
             ] {
                 if let Some(region) = regions.get(key) {
-                    let capacity = if match_min(
-                        &crop(&capture.image, region.label.region)?,
-                        &region.label.image,
-                    )? <= region.label.max_score
-                    {
+                    let capacity = if region.label.locate(&capture.image)?.is_some() {
                         self.digits
                             .number(&crop(&capture.image, region.maximum)?, 0.65)
                             .ok()
@@ -547,15 +740,12 @@ impl<T: Transport + Clone> Worker<T> {
                             })
                         })
                         .unwrap_or(Reading::Failed);
-                    self.store.observe(
-                        run.session.id,
-                        ResourceObservation {
-                            village,
-                            resource,
-                            checked_at_ms: at,
-                            reading,
-                        },
-                    )?;
+                    observations.push(ResourceObservation {
+                        village,
+                        resource,
+                        checked_at_ms: at,
+                        reading,
+                    });
                 }
             }
         }
@@ -569,13 +759,61 @@ impl<T: Transport + Clone> Worker<T> {
         if run.token.is_cancelled() {
             return Err(Error::Cancelled);
         }
+        let active_ms = run.elapsed();
+        let outcome = if !run.paused
+            && let Some(engine) = &mut run.engine
+        {
+            engine
+                .tick(
+                    &crate::gameplay::GameVision {
+                        profile: &self.profile,
+                        digits: &self.digits,
+                        detector: self.detector.clone(),
+                    },
+                    &mut run.adb,
+                    &crate::gameplay::FrameView {
+                        image: &capture.image,
+                        detection: &detection,
+                        elapsed_ms: active_ms as u64,
+                        captured_at_ms: at,
+                    },
+                    &run.token,
+                )
+                .await?
+        } else {
+            Default::default()
+        };
+        run.guard_failures = 0;
+        for observation in outcome.resources {
+            observations.retain(|old| {
+                old.village != observation.village || old.resource != observation.resource
+            });
+            observations.push(observation);
+        }
+        for observation in observations {
+            self.store.observe(run.session.id, observation)?;
+        }
+        if let Some(attack) = outcome.attack {
+            self.store.record_attack(run.session.id, &attack)?;
+        }
+        if let Some(wall) = outcome.wall {
+            self.store.record_wall(run.session.id, &wall)?;
+        }
         let session = self.store.update_session(
             run.session.id,
-            SessionState::Running,
-            elapsed(run.started),
+            if run.paused {
+                SessionState::Paused
+            } else {
+                SessionState::Running
+            },
+            run.elapsed(),
             now()?,
         )?;
         let resources = self.store.resources(run.session.id)?;
+        let statistics = vec![
+            self.store.statistics(run.session.id, Village::Home)?,
+            self.store.statistics(run.session.id, Village::Builder)?,
+        ];
         let sequence = self.snapshot.borrow().revision + 1;
         *self.frame.lock().map_err(|_| closed())? = Some(Frame {
             session_id: run.session.id,
@@ -589,13 +827,24 @@ impl<T: Transport + Clone> Worker<T> {
             s.captured_at_ms = Some(at);
             s.frame_sequence = Some(sequence);
             s.resources = resources;
+            s.progress = run.engine.as_ref().map(Engine::progress);
+            s.statistics = statistics;
         });
+        if outcome.completed {
+            self.finish(SessionState::Completed)?;
+        }
         Ok(())
     }
 }
 
 fn elapsed(start: Instant) -> i64 {
     start.elapsed().as_millis().min(9_007_199_254_740_991) as i64
+}
+fn recoverable(error: &Error) -> bool {
+    matches!(
+        error,
+        Error::Timeout | Error::Device(_) | Error::Io(_) | Error::Frame | Error::Unreadable
+    )
 }
 fn now() -> Result<i64> {
     let value = SystemTime::now()

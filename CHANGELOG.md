@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Port Home and two-stage Builder farming, dynamic troop/hero/spell deployment, resource
+  checks, guarded wall spending and bounded recovery into the Rust worker.
+- Add farming/wall settings, pause/resume and a keyboard-accessible deployment editor.
+  Keep confirmed loot separate from storage changes and reject ambiguous result layouts.
 - Add a Tauri 2/React desktop observer with TDM styling, Material Design Icons, native
   screenshot IPC, English resource readings, emulator settings and session history.
 - Keep observation off the UI thread, drain capture on stop/shutdown, and add offline

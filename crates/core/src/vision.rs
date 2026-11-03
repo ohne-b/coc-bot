@@ -44,7 +44,7 @@ impl Detector {
         profile.validate()?;
         let mut screens = Vec::new();
         for (&name, spec) in &profile.screens {
-            // Uncaptured English popups still contain Indonesian templates in the migration baseline.
+            // Uncaptured screens cannot authorize input.
             if !profile.is_observed(name) {
                 continue;
             }
@@ -101,21 +101,7 @@ impl Detector {
         let mut matched = Vec::new();
         let mut overridden = BTreeSet::new();
         for screen in &self.screens {
-            let mut found = false;
-            for group in &screen.groups {
-                let mut matches = true;
-                for anchor in group {
-                    let score = anchor.score(image, self.resolution)?;
-                    if !score.is_finite() || score > anchor.spec.max_score {
-                        matches = false;
-                        break;
-                    }
-                }
-                if matches {
-                    found = true;
-                    break;
-                }
-            }
+            let found = self.matches(image, screen.name)?;
             if found {
                 matched.push(screen.name);
                 overridden.extend(screen.overrides.iter().copied());
@@ -127,6 +113,27 @@ impl Detector {
             [name] => Detection::Known(*name),
             _ => Detection::Ambiguous(matched),
         })
+    }
+
+    pub fn matches(&self, image: &Mat, name: Screen) -> Result<bool> {
+        check_frame(image, self.resolution)?;
+        let Some(screen) = self.screens.iter().find(|screen| screen.name == name) else {
+            return Ok(false);
+        };
+        for group in &screen.groups {
+            let mut matches = true;
+            for anchor in group {
+                let score = anchor.score(image, self.resolution)?;
+                if !score.is_finite() || score > anchor.spec.max_score {
+                    matches = false;
+                    break;
+                }
+            }
+            if matches {
+                return Ok(true);
+            }
+        }
+        Ok(false)
     }
 }
 

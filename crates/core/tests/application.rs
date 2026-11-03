@@ -105,6 +105,7 @@ fn preferences(folder: &Path) -> Settings {
             folder: folder.to_owned(),
             index: 0,
         }),
+        ..Settings::default()
     }
 }
 async fn frame(app: &Application) {
@@ -128,9 +129,15 @@ async fn observer_persists_real_readings_and_rejects_old_session_screenshots() {
     let app = Application::with_transport(folder.path().join("data"), assets(), Fake::new())
         .await
         .unwrap();
-    assert!(app.start().await.is_err());
+    assert!(
+        app.start(coc_bot_core::telemetry::SessionMode::Observe)
+            .await
+            .is_err()
+    );
     app.save_settings(settings.clone()).await.unwrap();
-    app.start().await.unwrap();
+    app.start(coc_bot_core::telemetry::SessionMode::Observe)
+        .await
+        .unwrap();
     frame(&app).await;
     let snapshot = app.snapshot();
     assert_eq!(snapshot.detection, Detection::Known(Screen::Home));
@@ -165,14 +172,20 @@ async fn observer_persists_real_readings_and_rejects_old_session_screenshots() {
             .unwrap()
             .starts_with(&[0xff, 0xd8])
     );
-    assert!(app.start().await.is_err());
+    assert!(
+        app.start(coc_bot_core::telemetry::SessionMode::Observe)
+            .await
+            .is_err()
+    );
     assert!(app.save_settings(Settings::default()).await.is_err());
     app.stop().await.unwrap();
     assert_eq!(
         app.detail(id).await.unwrap().session.state,
         SessionState::Stopped
     );
-    app.start().await.unwrap();
+    app.start(coc_bot_core::telemetry::SessionMode::Observe)
+        .await
+        .unwrap();
     assert!(app.screenshot(id, sequence).is_err());
     frame(&app).await;
     assert!(app.snapshot().session.unwrap().id > id);
@@ -201,7 +214,9 @@ async fn an_isolated_tooltip_cannot_authorize_a_village_resource_reading() {
     .await
     .unwrap();
     app.save_settings(preferences(folder.path())).await.unwrap();
-    app.start().await.unwrap();
+    app.start(coc_bot_core::telemetry::SessionMode::Observe)
+        .await
+        .unwrap();
     frame(&app).await;
     let snapshot = app.snapshot();
     assert_eq!(snapshot.detection, Detection::Unknown);
@@ -219,7 +234,9 @@ async fn stop_and_shutdown_cancel_an_owned_capture_and_drain_the_worker() {
             .await
             .unwrap();
         app.save_settings(preferences(folder.path())).await.unwrap();
-        app.start().await.unwrap();
+        app.start(coc_bot_core::telemetry::SessionMode::Observe)
+            .await
+            .unwrap();
         tokio::time::timeout(Duration::from_secs(2), fake.entered.notified())
             .await
             .unwrap();
@@ -254,7 +271,11 @@ async fn an_abandoned_start_request_remains_cancellable() {
         rusqlite::Connection::open(folder.path().join("data/history.sqlite3")).unwrap();
     connection.execute_batch("BEGIN IMMEDIATE").unwrap();
     let pending = app.clone();
-    let start = tokio::spawn(async move { pending.start().await });
+    let start = tokio::spawn(async move {
+        pending
+            .start(coc_bot_core::telemetry::SessionMode::Observe)
+            .await
+    });
     tokio::time::sleep(Duration::from_millis(50)).await;
     start.abort();
     assert!(start.await.unwrap_err().is_cancelled());
@@ -279,7 +300,9 @@ async fn device_failure_is_reported_and_recorded_without_capturing_or_input() {
         .await
         .unwrap();
     app.save_settings(preferences(folder.path())).await.unwrap();
-    app.start().await.unwrap();
+    app.start(coc_bot_core::telemetry::SessionMode::Observe)
+        .await
+        .unwrap();
     tokio::time::timeout(Duration::from_secs(2), async {
         while app.snapshot().session.as_ref().unwrap().state == SessionState::Running {
             tokio::time::sleep(Duration::from_millis(10)).await;
@@ -335,8 +358,77 @@ fn settings_migration_preserves_history_and_never_defaults_on_corruption() {
                 device: Some(SelectedDevice {
                     folder: "relative".into(),
                     index: 0
-                })
+                }),
+                ..Settings::default()
             })
             .is_err()
     );
+}
+
+#[tokio::test]
+async fn settings_patches_preserve_other_editors_and_failed_updates_are_atomic() {
+    use coc_bot_core::{gameplay::Options, settings::SettingsUpdate};
+    let folder = tempfile::tempdir().unwrap();
+    let app = Application::with_transport(folder.path().join("data"), assets(), Fake::new())
+        .await
+        .unwrap();
+    let settings = preferences(folder.path());
+    app.save_settings(settings.clone()).await.unwrap();
+    let mut layout = app.snapshot().default_layouts[&Screen::HomeScout].clone();
+    layout.deploy = Some(coc_bot_core::device::Point(123, 456));
+    app.update_settings(SettingsUpdate::Layout {
+        screen: Screen::HomeScout,
+        layout: Some(layout.clone()),
+    })
+    .await
+    .unwrap();
+    app.update_settings(SettingsUpdate::Farming(Options {
+        attacks: 7,
+        ..Options::default()
+    }))
+    .await
+    .unwrap();
+    let saved = app.snapshot().settings;
+    assert_eq!(saved.device, settings.device);
+    assert_eq!(saved.farming.layouts[&Screen::HomeScout], layout);
+    assert_eq!(saved.farming.attacks, 7);
+    assert!(
+        app.update_settings(SettingsUpdate::Farming(Options {
+            villages: vec![],
+            ..Options::default()
+        }))
+        .await
+        .is_err()
+    );
+    assert_eq!(app.snapshot().settings, saved);
+    app.shutdown().await.unwrap();
+    let store = Store::open(&folder.path().join("data/history.sqlite3")).unwrap();
+    assert_eq!(store.settings().unwrap(), saved);
+}
+
+#[tokio::test]
+async fn pause_freezes_active_time_and_keeps_settings_locked() {
+    let folder = tempfile::tempdir().unwrap();
+    let app = Application::with_transport(folder.path().join("data"), assets(), Fake::new())
+        .await
+        .unwrap();
+    let settings = preferences(folder.path());
+    app.save_settings(settings.clone()).await.unwrap();
+    app.start(coc_bot_core::telemetry::SessionMode::Observe)
+        .await
+        .unwrap();
+    frame(&app).await;
+    app.pause(true).await.unwrap();
+    let paused = app.snapshot().session.unwrap();
+    assert_eq!(paused.state, SessionState::Paused);
+    assert!(app.save_settings(settings).await.is_err());
+    tokio::time::sleep(Duration::from_millis(650)).await;
+    assert_eq!(app.snapshot().session.unwrap().active_ms, paused.active_ms);
+    app.pause(false).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(30)).await;
+    app.stop().await.unwrap();
+    let ended = app.snapshot().session.unwrap();
+    assert!(ended.active_ms >= paused.active_ms + 20);
+    assert!(ended.active_ms < paused.active_ms + 500);
+    app.shutdown().await.unwrap();
 }

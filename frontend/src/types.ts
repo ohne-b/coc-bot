@@ -2,6 +2,44 @@ export type Village = "home" | "builder";
 export type Resource = "gold" | "elixir" | "dark";
 export interface Settings {
   device: { folder: string; index: number } | null;
+  farming: FarmingOptions;
+}
+export type Point = [number, number];
+export type DeployScreen = "home_scout" | "builder_scout" | "builder_stage2";
+export interface Layout {
+  bar: [number, number, number, number];
+  deploy: Point | null;
+  hold: number;
+  points: Point[];
+  spells: Point[];
+  ring: Point[];
+  spell_spread: Point[];
+  quake: Point[];
+}
+export interface FarmingOptions {
+  villages: Village[];
+  minimum_gold: number;
+  minimum_elixir: number;
+  minimum_dark: number;
+  targets: Resource[];
+  until_full: boolean;
+  collect_cart: boolean;
+  attacks: number;
+  minutes: number;
+  searches: number;
+  strategy: "stack" | "ring";
+  earthquake: boolean;
+  builder_stack: boolean;
+  surrender_after: number;
+  surrender_damage: number;
+  surrender_stars: number;
+  trophy_floor: number;
+  recoveries: number;
+  wall_upgrades: number;
+  gold_reserve: number;
+  elixir_reserve: number;
+  wall_farm_threshold: number;
+  layouts: Partial<Record<DeployScreen, Layout>>;
 }
 export interface Balance {
   amount: number;
@@ -39,6 +77,20 @@ export interface Snapshot {
   frame_sequence: number | null;
   resources: ResourceValue[];
   error: string | null;
+  progress: {
+    operation: string;
+    village: Village;
+    searches: number;
+    opponent: {
+      gold: number | null;
+      elixir: number | null;
+      dark: number | null;
+    };
+    damage: number | null;
+    stars: number | null;
+  } | null;
+  statistics: Statistics[];
+  default_layouts: Partial<Record<DeployScreen, Layout>>;
 }
 export interface Installation {
   folder: string;

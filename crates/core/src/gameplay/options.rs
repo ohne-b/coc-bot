@@ -15,7 +15,7 @@ pub enum Strategy {
     Ring,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(default, deny_unknown_fields)]
 pub struct Options {
     pub villages: Vec<Village>,
@@ -123,6 +123,14 @@ impl Options {
             if (*screen == Screen::HomeScout) != layout.points.is_empty() {
                 return Err(Error::Calibration(
                     "Layout belongs to a different village".into(),
+                ));
+            }
+            if *screen == Screen::HomeScout
+                && ((self.strategy == Strategy::Ring && layout.ring.is_empty())
+                    || (self.earthquake && layout.quake.is_empty()))
+            {
+                return Err(Error::Calibration(
+                    "The selected strategy needs calibrated deployment points".into(),
                 ));
             }
         }

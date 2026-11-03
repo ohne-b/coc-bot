@@ -51,7 +51,10 @@ export default function Settings({
       )
         throw new Error("Choose a folder and an instance from 0 to 99.");
       await invoke("save_settings", {
-        settings: { device: { folder: folder.trim(), index: parsed } },
+        update: {
+          type: "device",
+          value: { folder: folder.trim(), index: parsed },
+        },
       });
       setSaved(true);
     } catch (e) {

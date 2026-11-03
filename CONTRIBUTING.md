@@ -106,8 +106,16 @@ Never commit a virtual environment, runtime captures, logs, credentials or datab
 | `scripts/` | Native Windows build dependency setup |
 | `.github/` | Repository policy, validation and supplied branding |
 
-The desktop currently supports observation: selected-instance display checks, screenshots,
-screen/resource recognition, settings and session history. It does not farm or upgrade walls.
+The desktop supports observation and development farming/wall modes: selected-instance display
+checks, screenshots, recognition, dynamic deployment, bounded recovery and session history.
+Start enables guarded game input; Observe never does. Pause freezes active time and dispatches
+no gameplay steps. Settings remain locked until Stop. Farming, device and deployment saves
+patch their own sections so stale forms cannot overwrite unrelated preferences.
+Offline attack regressions cover Home and both Builder stages. Wall prices and currency
+checks use captured English dialogs; full wall-flow and live gameplay parity remain unverified.
+Result layouts require two independent guards and exactly one match. Absent currencies remain
+unavailable; a separately displayed bonus is added only with explicit inclusion semantics.
+Uncaptured result fields and recovery screens remain unavailable rather than inferred.
 Capacity is displayed only when both the village and its calibrated storage tooltip are
 recognized; isolated tooltip fixtures cannot identify a village. The UI uses TDM's dark
 palette, spacing, Manrope and Material Design Icons, with explanations behind info buttons.
@@ -129,9 +137,9 @@ The fixture build uses a captured English frame, temporary settings/history and 
 transport. It has a separate application identifier and does not save window preferences.
 Never package `desktop-fixture` for users. The browser suite mocks native IPC and checks
 controls, errors, help popovers, narrow layouts and accessibility; it never opens an emulator.
-For manual observation, omit `desktop-fixture`. That app stores settings/history in its
+For the real desktop, omit `desktop-fixture`. That app stores settings/history in its
 Windows local app-data directory and connects only after selecting an instance and clicking
-Observe. Closing cancels capture and drains the owned worker. Screenshots stay in memory.
+Observe or Start. Closing cancels device work and drains the owned worker. Screenshots stay in memory.
 The unbundled binary requires the OpenCV DLL on PATH; installer packaging is separate work.
 
 Keep README short: logo, status, essential links, scope and attribution. `LEGACY.md`

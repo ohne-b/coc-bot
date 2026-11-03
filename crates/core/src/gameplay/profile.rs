@@ -13,6 +13,7 @@ use std::{
 
 #[derive(Deserialize)]
 pub struct Profile {
+    pub digits: PathBuf,
     pub resolution: Resolution,
     pub screens: BTreeMap<Screen, ScreenSpec>,
     pub zoom_out: Option<Zoom>,
@@ -23,6 +24,8 @@ pub struct Profile {
 }
 #[derive(Deserialize)]
 pub struct ScreenSpec {
+    #[serde(default)]
+    pub result_readings: Vec<super::results::ResultLayout>,
     #[serde(default)]
     pub actions: BTreeMap<String, Point>,
     #[serde(default)]
@@ -155,6 +158,12 @@ impl Profile {
         let res = profile.resolution;
         res.validate()?;
         for spec in profile.screens.values_mut() {
+            if spec.result_readings.len() > 8 {
+                return Err(Error::Calibration("Too many result layouts".into()));
+            }
+            for layout in &mut spec.result_readings {
+                layout.load(root, res)?;
+            }
             for point in spec.actions.values().chain(spec.deploy.iter()) {
                 point.validate(res)?;
             }
@@ -170,7 +179,8 @@ impl Profile {
             for target in spec.targets.values_mut() {
                 target.load(root, res)?;
             }
-            if let Some(layout) = &spec.auto {
+            if let Some(layout) = &mut spec.auto {
+                layout.deploy = layout.deploy.or(spec.deploy);
                 layout.validate(res)?;
             }
             if let Some(sweep) = &spec.sweep {

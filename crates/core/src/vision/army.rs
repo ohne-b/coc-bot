@@ -12,9 +12,11 @@ use crate::{
     device::Point,
 };
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct Layout {
     pub bar: Region,
+    #[serde(default)]
+    pub deploy: Option<Point>,
     #[serde(default)]
     pub hold: u32,
     #[serde(default)]
@@ -32,6 +34,9 @@ pub struct Layout {
 impl Layout {
     pub fn validate(&self, resolution: Resolution) -> Result<()> {
         self.bar.validate(resolution)?;
+        if let Some(point) = self.deploy {
+            point.validate(resolution)?;
+        }
         if self.bar.3 < 20
             || self.hold > 60
             || (self.points.is_empty() && (self.spells.is_empty() || self.hold == 0))

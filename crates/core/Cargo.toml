@@ -8,6 +8,7 @@ repository.workspace = true
 
 [dependencies]
 opencv.workspace = true
+roxmltree = "0.21.2"
 rusqlite.workspace = true
 serde.workspace = true
 serde_json.workspace = true

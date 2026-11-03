@@ -23,6 +23,8 @@ pub enum Error {
     Sqlite(#[from] rusqlite::Error),
     #[error("{0}")]
     Device(String),
+    #[error("{0}")]
+    Gameplay(String),
     #[error("Operation cancelled")]
     Cancelled,
     #[error("Device command timed out")]

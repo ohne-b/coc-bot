@@ -18,6 +18,7 @@ use crate::{
 pub mod ldplayer;
 pub mod process;
 mod touch;
+pub mod update;
 use process::{Invocation, Process, Transport};
 pub use touch::{Gesture, TouchDevice};
 

@@ -30,8 +30,9 @@ alternate agent instruction files or links.
 The Rust workspace currently implements calibrated screen and digit recognition in
 `crates/core/`, with bounded ADB/LDPlayer processes, guarded input, framebuffer capture
 and SQLite session history with typed telemetry and offline regression tests. The Tauri
-application and React dashboard support read-only observation, settings and session history.
-Autonomous gameplay is not implemented yet. The Python coc-auto baseline,
+application and React dashboard support observation, farming/wall controls, deployment editing,
+settings and session history. Gameplay is validated offline against captured screens and fake
+devices; complete English result/recovery calibration and live parity remain unfinished. The Python coc-auto baseline,
 dashboard, calibration and tests live in `legacy/python/`; retain them and their history
 until equivalent Rust behavior has meaningful regression coverage.
 
