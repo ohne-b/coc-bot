@@ -80,7 +80,9 @@ function Overview({
             screenshots without sending input. Pause suspends automation; Stop
             cancels pending work. Missing readings remain unknown. Selected
             instance: {snapshot.settings.device?.index ?? "none"}. Session mode:{" "}
-            {title(snapshot.session?.mode ?? mode)}.
+            {title(snapshot.session?.mode ?? mode)}. Last capture:{" "}
+            {time(screenshot?.at ?? null)}. Screen:{" "}
+            {screenshot?.screen ? title(screenshot.screen) : "unknown"}.
           </Help>
           {active ? (
             <>
@@ -128,13 +130,16 @@ function Overview({
       )}
       <section className="resources-section">
         <div className="section-heading">
-          <h2>Resources</h2>
           <Help label="Resources">
             Balances come from recognized village screens. A last known value
             stays visible when a read fails. Open its status for the observation
             time. Unknown values are shown as a dash.
           </Help>
-          <div className="tabs" role="group" aria-label="Resource village">
+          <div
+            className="segmented-switch"
+            role="group"
+            aria-label="Resource village"
+          >
             {(["home", "builder"] as const).map((item) => (
               <button
                 key={item}
@@ -203,12 +208,6 @@ function Overview({
       </section>
       <div className="overview-grid">
         <section className="capture-section">
-          <div className="section-heading">
-            <h2>{screenshot?.screen ? title(screenshot.screen) : "Screen"}</h2>
-            <span className="muted capture-time">
-              {time(screenshot?.at ?? null)}
-            </span>
-          </div>
           <div className="capture">
             {screenshot ? (
               <img

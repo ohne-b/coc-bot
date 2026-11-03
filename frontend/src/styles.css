@@ -393,14 +393,6 @@ nav {
   align-self: start;
   min-width: 0;
 }
-.capture-section .section-heading {
-  margin-bottom: 12px;
-}
-.capture-time {
-  margin-left: auto;
-  font-variant-numeric: tabular-nums;
-  font-size: 12px;
-}
 .capture {
   position: relative;
   width: 100%;
@@ -424,9 +416,32 @@ nav {
 .resources-section .section-heading {
   margin-bottom: 4px;
 }
-.resources-section .tabs {
-  margin-left: auto;
-  border-bottom: 0;
+.resources-section .section-heading > .icon-button {
+  order: 1;
+}
+.segmented-switch {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 24px;
+  background: #141513;
+}
+.segmented-switch button {
+  min-width: 92px;
+  min-height: 32px;
+  padding: 5px 18px;
+  border: 0;
+  border-radius: 20px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+.segmented-switch button[aria-pressed="true"] {
+  background: var(--raised);
+  color: var(--text);
+}
+.segmented-switch button:hover {
+  color: var(--text);
 }
 .tabs {
   display: flex;
