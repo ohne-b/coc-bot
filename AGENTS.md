@@ -26,9 +26,11 @@ alternate agent instruction files or links.
 
 ## Current baseline and target
 
-The repository currently contains Python coc-auto, its existing dashboard and offline
-tests. The Rust/Tauri application is planned, not implemented. Retain this baseline and
-its history until equivalent Rust behavior has meaningful regression coverage.
+The Rust workspace currently implements calibrated screen and digit recognition in
+`crates/core/`, with raw framebuffer decoding and offline regression tests. The Tauri
+application and gameplay engine are not implemented yet. The Python coc-auto baseline,
+dashboard, calibration and tests live in `legacy/python/`; retain them and their history
+until equivalent Rust behavior has meaningful regression coverage.
 
 The target is Windows + LDPlayer + ADB, a modular Rust backend, OpenCV recognition,
 SQLite persistence and a Tauri 2 + React/TypeScript desktop UI. No Linux server, Docker,
@@ -86,7 +88,7 @@ Avoid filler, technical implementation details and middle-dot separators in new 
 
 Use CONTRIBUTING's real commands for the current code. Automated tests use fixtures,
 temporary data and fake device/transport boundaries; never live accounts or emulators.
-Keep the legacy `web/` sources tracked until deliberately retired. Do not copy the
+Keep the legacy `legacy/python/web/` sources tracked until deliberately retired. Do not copy the
 reference project's generated-web ignore rule onto this repository.
 Add Rust and frontend checks alongside the implementation; never claim absent build
 steps passed. Preserve workflow trust boundaries, immutable action pins and read-only

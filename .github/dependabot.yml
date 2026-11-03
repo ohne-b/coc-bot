@@ -10,11 +10,20 @@ updates:
       actions:
         patterns: ["*"]
   - package-ecosystem: pip
-    directory: /
+    directory: /legacy/python
     schedule:
       interval: monthly
     commit-message:
       prefix: build
     groups:
       python:
+        patterns: ["*"]
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: build
+    groups:
+      rust:
         patterns: ["*"]

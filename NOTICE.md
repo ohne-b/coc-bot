@@ -30,7 +30,7 @@ Record any later permission grant here without erasing the original attribution.
 
 ## Bundled assets
 
-The inherited Lilita One font retains its [SIL Open Font License 1.1](web/fonts/OFL.txt),
+The inherited Lilita One font retains its [SIL Open Font License 1.1](legacy/python/web/fonts/OFL.txt),
 including its copyright and reserved font name. Keep that notice with the font.
 Game screenshots, calibration crops and game names retain their respective owners'
 rights; the project license does not grant rights to Supercell assets or trademarks.

@@ -13,6 +13,10 @@ captures/
 !docs/*.png
 !fixtures/*.png
 !web/icons/*.png
+!legacy/python/calibration/**/*.png
+!legacy/python/calibration-legacy/**/*.png
+!legacy/python/fixtures/*.png
+!legacy/python/web/icons/*.png
 config.json.bak
 config.json.tmp
 config.local.json

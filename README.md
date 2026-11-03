@@ -13,9 +13,11 @@
 
 ## Get started
 
-This repository currently contains the Python [coc-auto](https://github.com/peenjeee/coc-auto)
-baseline, including its history, calibration assets, dashboard and tests. The Rust application
-has not been implemented yet; there is no desktop release to download.
+The Rust rewrite is in progress. Its core currently recognizes calibrated screens and
+digits using OpenCV and decodes ADB framebuffer images, with offline fixture tests.
+The gameplay engine and Tauri dashboard are not implemented yet; there is no desktop
+release to download. The Python [coc-auto](https://github.com/peenjeee/coc-auto) baseline,
+calibration, dashboard and tests are retained in [legacy/python/](legacy/python/).
 
 The target is a Windows application with **Rust, OpenCV, ADB, Tauri 2, React/TypeScript
 and SQLite**. It will preserve farming, troop deployment, resource collection, wall
@@ -30,14 +32,13 @@ the Rust desktop plan. Development and offline checks are in [CONTRIBUTING.md](C
 > Bahasa Indonesia. Other resolutions or languages need calibration. Automation violates
 > Supercell's rules and can result in an account ban. Not affiliated with Supercell.
 
-The separate [English profile](config.english.json) uses the same resolution and DPI;
-the Indonesian profile remains unchanged. Run it with
-`python bot.py --config config.english.json --walls home --live` and put this PC's
-device settings in ignored `config.english.local.json`. It retains 20M gold **and**
+The separate [English profile](legacy/python/config.english.json) uses the same resolution
+and DPI; the Indonesian profile remains unchanged. It retains 20M gold **and**
 elixir batching and 1M reserves for Home walls. The current Home price calibration
 targets green Hammer Jam discounts; revalidate it when that event ends. Screens not
 yet captured in English are listed in `calibration_pending_screens`; an unfamiliar
-dialog fails recognition and cannot be confirmed automatically.
+dialog fails recognition and cannot be confirmed automatically. Rust excludes those
+pending templates entirely.
 Builder stage two is recognized, but surviving-camp selection and its stack deployment
 point still need correction and another live check; unattended use remains Home-only.
 

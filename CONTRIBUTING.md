@@ -31,15 +31,37 @@ or unredacted logs/screenshots. Report vulnerabilities using [SECURITY.md](SECUR
 
 ## Development
 
-For the current Python baseline, use Python 3.13 and Node.js 24 (JavaScript syntax checks).
-From PowerShell in the repository root:
+Use Windows x64 with Visual Studio 2022 Build Tools (Desktop development with C++
+and a Windows SDK), Rustup, Python 3.13 and Node.js 24. Rust is pinned by
+`rust-toolchain.toml`. The native dependency script downloads checksum-pinned OpenCV
+4.12.0 and portable LLVM 19.1.7 into ignored `.tools/`; it needs no administrator rights.
+The first download is about 1.1 GB. Dot-source it in each PowerShell session before
+running Rust binaries so the OpenCV DLL can be found.
+
+From the repository root:
+
+```powershell
+. ./scripts/windows-dependencies.ps1
+cargo fmt --all -- --check
+cargo test --workspace --all-targets --locked
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo run -p coc-bot-core --example inspect -- `
+    legacy/python/config.english.json legacy/python/fixtures/english-home.png
+```
+
+The inspection example reads a saved screenshot and prints a structured detection;
+it never starts ADB or sends input. Recognition rejects unknown and ambiguous screens,
+wrong dimensions and weak numeric readings. English screens listed as pending are
+excluded from matching even though the legacy profile still holds their old anchors.
+
+The Python baseline remains an offline comparison suite during migration:
 
 ```powershell
 python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe -m unittest discover -v
+.\.venv\Scripts\python.exe -m pip install -r legacy/python/requirements.txt
+.\.venv\Scripts\python.exe -m unittest discover -s legacy/python -v
 .\.venv\Scripts\python.exe -m unittest discover -s .github/scripts -p "test_*.py" -v
-Get-ChildItem web -Filter *.js | ForEach-Object {
+Get-ChildItem legacy/python/web -Filter *.js | ForEach-Object {
     Get-Content -Raw -Encoding UTF8 $_.FullName | node --input-type=module --check
     if ($LASTEXITCODE -ne 0) { throw "JavaScript syntax check failed: $_" }
 }
@@ -49,21 +71,22 @@ git diff --check
 Tests use fixtures, temporary storage and loopback test servers. Do not launch a real
 bot or reuse a live emulator for automated validation. The inherited bot has optional
 remote-control/relay behavior; consult [LEGACY.md](LEGACY.md) before running it manually.
-Personal settings belong in ignored `config.local.json`, not the shared calibration.
+Personal legacy settings belong in ignored `legacy/python/config.local.json`, not
+the shared calibration. Existing root-level local settings and captures are not moved
+automatically; copy settings into the legacy directory only if you still run that bot.
 Never commit a virtual environment, runtime captures, logs, credentials or databases.
 
 | Location | Current purpose |
 | --- | --- |
-| `bot.py`, `calibrate.py` | Farming, recognition, input and calibration baseline |
-| `ldplayer.py`, `device_control.py`, `game_update.py` | Emulator/device lifecycle and recovery |
-| `remote.py`, `relay.py`, `web/`, `netlify.toml` | Inherited dashboard/relay implementation, retained for reference |
-| `config*.json`, `calibration/`, `calibration-legacy/` | Shared calibration and examples; local overrides stay ignored |
-| `test_*.py`, `fixtures/` | Existing offline regression suite |
+| `crates/core/` | Rust recognition, calibration validation and framebuffer decoding |
+| `crates/core/tests/` | Offline Rust regressions against captured fixtures |
+| `legacy/python/` | Python source, dashboard, settings examples, calibration and fixtures |
+| `scripts/` | Native Windows build dependency setup |
 | `.github/` | Repository policy, validation and supplied branding |
 
-The future Rust layout is described in [AGENTS.md](AGENTS.md). Do not add empty crates,
-frontend scaffolds or build instructions for code that does not yet exist. When those
-packages land, add their pinned toolchains, lockfiles and real checks in the same PR.
+The remaining Rust layout is described in [AGENTS.md](AGENTS.md). Tauri, the gameplay
+engine and the React frontend are not implemented yet. Do not add empty crates or
+frontend scaffolds; add their pinned toolchains, lockfiles and real checks with behavior.
 
 Keep README short: logo, status, essential links, scope and attribution. `LEGACY.md`
 and inherited `docs/` media preserve the original instructions. Future user guides
@@ -95,8 +118,9 @@ the PR policy. Never force-push shared history, rewrite published tags or bypass
 ## Validation and review
 
 The required **Validation** check runs on Windows for PRs, main pushes and manual runs.
-It checks whitespace, the current Python regression suite, repository automation tests
-and legacy JavaScript syntax. PR titles must be conventional. CI uses read-only repository
+It checks whitespace, Rust formatting, Clippy, Rust fixture tests, the Python regression
+suite, repository automation tests and legacy JavaScript syntax. PR titles must be
+conventional. CI uses read-only repository
 permissions and no secrets; it never runs the live bot or publishes an artifact.
 
 Use focused local checks while editing. A successful CI run on the final revision supplies
