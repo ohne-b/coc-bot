@@ -214,5 +214,9 @@
   "numeric_unrecognized-daily-calendar": {
     "file": "english-numeric-unrecognized-daily-calendar.png",
     "state": null
+  },
+  "daily_reward": {
+    "file": "english-daily_reward.png",
+    "state": "daily_reward"
   }
 }

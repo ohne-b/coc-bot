@@ -2132,6 +2132,34 @@
         "wall_confirm",
         "builder_wall_confirm"
       ]
+    },
+    "daily_reward": {
+      "anchors": [
+        {
+          "roi": [
+            495,
+            94,
+            255,
+            40
+          ],
+          "file": "calibration/english/daily-reward-title.png"
+        },
+        {
+          "roi": [
+            1052,
+            79,
+            51,
+            50
+          ],
+          "file": "calibration/english/daily-reward-close.png"
+        }
+      ],
+      "actions": {
+        "close": [
+          1077,
+          104
+        ]
+      }
     }
   },
   "digits": "calibration/digits",
@@ -2568,7 +2596,8 @@
     "build_list",
     "wall_confirm",
     "wall_selected",
-    "gem_offer"
+    "gem_offer",
+    "daily_reward"
   ],
   "calibration_pending_screens": [
     "builders_busy",

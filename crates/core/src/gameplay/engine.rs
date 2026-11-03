@@ -475,7 +475,7 @@ impl Engine {
             ));
         }
         let popup = match screen {
-            Screen::League => Some("close"),
+            Screen::League | Screen::DailyReward => Some("close"),
             Screen::Welcome
             | Screen::LayoutBlocked
             | Screen::StarBonus
@@ -1544,6 +1544,70 @@ mod tests {
         vision::Detector,
     };
     use std::{path::Path, sync::Arc};
+
+    #[tokio::test]
+    async fn daily_reward_closes_only_with_both_captured_anchors() {
+        let profile = Profile::load(&root()).unwrap();
+        let digits = Digits::load(&root(), Path::new("calibration/digits")).unwrap();
+        let calibration = Calibration::load(&root().join("config.json")).unwrap();
+        let detector = Arc::new(Detector::load(&calibration, &root()).unwrap());
+        let vision = GameVision {
+            profile: &profile,
+            digits: &digits,
+            detector: detector.clone(),
+        };
+        let (_, original) = Fake::new("english-daily_reward.png");
+        let temp = tempfile::tempdir().unwrap();
+        for missing in [None, Some(0), Some(1)] {
+            let mut image = original.clone();
+            if let Some(index) = missing {
+                let crate::calibration::Region(x, y, w, h) =
+                    calibration.screens[&Screen::DailyReward].anchors[index]
+                        .region()
+                        .unwrap();
+                Mat::roi_mut(
+                    &mut image,
+                    core::Rect::new(x as i32, y as i32, w as i32, h as i32),
+                )
+                .unwrap()
+                .set_to(&core::Scalar::all(0.0), &core::no_array())
+                .unwrap();
+            }
+            let fake = Fake::from_image(&image);
+            let mut adb = fake.adb(temp.path());
+            let mut engine =
+                Engine::new(Options::default(), SessionMode::Farming, &profile).unwrap();
+            let detection = detector.detect(&image).unwrap();
+            assert_eq!(
+                detection,
+                if missing.is_none() {
+                    Detection::Known(Screen::DailyReward)
+                } else {
+                    Detection::Unknown
+                }
+            );
+            engine
+                .tick(
+                    &vision,
+                    &mut adb,
+                    &FrameView {
+                        image: &image,
+                        detection: &detection,
+                        elapsed_ms: 3000,
+                        captured_at_ms: 3000,
+                    },
+                    &CancellationToken::new(),
+                )
+                .await
+                .unwrap();
+            let taps = fake.taps.lock().unwrap();
+            if missing.is_none() {
+                assert_eq!(*taps, vec!["-s emulator-5554 shell input tap 1077 104"]);
+            } else {
+                assert!(taps.is_empty());
+            }
+        }
+    }
 
     #[tokio::test]
     async fn result_animation_settles_before_recording_or_returning() {
