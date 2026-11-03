@@ -121,8 +121,9 @@ the HUD balance whose leading digits the Python baseline drops. The Rust reader 
 that captured value without lowering confidence thresholds. Rust tests also verify fixture
 redaction, annotation geometry and unavailable values. Blacked-out stars are not zero stars.
 Capacity is displayed only when both the village and its calibrated storage tooltip are
-recognized; isolated tooltip fixtures cannot identify a village. The UI uses TDM's dark
-palette, spacing, Manrope and Material Design Icons, with explanations behind info buttons.
+recognized; isolated tooltip fixtures cannot identify a village. The UI follows TDM's
+spacing, Manrope and Material Design Icons with a neutral dark palette, muted gold accents,
+open sections and explanations behind round info buttons.
 
 From the repository root, after preparing the native dependencies:
 
