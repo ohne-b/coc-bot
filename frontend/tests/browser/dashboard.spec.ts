@@ -245,6 +245,38 @@ for (const width of [360, 800, 1200]) {
   });
 }
 
+test("page and nested scrollbars use TDM styling", async ({ page }) => {
+  await mock(page);
+  await page.setViewportSize({ width: 1200, height: 400 });
+  await page.goto("/");
+  await page
+    .getByRole("button", { name: "Farming settings", exact: true })
+    .click();
+  for (const selector of ["html", ".app-sidebar"]) {
+    const style = await page.locator(selector).evaluate((element) => ({
+      width: getComputedStyle(element, "::-webkit-scrollbar").width,
+      height: getComputedStyle(element, "::-webkit-scrollbar").height,
+      track: getComputedStyle(element, "::-webkit-scrollbar-track")
+        .backgroundColor,
+    }));
+    expect(style).toEqual({
+      width: "3px",
+      height: "3px",
+      track: "rgba(0, 0, 0, 0)",
+    });
+  }
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollHeight > innerHeight,
+    ),
+  ).toBe(true);
+  expect(
+    await page
+      .locator(".app-sidebar")
+      .evaluate((element) => element.scrollHeight > element.clientHeight),
+  ).toBe(true);
+});
+
 test("narrow layout and emulator settings remain usable", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await mock(page);
