@@ -172,7 +172,7 @@ impl Store {
         let transaction = self
             .connection
             .transaction_with_behavior(TransactionBehavior::Immediate)?;
-        require_live_mode(&transaction, id, SessionMode::Farming)?;
+        require_live_session(&transaction, id)?;
         let data = serde_json::to_string(attack)?;
         let previous = transaction
             .query_row(
@@ -196,10 +196,7 @@ impl Store {
         let transaction = self
             .connection
             .transaction_with_behavior(TransactionBehavior::Immediate)?;
-        let session = require_active(&transaction, id)?;
-        if session.mode == SessionMode::Observe {
-            return Err(invalid("Observation sessions cannot record wall upgrades"));
-        }
+        require_live_session(&transaction, id)?;
         let data = serde_json::to_string(wall)?;
         let previous = transaction
             .query_row(
@@ -371,10 +368,10 @@ fn require_active(transaction: &Transaction<'_>, id: i64) -> Result<Session> {
     Ok(session)
 }
 
-fn require_live_mode(transaction: &Transaction<'_>, id: i64, mode: SessionMode) -> Result<()> {
-    if require_active(transaction, id)?.mode != mode {
+fn require_live_session(transaction: &Transaction<'_>, id: i64) -> Result<()> {
+    if require_active(transaction, id)?.mode == SessionMode::Observe {
         return Err(invalid(
-            "The operation does not belong to this session mode",
+            "Observation sessions cannot record gameplay results",
         ));
     }
     Ok(())

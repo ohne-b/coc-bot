@@ -272,6 +272,32 @@ fn sessions_and_villages_cannot_mix_counts_or_resume_finished_work() {
 }
 
 #[test]
+fn wall_sessions_include_farming_results_without_subtracting_upgrade_costs() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut store = Store::open(&folder.path().join("history.sqlite3")).unwrap();
+    let id = store.begin_session(SessionMode::Walls, 100).unwrap().id;
+    store.record_attack(id, &attack(1)).unwrap();
+    store
+        .record_wall(
+            id,
+            &WallUpgrade {
+                ordinal: 1,
+                village: Village::Home,
+                completed_at_ms: 1100,
+                resource: Resource::Elixir,
+                cost: 100_000,
+            },
+        )
+        .unwrap();
+    store.record_attack(id, &attack(2)).unwrap();
+    let stats = store.statistics(id, Village::Home).unwrap();
+    assert_eq!(stats.attacks, 2);
+    assert_eq!(stats.elixir.amount, Some(1_000_000));
+    assert_eq!(stats.wall_upgrades, 1);
+    assert_eq!(stats.wall_elixir, 100_000);
+}
+
+#[test]
 fn unreadable_foreign_and_newer_databases_are_not_reset() {
     let folder = tempfile::tempdir().unwrap();
     let path = folder.path().join("history.sqlite3");
