@@ -55,6 +55,14 @@ wrong dimensions and weak numeric readings. English screens listed as pending ha
 no matching templates. Indonesian profiles and text anchors have been removed; shared
 icons and digits remain. Integrate ongoing English calibration additions with their fixtures.
 
+Device tests replace the ADB/LDPlayer transport and use saved frames. Process tests
+start disposable PowerShell children to check binary pipes, cancellation, timeouts and
+output limits; they never contact an emulator. Observation mode rejects all input and
+lifecycle changes. Live input requires the selected instance, calibrated display at
+240 DPI, a freshly recognized expected screen and a non-cancelled operation.
+Multitouch validates the Android kernel and touch axes and attempts a bounded release
+after failure or cancellation. These offline checks do not establish live device compatibility.
+
 The Python baseline remains an offline comparison suite during migration:
 
 ```powershell
@@ -79,7 +87,7 @@ Never commit a virtual environment, runtime captures, logs, credentials or datab
 
 | Location | Current purpose |
 | --- | --- |
-| `crates/core/` | Rust recognition, calibration validation and framebuffer decoding |
+| `crates/core/` | Rust recognition, calibration, guarded ADB input and LDPlayer discovery/lifecycle |
 | `crates/core/tests/` | Offline Rust regressions against captured fixtures |
 | `legacy/python/` | Python source, dashboard, settings examples, calibration and fixtures |
 | `scripts/` | Native Windows build dependency setup |
