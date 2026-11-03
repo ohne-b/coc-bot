@@ -12,6 +12,7 @@ import {
   mdiPause,
   mdiWall,
   mdiVectorPolygon,
+  mdiGithub,
 } from "@mdi/js";
 import logo from "../../.github/assets/clash-shield.svg?no-inline";
 import { Empty, Help, IconButton } from "./ui";
@@ -347,6 +348,18 @@ export default function App() {
             </button>
           ))}
         </nav>
+        <div className="sidebar-footer">
+          <a
+            className="icon-button github-link"
+            href="https://github.com/ohne-b/coc-bot"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="GitHub repository"
+            title="GitHub"
+          >
+            <Icon path={mdiGithub} aria-hidden="true" />
+          </a>
+        </div>
       </aside>
       <main id="main" tabIndex={-1} className="workspace">
         <div className="content">

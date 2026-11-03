@@ -348,6 +348,23 @@ test("desktop layout is accessible and keeps explanations behind info buttons", 
   await mock(page, { running: true, populated: true });
   await page.goto("/");
   await expect(page.getByText("12,400,000")).toBeVisible();
+  const github = page.getByRole("link", { name: "GitHub repository" });
+  await expect(github).toHaveAttribute(
+    "href",
+    "https://github.com/ohne-b/coc-bot",
+  );
+  await expect(github).toHaveAttribute("target", "_blank");
+  await expect(github).toHaveAttribute("rel", "noreferrer");
+  const bounds = await github.boundingBox();
+  expect(bounds?.width).toBe(44);
+  expect(bounds?.height).toBe(44);
+  expect(bounds?.x).toBe(16);
+  expect(bounds!.y + bounds!.height).toBe(784);
+  expect(
+    await github
+      .locator("svg")
+      .evaluate((svg) => parseFloat(getComputedStyle(svg).width)),
+  ).toBeCloseTo(38.4, 1);
   await expect(
     page.getByRole("note", { name: "Resources", exact: true }),
   ).not.toBeVisible();

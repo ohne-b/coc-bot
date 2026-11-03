@@ -116,6 +116,7 @@ fn main() {
     #[cfg(not(feature = "desktop-fixture"))]
     let builder = builder.plugin(tauri_plugin_window_state::Builder::default().build());
     builder
+        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let assets = if cfg!(debug_assertions) {
                 std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../assets")

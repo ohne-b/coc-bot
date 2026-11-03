@@ -279,6 +279,25 @@ nav {
 .nav-item.active svg {
   color: var(--accent);
 }
+.sidebar-footer {
+  display: flex;
+  align-items: center;
+  margin-top: auto;
+  padding: 16px;
+}
+.sidebar-footer .github-link {
+  width: 44px;
+  height: 44px;
+}
+.github-link svg {
+  width: 38.4px;
+  height: 38.4px;
+}
+@media (max-width: 1023px) {
+  .sidebar-footer {
+    display: none;
+  }
+}
 .workspace {
   padding: 28px 40px;
   min-width: 0;
