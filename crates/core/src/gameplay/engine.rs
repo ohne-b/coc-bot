@@ -898,9 +898,7 @@ impl Engine {
                     if self.capacities.get(&cache_key).is_some_and(|v| amount > *v) {
                         self.capacities.remove(&cache_key);
                     }
-                    let maximum = if let Some(maximum) = self.capacities.get(&cache_key) {
-                        Some(*maximum)
-                    } else if spec.label.locate(image)?.is_some() {
+                    let maximum = if spec.label.locate(image)?.is_some() {
                         let value = digits
                             .number(&crop(image, spec.maximum)?, 0.65)
                             .ok()
@@ -911,7 +909,7 @@ impl Engine {
                         }
                         value
                     } else {
-                        None
+                        self.capacities.get(&cache_key).copied()
                     };
                     if let Some(maximum) = maximum {
                         self.values.insert(key.into(), amount);
@@ -1774,6 +1772,9 @@ mod tests {
                 index,
                 opened: true,
             };
+            engine
+                .capacities
+                .insert((name.into(), key.into()), expected + 1);
             let outcome = engine
                 .tick(
                     &vision,
