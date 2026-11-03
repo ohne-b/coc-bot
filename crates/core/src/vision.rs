@@ -169,7 +169,7 @@ impl LoadedAnchor {
     }
 }
 
-fn match_min(region: &Mat, template: &Mat) -> Result<f64> {
+pub(crate) fn match_min(region: &Mat, template: &Mat) -> Result<f64> {
     let mut result = Mat::default();
     // Keep the original coarse search and bounded full-resolution refinement.
     if region.total() >= 16 * template.total() && template.rows() >= 2 && template.cols() >= 2 {

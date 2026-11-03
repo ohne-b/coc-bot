@@ -1,0 +1,35 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "CoC Bot",
+  "identifier": "app.ohne-b.coc-bot",
+  "build": {
+    "beforeDevCommand": "npm --prefix frontend run dev",
+    "beforeBuildCommand": "npm --prefix frontend run build",
+    "devUrl": "http://127.0.0.1:5173",
+    "frontendDist": "../frontend/dist"
+  },
+  "app": {
+    "windows": [{ "label": "main", "title": "CoC Bot", "width": 1200, "height": 800, "minWidth": 360, "minHeight": 480, "backgroundColor": "#181818" }],
+    "security": {
+      "capabilities": ["main"],
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob:; font-src 'self' data:; connect-src ipc: http://ipc.localhost; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'none'",
+      "devCsp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob:; font-src 'self' data:; connect-src ipc: http://ipc.localhost http://127.0.0.1:5173 ws://127.0.0.1:5173; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'none'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "publisher": "ohne-b",
+    "category": "Utility",
+    "icon": ["icons/icon.ico"],
+    "resources": {
+      "../legacy/python/config.json": "config.json",
+      "../legacy/python/calibration/english/": "calibration/english/",
+      "../legacy/python/calibration/digits/": "calibration/digits/",
+      "../LICENSE.md": "LICENSE.md",
+      "../NOTICE.md": "NOTICE.md",
+      "../frontend/public/licenses/": "licenses/"
+    },
+    "windows": { "nsis": { "installMode": "currentUser", "languages": ["English"], "displayLanguageSelector": false } }
+  }
+}

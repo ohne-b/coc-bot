@@ -351,7 +351,7 @@ fn unreadable_foreign_and_newer_databases_are_not_reset() {
     let id = store.begin_session(SessionMode::Observe, 100).unwrap().id;
     drop(store);
     let connection = Connection::open(&future).unwrap();
-    connection.pragma_update(None, "user_version", 2).unwrap();
+    connection.pragma_update(None, "user_version", 3).unwrap();
     assert!(Store::open(&future).is_err());
     assert_eq!(
         connection
@@ -363,7 +363,7 @@ fn unreadable_foreign_and_newer_databases_are_not_reset() {
         connection
             .pragma_query_value(None, "user_version", |r| r.get::<_, i64>(0))
             .unwrap(),
-        2
+        3
     );
 }
 

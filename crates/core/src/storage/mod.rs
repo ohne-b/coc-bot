@@ -3,7 +3,7 @@ use std::{path::Path, time::Duration};
 use rusqlite::{Connection, OptionalExtension, Transaction, TransactionBehavior, params};
 use serde::{Serialize, de::DeserializeOwned};
 
-use crate::{Result, telemetry::*};
+use crate::{Result, settings::Settings, telemetry::*};
 
 /// Own this connection on a background worker; SQLite calls are blocking.
 pub struct Store {
@@ -31,13 +31,38 @@ impl Store {
                 ));
             }
             transaction.execute_batch(include_str!("schema.sql"))?;
-        } else if version != 1 || application != 1_129_268_034 {
+        } else if !(1..=2).contains(&version) || application != 1_129_268_034 {
             return Err(invalid(
                 "Unsupported database version or application; data was not changed",
             ));
         }
+        if version < 2 {
+            transaction.execute_batch("CREATE TABLE settings (id INTEGER PRIMARY KEY CHECK (id = 1), data TEXT NOT NULL CHECK (json_valid(data))) STRICT; PRAGMA user_version = 2;")?;
+        }
         transaction.commit()?;
         Ok(Self { connection })
+    }
+
+    pub fn settings(&self) -> Result<Settings> {
+        let data: Option<String> = self
+            .connection
+            .query_row("SELECT data FROM settings WHERE id = 1", [], |r| r.get(0))
+            .optional()?;
+        let settings: Settings = match data {
+            Some(data) => serde_json::from_str(&data)?,
+            None => Settings::default(),
+        };
+        settings.validate()?;
+        Ok(settings)
+    }
+
+    pub fn save_settings(&mut self, settings: &Settings) -> Result<()> {
+        settings.validate()?;
+        self.connection.execute(
+            "INSERT INTO settings (id, data) VALUES (1, ?1) ON CONFLICT (id) DO UPDATE SET data = excluded.data",
+            [serde_json::to_string(settings)?],
+        )?;
+        Ok(())
     }
 
     pub fn begin_session(&mut self, mode: SessionMode, at_ms: i64) -> Result<Session> {

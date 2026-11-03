@@ -56,13 +56,33 @@ jobs:
           }
       - name: Install pinned Rust toolchain
         run: rustup show active-toolchain
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
+      - name: Check frontend
+        shell: pwsh
+        run: |
+          npm --prefix frontend run format:check
+          if ($LASTEXITCODE -ne 0) { throw 'Frontend formatting failed' }
+          npm --prefix frontend test
+          if ($LASTEXITCODE -ne 0) { throw 'Frontend tests failed' }
+          npm --prefix frontend run build
+          if ($LASTEXITCODE -ne 0) { throw 'Frontend typecheck or build failed' }
+      - name: Test dashboard controls and accessibility offline
+        shell: pwsh
+        run: |
+          npm exec --prefix frontend -- playwright install chromium
+          if ($LASTEXITCODE -ne 0) { throw 'Browser installation failed' }
+          npm --prefix frontend run test:browser
+          if ($LASTEXITCODE -ne 0) { throw 'Dashboard tests failed' }
       - name: Check Rust formatting
         run: cargo fmt --all -- --check
-      - name: Test Rust recognition offline
+      - name: Test Rust core and desktop offline
         shell: pwsh
         run: |
           . ./scripts/windows-dependencies.ps1
           cargo test --workspace --all-targets --locked
           if ($LASTEXITCODE -ne 0) { throw 'Rust tests failed' }
-          cargo clippy --workspace --all-targets --locked -- -D warnings
+          cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
           if ($LASTEXITCODE -ne 0) { throw 'Clippy failed' }
+          cargo build -p coc-bot-desktop --features desktop-fixture,custom-protocol --locked
+          if ($LASTEXITCODE -ne 0) { throw 'Desktop fixture build failed' }
