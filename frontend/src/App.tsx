@@ -68,6 +68,13 @@ function Overview({
       <header className="page-header">
         <h1>{mode === "walls" ? "Walls" : "Farming"}</h1>
         <div className="page-actions">
+          {snapshot.settings.farming && (
+            <Farming
+              options={snapshot.settings.farming}
+              active={active || offline}
+              walls={mode === "walls"}
+            />
+          )}
           <Help label="Observation">
             Start runs the selected mode with saved settings. Observe reads
             screenshots without sending input. Pause suspends automation; Stop
@@ -310,13 +317,6 @@ function Overview({
           </section>
         </section>
       </div>
-      {snapshot.settings.farming && (
-        <Farming
-          options={snapshot.settings.farming}
-          active={active || offline}
-          walls={mode === "walls"}
-        />
-      )}
     </>
   );
 }
