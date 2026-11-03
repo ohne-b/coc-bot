@@ -887,6 +887,10 @@ impl Engine {
                         if required {
                             return Err(Error::Unreadable);
                         }
+                        if opened && spec.label.locate(image)?.is_some() {
+                            adb.tap(detector, &[screen], spec.tap, cancel).await?;
+                            self.delay(now, 1000);
+                        }
                         self.stage = Stage::Check {
                             index: index + 1,
                             opened: false,
@@ -1799,6 +1803,91 @@ mod tests {
                 matches!(engine.stage, Stage::Check { index: next, opened: false } if next == index + 1)
             );
         }
+    }
+
+    #[tokio::test]
+    async fn unreadable_optional_balance_closes_its_tooltip_before_the_next_target() {
+        let profile = Profile::load(&root()).unwrap();
+        let digits = Digits::load(&root(), Path::new("calibration/digits")).unwrap();
+        let detector = Arc::new(
+            Detector::load(
+                &Calibration::load(&root().join("config.json")).unwrap(),
+                &root(),
+            )
+            .unwrap(),
+        );
+        let vision = GameVision {
+            profile: &profile,
+            digits: &digits,
+            detector: detector.clone(),
+        };
+        let (_, mut image) = Fake::new("english-numeric-home-gold-tooltip.png");
+        let crate::calibration::Region(x, y, w, h) = profile.capacity["home"]["gold"].bar;
+        opencv::imgproc::rectangle(
+            &mut image,
+            core::Rect::new(x as i32, y as i32, w as i32, h as i32),
+            core::Scalar::all(0.0),
+            -1,
+            opencv::imgproc::LINE_8,
+            0,
+        )
+        .unwrap();
+        assert_eq!(
+            detector.detect(&image).unwrap(),
+            Detection::Known(Screen::Home)
+        );
+        let fake = Fake::from_image(&image);
+        let temp = tempfile::tempdir().unwrap();
+        let mut adb = fake.adb(temp.path());
+        let mut engine = Engine::new(
+            Options {
+                until_full: true,
+                targets: vec![Resource::Elixir],
+                ..Options::default()
+            },
+            SessionMode::Farming,
+            &profile,
+        )
+        .unwrap();
+        engine.stage = Stage::Check {
+            index: 0,
+            opened: true,
+        };
+        let frame = FrameView {
+            image: &image,
+            detection: &Detection::Known(Screen::Home),
+            elapsed_ms: 1000,
+            captured_at_ms: 1000,
+        };
+        let outcome = engine
+            .tick(&vision, &mut adb, &frame, &CancellationToken::new())
+            .await
+            .unwrap();
+        assert!(outcome.resources.is_empty());
+        assert_eq!(
+            *fake.taps.lock().unwrap(),
+            vec!["-s emulator-5554 shell input tap 1120 38"]
+        );
+        assert!(matches!(
+            engine.stage,
+            Stage::Check {
+                index: 1,
+                opened: false
+            }
+        ));
+        engine
+            .tick(
+                &vision,
+                &mut adb,
+                &FrameView {
+                    elapsed_ms: 1500,
+                    ..frame
+                },
+                &CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(fake.taps.lock().unwrap().len(), 1);
     }
 
     #[tokio::test]
