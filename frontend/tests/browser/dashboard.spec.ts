@@ -383,11 +383,13 @@ for (const width of [360, 800, 1200]) {
           }),
         ).toBe(true);
       }
-      if (width === 1200 || (width === 360 && name === "Farming"))
+      if (width === 1200 || (width === 360 && name === "Farming")) {
+        await page.evaluate(() => window.scrollTo(0, 0));
         await page.screenshot({
           path: `../.tools/layout-${name.toLowerCase()}-${width}.png`,
           fullPage: true,
         });
+      }
     }
   });
 }
