@@ -48,7 +48,9 @@ fn guarded_numeric_reader_rejects_ambiguous_or_wrong_layouts_and_preserves_unkno
             .dark
             .is_none()
     );
-    variant.bonus.insert("elixir".into(), variant.loot["elixir"]);
+    variant
+        .bonus
+        .insert("elixir".into(), variant.loot["elixir"]);
     assert!(
         results::read(std::slice::from_ref(&variant), &image, &digits)
             .unwrap()
