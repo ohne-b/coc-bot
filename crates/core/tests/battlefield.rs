@@ -1,9 +1,55 @@
 use coc_bot_core::{calibration::Screen, device::Point, gameplay::battlefield, vision::read_image};
 use opencv::{
-    core::{Mat, Rect, Scalar},
+    core::{self, Mat, Rect, Scalar, Size},
+    imgproc,
     prelude::*,
 };
 use std::path::Path;
+
+#[test]
+fn fixed_scout_controls_are_not_treated_as_moving_terrain() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets");
+    let fields = battlefield::load(&root).unwrap();
+    let field = fields.iter().find(|f| f.name == "haunted").unwrap();
+    let source = read_image(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/battlefield-haunted.png"),
+    )
+    .unwrap();
+    let control = Rect::new(270, 538, 35, 35);
+    let mut terrain = source.clone();
+    Mat::roi_mut(&mut terrain, control)
+        .unwrap()
+        .set_to(&Scalar::all(0.), &core::no_array())
+        .unwrap();
+    let mut moved = Mat::default();
+    let translation = Mat::from_slice_2d(&[[1.0, 0.0, 0.0], [0.0, 1.0, -80.0]]).unwrap();
+    imgproc::warp_affine(
+        &terrain,
+        &mut moved,
+        &translation,
+        Size::new(1280, 720),
+        imgproc::INTER_NEAREST,
+        core::BORDER_CONSTANT,
+        Scalar::all(0.),
+    )
+    .unwrap();
+    // Camera movement leaves the Boost Army control fixed on screen.
+    Mat::roi(&source, control)
+        .unwrap()
+        .copy_to(&mut Mat::roi_mut(&mut moved, control).unwrap())
+        .unwrap();
+    let (scale, offset) = field.transform(&moved, None).unwrap().unwrap();
+    assert!((scale - 1.).abs() < 0.01);
+    assert!(offset[0].abs() < 2. && (offset[1] + 80.).abs() < 2.);
+    let live = read_image(
+        &Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/fixtures/battlefield-haunted-battle.png"),
+    )
+    .unwrap();
+    let transform = field.transform(&live, None).unwrap().unwrap();
+    assert!((0.96..=0.98).contains(&transform.0));
+    assert!(battlefield::visible(field.project(Point(0, 0), transform)).is_none());
+}
 
 #[test]
 fn captured_terrain_tracks_camera_translation_and_rejects_unknown_scenery() {
