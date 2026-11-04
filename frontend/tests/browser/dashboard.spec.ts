@@ -795,6 +795,64 @@ test("deployment keeps a stopped reference, clears new sessions and locks active
   ).toHaveCount(0);
 });
 
+test("saving another Builder stage cannot overwrite an unacknowledged strategy", async ({
+  page,
+}) => {
+  await mock(page, { holdSettings: true });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Deployment", exact: true }).click();
+  await page.getByRole("button", { name: "Builder", exact: true }).click();
+  await page
+    .getByRole("combobox", { name: "Strategy", exact: true })
+    .selectOption("single");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByRole("status")).toHaveText("Saved");
+  await page.evaluate(() => {
+    const w = window as unknown as {
+      acknowledgeSettings: () => void;
+      firstSave: () => void;
+    };
+    w.firstSave = w.acknowledgeSettings;
+  });
+  await page.getByRole("button", { name: "Stage 2", exact: true }).click();
+  await page.getByRole("button", { name: "Coordinates", exact: true }).click();
+  await page.getByLabel("X", { exact: true }).fill("333");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await page.evaluate(() => {
+    const w = window as unknown as {
+      acknowledgeSettings: () => void;
+      firstSave: () => void;
+    };
+    w.firstSave();
+    w.acknowledgeSettings();
+  });
+  await expect(
+    page.getByRole("combobox", { name: "Strategy", exact: true }),
+  ).toHaveValue("single");
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const s = (
+          window as unknown as {
+            fixtureSnapshot: {
+              settings: {
+                farming: {
+                  builder_stack: boolean;
+                  layouts: Record<string, { points: number[][] }>;
+                };
+              };
+            };
+          }
+        ).fixtureSnapshot;
+        return {
+          stack: s.settings.farming.builder_stack,
+          x: s.settings.farming.layouts.builder_stage2.points[0][0],
+        };
+      }),
+    )
+    .toEqual({ stack: true, x: 333 });
+});
+
 test("Stop remains available while Pause is waiting for the worker", async ({
   page,
 }) => {

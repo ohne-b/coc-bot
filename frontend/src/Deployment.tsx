@@ -163,7 +163,11 @@ function Editor({
       await invoke("save_settings", {
         update: {
           type: "layout",
-          value: { screen, layout: draft.layout, spread: draft.spread },
+          value: {
+            screen,
+            layout: draft.layout,
+            spread: draft.spread !== baseline.spread ? draft.spread : undefined,
+          },
         },
       });
       setBaseline(draft);
