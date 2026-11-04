@@ -30,6 +30,7 @@ use crate::{
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Snapshot {
+    pub army: Vec<crate::vision::army::recipe::Unit>,
     pub revision: u64,
     pub settings: Settings,
     pub session: Option<Session>,
@@ -103,6 +104,7 @@ impl Application {
         let worker_frame = frame.clone();
         let (commands, receiver) = mpsc::channel(16);
         let (snapshots, snapshot) = watch::channel(Snapshot {
+            army: vec![],
             revision: 0,
             settings: Settings::default(),
             session: None,
@@ -551,6 +553,13 @@ impl<T: Transport + Clone> Worker<T> {
         if run.engine.is_none() || run.paused || run.token.is_cancelled() {
             return Ok(false);
         }
+        if run
+            .engine
+            .as_ref()
+            .is_some_and(|engine| !engine.recovery_safe())
+        {
+            return Ok(false);
+        }
         if matches!(error, Error::InputGuard) {
             run.guard_failures += 1;
             return Ok(run.guard_failures <= 3);
@@ -861,6 +870,35 @@ impl<T: Transport + Clone> Worker<T> {
             self.store.statistics(run.session.id, Village::Builder)?,
         ];
         let sequence = self.snapshot.borrow().revision + 1;
+        let army = if let Detection::Known(
+            screen @ (Screen::HomeScout | Screen::BuilderScout | Screen::BuilderStage2),
+        ) = detection
+        {
+            self.profile
+                .screen(screen)?
+                .auto
+                .as_ref()
+                .and_then(|layout| {
+                    crate::vision::army::cards(
+                        &capture.image,
+                        layout.bar,
+                        screen != Screen::HomeScout,
+                        &self.digits,
+                    )
+                    .ok()
+                })
+                .and_then(|cards| {
+                    crate::vision::army::recipe::inventory(
+                        &cards,
+                        &capture.image,
+                        screen != Screen::HomeScout,
+                    )
+                    .ok()
+                })
+                .unwrap_or_default()
+        } else {
+            vec![]
+        };
         *self.frame.lock().map_err(|_| closed())? = Some(Frame {
             session_id: run.session.id,
             sequence,
@@ -868,6 +906,7 @@ impl<T: Transport + Clone> Worker<T> {
         });
         self.snapshot.send_modify(|s| {
             s.revision = sequence;
+            s.army = army;
             s.session = Some(session);
             s.detection = detection;
             s.captured_at_ms = Some(at);
@@ -952,6 +991,7 @@ mod tests {
                 std::fs::write(data.path().join(name), []).unwrap();
             }
             let (snapshot, _) = watch::channel(Snapshot {
+                army: vec![],
                 revision: 0,
                 settings: Settings::default(),
                 session: None,

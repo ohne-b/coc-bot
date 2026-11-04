@@ -11,6 +11,7 @@ captures/
 *.log
 !/assets/calibration/english/**/*.png
 !/assets/calibration/digits/*.png
+!/assets/calibration/battlefield/*.png
 !/crates/core/tests/fixtures/*.png
 config.json.bak
 config.json.tmp

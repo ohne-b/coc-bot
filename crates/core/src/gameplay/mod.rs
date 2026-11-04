@@ -1,3 +1,4 @@
+pub mod battlefield;
 mod engine;
 mod options;
 pub mod profile;

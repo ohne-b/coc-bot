@@ -13,6 +13,8 @@ use std::{
 
 #[derive(Deserialize)]
 pub struct Profile {
+    #[serde(skip)]
+    pub battlefields: Vec<super::battlefield::Field>,
     pub digits: PathBuf,
     pub resolution: Resolution,
     pub screens: BTreeMap<Screen, ScreenSpec>,
@@ -136,6 +138,22 @@ impl Target {
     pub fn locate(&self, image: &Mat) -> Result<Option<Point>> {
         self.locate_with_hint(image, None)
     }
+    pub fn locate_unique(&self, image: &Mat) -> Result<Option<Point>> {
+        let resolution = Resolution(image.cols() as u32, image.rows() as u32);
+        let region = self
+            .region
+            .unwrap_or(Region(0, 0, resolution.0, resolution.1));
+        let mut found = None;
+        for (template, offset) in &self.looks {
+            for hit in template.find_all(image, region)? {
+                if found.is_some() {
+                    return Ok(None);
+                }
+                found = Some(hit.point(*offset, resolution)?);
+            }
+        }
+        Ok(found)
+    }
     pub fn locate_near(&self, image: &Mat, point: Point) -> Result<Option<Point>> {
         self.locate_with_hint(image, Some(point))
     }
@@ -169,6 +187,7 @@ impl Target {
 impl Profile {
     pub fn load(root: &Path) -> Result<Self> {
         let mut profile: Self = serde_json::from_slice(&std::fs::read(root.join("config.json"))?)?;
+        profile.battlefields = super::battlefield::load(root)?;
         let res = profile.resolution;
         res.validate()?;
         for spec in profile.screens.values_mut() {

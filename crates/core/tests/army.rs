@@ -175,15 +175,81 @@ fn adjacent_troop_stacks_do_not_become_siege_units() {
 }
 
 #[test]
+fn explicit_actions_split_units_place_heroes_and_cast_only_requested_spells() {
+    use army::recipe::{Recipe, Step, UnitKind, portrait};
+    let mut image =
+        Mat::new_rows_cols_with_default(720, 1280, core::CV_8UC3, Scalar::all(0.0)).unwrap();
+    let bar = fixture("battle-bar-dragons-15-balloons-4.png");
+    bar.copy_to(&mut Mat::roi_mut(&mut image, Rect::new(0, 586, bar.cols(), bar.rows())).unwrap())
+        .unwrap();
+    let layout: Layout =
+        serde_json::from_value(config()["screens"]["home_scout"]["auto"].clone()).unwrap();
+    let cards = army::cards(&image, layout.bar, false, &digits()).unwrap();
+    let action = |slot: usize, kind, count, point| Step {
+        supports_ability: true,
+        portrait: portrait(&image, cards[slot - 1].slot).unwrap(),
+        label: String::new(),
+        slot,
+        kind,
+        point,
+        count,
+        delay_ms: 0,
+        interval_ms: 300,
+        ability: false,
+    };
+    let mut recipe = Recipe {
+        steps: vec![
+            action(1, UnitKind::Troop, 5, Point(0, 400)),
+            action(1, UnitKind::Troop, 0, Point(1000, 600)),
+            action(3, UnitKind::Siege, 1, Point(300, 0)),
+            action(4, UnitKind::Hero, 1, Point(700, 0)),
+            action(5, UnitKind::Hero, 1, Point(700, 1000)),
+            action(8, UnitKind::Spell, 1, Point(640, 320)),
+        ],
+    };
+    recipe.steps[5].delay_ms = 5000;
+    let plan = recipe.compile(&cards, &image, false).unwrap();
+    assert!(matches!(
+        plan[0],
+        Deployment::PreciseDrop {
+            count: 5,
+            point: Point(0, 400),
+            ..
+        }
+    ));
+    assert!(matches!(
+        plan[1],
+        Deployment::PreciseDrop {
+            count: 10,
+            point: Point(1000, 600),
+            ..
+        }
+    ));
+    assert!(matches!(plan[5], Deployment::Wait(5000)));
+    assert!(matches!(plan[6], Deployment::PreciseDrop { count: 1, .. }));
+    assert_eq!(plan.len(), 7);
+    recipe
+        .steps
+        .push(action(1, UnitKind::Troop, 1, Point(0, 300)));
+    assert!(recipe.compile(&cards, &image, false).is_err());
+    recipe.steps.pop();
+    recipe.steps[0].portrait.fill(0);
+    assert!(recipe.compile(&cards, &image, false).is_err());
+    recipe.steps[0] = action(4, UnitKind::Hero, 1, Point(0, 300));
+    recipe.steps[0].ability = true;
+    assert!(recipe.compile(&cards, &image, false).is_err());
+}
+
+#[test]
 fn captured_hero_meters_and_stars_match_baseline() {
     for n in 1..=3 {
         assert_eq!(
-            army::hero_ready(
+            army::hero_charge(
                 &fixture(&format!("builder-hero-meter-{n}.png")),
                 Point(129, 128)
             )
             .unwrap(),
-            n == 3
+            n
         );
     }
     let regions: Vec<Region> =
@@ -198,7 +264,7 @@ fn captured_hero_meters_and_stars_match_baseline() {
             n
         );
     }
-    assert!(army::hero_ready(&fixture("builder-hero-meter-1.png"), Point(0, 0)).is_err());
+    assert!(army::hero_charge(&fixture("builder-hero-meter-1.png"), Point(0, 0)).is_err());
     assert!(army::stars(&fixture("builder-stars-0.png"), &[Region(9999, 0, 10, 10)]).is_err());
     let mut redacted = fixture("builder-stars-2.png");
     let Region(x, y, w, h) = regions[0];
@@ -210,6 +276,58 @@ fn captured_hero_meters_and_stars_match_baseline() {
     .set_to(&Scalar::all(0.0), &core::no_array())
     .unwrap();
     assert!(army::stars(&redacted, &regions).is_err());
+}
+
+#[test]
+fn bound_portraits_survive_selection_but_reject_every_other_captured_unit() {
+    use army::recipe::{Recipe, Step, portrait, unit_kind};
+    let source = fixture("battlefield-classic.png");
+    let selected = fixture("battlefield-selected-army.png");
+    let layout: Layout =
+        serde_json::from_value(config()["screens"]["home_scout"]["auto"].clone()).unwrap();
+    let original = army::cards(&source, layout.bar, false, &digits()).unwrap();
+    let current = army::cards(&selected, layout.bar, false, &digits()).unwrap();
+    assert_eq!(original.len(), 10);
+    assert_eq!(current.len(), 10);
+    for (i, c) in original.iter().enumerate() {
+        assert_eq!(
+            army::selected(&selected, c.slot).unwrap(),
+            i == 0,
+            "selection slot {i}"
+        );
+    }
+    assert_eq!(
+        army::recipe::BoundCard::new(&original[0], &source, false)
+            .unwrap()
+            .remaining(&selected, &digits())
+            .unwrap(),
+        Some(15)
+    );
+    for i in 0..original.len() {
+        let step = Step {
+            supports_ability: true,
+            portrait: portrait(&source, original[i].slot).unwrap(),
+            label: String::new(),
+            slot: i + 1,
+            kind: unit_kind(&original, &original[i], false),
+            point: Point(0, 500),
+            count: 1,
+            delay_ms: 0,
+            interval_ms: 300,
+            ability: false,
+        };
+        let mut recipe = Recipe { steps: vec![step] };
+        recipe.compile(&current, &selected, false).unwrap();
+        for j in 0..original.len() {
+            if i != j {
+                recipe.steps[0].portrait = portrait(&source, original[j].slot).unwrap();
+                assert!(
+                    recipe.compile(&original, &source, false).is_err(),
+                    "Different units {i} and {j} matched"
+                );
+            }
+        }
+    }
 }
 
 #[test]
@@ -227,4 +345,76 @@ fn malformed_and_empty_bars_never_produce_a_deployment() {
     assert!(army::plan(&[], &layout, Point(100, 100), false, false, false).is_err());
     layout.ring = vec![Point(1280, 100)];
     assert!(layout.validate(Resolution(1280, 720)).is_err());
+}
+
+#[test]
+fn builder_card_states_require_the_bound_portrait_and_deployment_evidence() {
+    use army::recipe::BoundCard;
+    let before = fixture("deployment-builder-before.png");
+    let layout: Layout =
+        serde_json::from_value(config()["screens"]["builder_scout"]["auto"].clone()).unwrap();
+    let cards = army::cards(&before, layout.bar, true, &digits()).unwrap();
+    let hero = BoundCard::new(&cards[0], &before, true).unwrap();
+    assert_eq!(hero.remaining(&before, &digits()).unwrap(), Some(1));
+    let deployed = fixture("deployment-builder-hero-deployed.png");
+    assert_eq!(hero.remaining(&deployed, &digits()).unwrap(), Some(0));
+    assert_eq!(
+        hero.ability_ready(&deployed, &digits()).unwrap(),
+        Some(true)
+    );
+    let survivors = fixture("deployment-builder-survivors.png");
+    assert_eq!(hero.remaining(&survivors, &digits()).unwrap(), Some(1));
+    let mut troop = BoundCard::new(&cards[1], &before, true).unwrap();
+    assert_eq!(troop.remaining(&survivors, &digits()).unwrap(), Some(0));
+    troop.card.slot = Point(850, 648);
+    let ready = fixture("deployment-builder-ability-ready.png");
+    let used = fixture("deployment-builder-ability-used.png");
+    assert_eq!(troop.remaining(&ready, &digits()).unwrap(), Some(0));
+    assert_eq!(troop.ability_ready(&ready, &digits()).unwrap(), Some(true));
+    assert_eq!(troop.remaining(&used, &digits()).unwrap(), Some(0));
+    assert_eq!(troop.ability_ready(&used, &digits()).unwrap(), Some(false));
+    let black = Mat::new_rows_cols_with_default(720, 1280, core::CV_8UC3, Scalar::all(0.)).unwrap();
+    for card in cards {
+        let bound = BoundCard::new(&card, &before, true).unwrap();
+        assert_eq!(bound.remaining(&black, &digits()).unwrap(), None);
+        assert_eq!(bound.ability_ready(&black, &digits()).unwrap(), None);
+    }
+}
+
+#[test]
+fn home_health_bars_distinguish_individually_placed_heroes_from_the_battlefield() {
+    use army::recipe::BoundCard;
+    let before = fixture("battlefield-classic.png");
+    let after = fixture("deployment-home-heroes-deployed.png");
+    let layout: Layout =
+        serde_json::from_value(config()["screens"]["home_scout"]["auto"].clone()).unwrap();
+    let cards = army::cards(&before, layout.bar, false, &digits()).unwrap();
+    for (i, card) in cards.iter().enumerate() {
+        let bound = BoundCard::new(card, &before, false).unwrap();
+        let expected = [11, 4, 1, 0, 0, 1, 1, 3, 2, 1][i];
+        assert_eq!(
+            bound.remaining(&after, &digits()).unwrap(),
+            Some(expected),
+            "slot {}",
+            i + 1
+        );
+        if (3..7).contains(&i) {
+            assert_eq!(
+                bound.ability_ready(&after, &digits()).unwrap(),
+                if expected == 0 { Some(true) } else { None }
+            );
+        }
+    }
+    let used = fixture("deployment-home-ability-used.png");
+    let queen = BoundCard::new(&cards[4], &before, false).unwrap();
+    assert_eq!(queen.ability_ready(&used, &digits()).unwrap(), Some(false));
+    let siege = BoundCard::new(&cards[2], &before, false).unwrap();
+    assert_eq!(
+        siege
+            .remaining(&fixture("deployment-home-siege-deployed.png"), &digits())
+            .unwrap(),
+        Some(0)
+    );
+    let spell = BoundCard::new(&cards[7], &before, false).unwrap();
+    assert_eq!(spell.remaining(&used, &digits()).unwrap(), Some(2));
 }

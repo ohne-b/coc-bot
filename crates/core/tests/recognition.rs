@@ -91,6 +91,30 @@ fn pending_english_templates_never_authorize_input() {
 }
 
 #[test]
+fn home_battle_uses_surrender_and_damage_when_resource_icons_are_obscured() {
+    let detector = Detector::load(&profile(), &root()).unwrap();
+    let frame = read_image(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/battlefield-home-dropped.png"),
+    )
+    .unwrap();
+    assert_eq!(
+        detector.detect(&frame).unwrap(),
+        Detection::Known(Screen::HomeBattle)
+    );
+    for region in [
+        core::Rect::new(16, 515, 150, 45),
+        core::Rect::new(1063, 467, 205, 95),
+    ] {
+        let mut missing = frame.clone();
+        Mat::roi_mut(&mut missing, region)
+            .unwrap()
+            .set_to(&Scalar::all(0.), &core::no_array())
+            .unwrap();
+        assert_eq!(detector.detect(&missing).unwrap(), Detection::Unknown);
+    }
+}
+
+#[test]
 fn profiles_validate_and_bad_regions_paths_and_tolerances_fail_closed() {
     let calibration = profile();
     Detector::load(&calibration, &root()).unwrap();

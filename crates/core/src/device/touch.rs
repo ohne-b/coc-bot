@@ -83,6 +83,10 @@ impl TouchDevice {
 
 #[derive(Clone, Debug)]
 pub enum Gesture {
+    Pan {
+        from: Point,
+        to: Point,
+    },
     Taps(Vec<Point>),
     Hold {
         points: Vec<Point>,
@@ -99,6 +103,41 @@ impl Gesture {
     fn frames(&self, resolution: Resolution) -> Result<(Vec<WriteFrame>, usize)> {
         let mut frames = Vec::new();
         let fingers = match self {
+            Self::Pan { from, to } => {
+                let pair = |center: Point| -> Result<[Point; 2]> {
+                    let points = [
+                        Point(center.0.checked_sub(50).ok_or(Error::InputGuard)?, center.1),
+                        Point(center.0.checked_add(50).ok_or(Error::InputGuard)?, center.1),
+                    ];
+                    for point in points {
+                        point.validate(resolution)?;
+                    }
+                    Ok(points)
+                };
+                pair(*to)?;
+                frames.push(down(&pair(*from)?, Duration::from_millis(30)));
+                for step in 1..=12 {
+                    let interpolate = |a: u32, b: u32| {
+                        (i64::from(a) + (i64::from(b) - i64::from(a)) * step / 12) as u32
+                    };
+                    let center = Point(interpolate(from.0, to.0), interpolate(from.1, to.1));
+                    let mut events = Vec::new();
+                    for (slot, point) in pair(center)?.iter().enumerate() {
+                        events.extend([
+                            (3, 47, slot as i32),
+                            (3, 53, point.0 as i32),
+                            (3, 54, point.1 as i32),
+                        ]);
+                    }
+                    events.push((0, 0, 0));
+                    frames.push(WriteFrame {
+                        bytes: encode(&events),
+                        wait: Duration::from_millis(25),
+                    });
+                }
+                frames.push(release(2, Duration::ZERO));
+                2
+            }
             Self::Taps(points) => {
                 if points.is_empty() || points.len() > 32 {
                     return Err(Error::Device("A tap burst requires 1 to 32 points".into()));
@@ -309,6 +348,50 @@ impl<T: Transport> Adb<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn camera_pan_keeps_two_fingers_down_and_releases_both() {
+        let (frames, fingers) = Gesture::Pan {
+            from: Point(640, 320),
+            to: Point(440, 160),
+        }
+        .frames(Resolution(1280, 720))
+        .unwrap();
+        assert_eq!(fingers, 2);
+        assert_eq!(frames.len(), 14);
+        let events = |frame: &WriteFrame| {
+            frame
+                .bytes
+                .chunks_exact(24)
+                .map(|b| {
+                    (
+                        u16::from_le_bytes(b[16..18].try_into().unwrap()),
+                        u16::from_le_bytes(b[18..20].try_into().unwrap()),
+                        i32::from_le_bytes(b[20..24].try_into().unwrap()),
+                    )
+                })
+                .collect::<Vec<_>>()
+        };
+        assert!(events(&frames[0]).contains(&(3, 57, 2)));
+        let final_move = events(&frames[12]);
+        assert!(final_move.contains(&(3, 53, 390)) && final_move.contains(&(3, 53, 490)));
+        assert_eq!(final_move.iter().filter(|e| **e == (3, 54, 160)).count(), 2);
+        assert_eq!(
+            events(&frames[13])
+                .iter()
+                .filter(|e| **e == (3, 57, -1))
+                .count(),
+            2
+        );
+        assert!(
+            Gesture::Pan {
+                from: Point(40, 320),
+                to: Point(640, 320)
+            }
+            .frames(Resolution(1280, 720))
+            .is_err()
+        );
+    }
 
     #[test]
     fn events_use_64_bit_headers_and_release_every_finger() {

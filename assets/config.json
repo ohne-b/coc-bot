@@ -755,6 +755,7 @@
       }
     },
     "home_battle": {
+      "alt_anchors": [[{"roi":[30,527,122,22],"file":"calibration/english/home-battle-surrender.png","margin":2},{"roi":[1084,505,170,15],"file":"calibration/english/home_battle-1.png","margin":6}]],
       "anchors": [
         {
           "roi": [

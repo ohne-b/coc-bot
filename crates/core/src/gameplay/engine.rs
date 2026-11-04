@@ -132,6 +132,9 @@ pub struct Engine {
     cart_full: bool,
     cart_misses: u8,
     daily_actions: u8,
+    battlefield: Option<usize>,
+    unconfirmed_input: bool,
+    camera: Option<(f64, [f64; 2])>,
 }
 impl Engine {
     pub fn new(options: Options, mode: SessionMode, profile: &Profile) -> Result<Self> {
@@ -183,6 +186,9 @@ impl Engine {
             cart_full: false,
             cart_misses: 0,
             daily_actions: 0,
+            battlefield: None,
+            unconfirmed_input: false,
+            camera: None,
         })
     }
     pub fn village(&self) -> Village {
@@ -237,7 +243,16 @@ impl Engine {
     fn delay(&mut self, now: u64, millis: u64) {
         self.not_before = now.saturating_add(millis);
     }
+    pub fn recovery_safe(&self) -> bool {
+        !self.unconfirmed_input
+    }
+
     pub fn recover(&mut self, now: u64) -> Result<u8> {
+        if !self.recovery_safe() {
+            return Err(Error::Gameplay(
+                "An input has not been confirmed; stopped without replaying the deployment".into(),
+            ));
+        }
         if self
             .wall
             .as_ref()
@@ -340,6 +355,7 @@ impl Engine {
             return false;
         }
         if self.options.surrender_after > 0
+            && self.battle_started != 0
             && now.saturating_sub(self.battle_started)
                 >= u64::from(self.options.surrender_after) * 1000
         {
@@ -374,6 +390,7 @@ impl Engine {
         false
     }
     fn finish_attack(&mut self, screen: Screen, now: u64, at: i64, outcome: &mut Outcome) {
+        self.unconfirmed_input = false;
         if self.pending_attack {
             self.attacks += 1;
             self.broke_attacks = if self.out_of_gold {
@@ -420,7 +437,31 @@ impl Engine {
             outcome.completed = true;
             return Ok(outcome);
         }
-        if now < self.not_before {
+        if matches!(
+            detection,
+            Detection::Known(Screen::HomeBattle | Screen::BuilderBattle | Screen::BuilderBattle2)
+        ) && self.pending_attack
+            && self.battle_started == 0
+        {
+            self.battle_started = now.max(1);
+        }
+        let finished = matches!(self.stage, Stage::Deploy { .. })
+            && matches!(
+                detection,
+                Detection::Known(
+                    Screen::HomeResult | Screen::BuilderResult | Screen::Home | Screen::Builder
+                )
+            );
+        if !finished
+            && self.battlefield.is_some()
+            && matches!(self.stage, Stage::Deploy { .. })
+            && now.saturating_sub(self.since) >= 180_000
+        {
+            return Err(Error::Gameplay(
+                "Deployment timed out; no further inputs sent".into(),
+            ));
+        }
+        if !finished && now < self.not_before {
             return Ok(outcome);
         }
         if let Stage::Update { version, presses } = self.stage.clone() {
@@ -1221,7 +1262,9 @@ impl Engine {
                 if cards.is_empty() {
                     return Ok(outcome);
                 }
-                if source != Screen::HomeScout && previous.as_ref() != Some(&cards) {
+                if (source != Screen::HomeScout || layout.recipe.is_some())
+                    && previous.as_ref() != Some(&cards)
+                {
                     self.stage = Stage::Plan {
                         screen: source,
                         pinches,
@@ -1233,16 +1276,33 @@ impl Engine {
                     .deploy
                     .or(spec.deploy)
                     .ok_or_else(|| Error::Calibration("Deployment point is missing".into()))?;
-                let mut steps: VecDeque<_> = army::plan(
-                    &cards,
-                    layout,
-                    deploy,
-                    self.options.strategy == Strategy::Ring,
-                    self.options.earthquake,
-                    self.options.builder_stack,
-                )?
+                let custom = layout.recipe.is_some();
+                self.camera = None;
+                self.battlefield = if custom {
+                    Some(super::battlefield::identify(
+                        &profile.battlefields,
+                        source,
+                        image,
+                    )?)
+                } else {
+                    None
+                };
+                let mut steps: VecDeque<_> = if let Some(recipe) = &layout.recipe {
+                    recipe.compile(&cards, image, source != Screen::HomeScout)?
+                } else {
+                    army::plan(
+                        &cards,
+                        layout,
+                        deploy,
+                        self.options.strategy == Strategy::Ring,
+                        self.options.earthquake,
+                        self.options.builder_stack,
+                    )?
+                }
                 .into();
-                if let Some(sweep) = &spec.sweep {
+                if let Some(sweep) = &spec.sweep
+                    && !custom
+                {
                     for slot in &sweep.slots {
                         steps.push_back(Deployment::Spread {
                             slot: *slot,
@@ -1254,7 +1314,7 @@ impl Engine {
                         });
                     }
                 }
-                self.heroes = if source == Screen::HomeScout {
+                self.heroes = if custom || source == Screen::HomeScout {
                     vec![]
                 } else {
                     cards
@@ -1265,7 +1325,7 @@ impl Engine {
                 };
                 self.hero_ready_at = now + 3000;
                 if source != Screen::BuilderStage2 {
-                    self.battle_started = now;
+                    self.battle_started = if custom { 0 } else { now };
                     self.previous_damage = None;
                     self.previous_stars = None;
                 }
@@ -1299,6 +1359,119 @@ impl Engine {
                 };
                 let mut done = false;
                 match step {
+                    Deployment::Wait(ms) => {
+                        if !waited {
+                            waited = true;
+                            self.delay(now, u64::from(ms));
+                        } else {
+                            done = true;
+                        }
+                    }
+                    Deployment::PreciseDrop {
+                        card,
+                        point,
+                        count,
+                        interval_ms,
+                        initial_count,
+                    } => {
+                        let slot = card.card.slot;
+                        let field = self.battlefield.ok_or(Error::InputGuard)?;
+                        let field = profile.battlefields.get(field).ok_or(Error::InputGuard)?;
+                        if waited {
+                            let left = card.remaining(image, digits)?;
+                            if left == Some(initial_count - sent - 1) {
+                                self.unconfirmed_input = false;
+                                sent += 1;
+                                waited = false;
+                                done = sent >= count;
+                                self.delay(now, u64::from(interval_ms));
+                            } else if left.is_some_and(|n| n < initial_count - sent - 1)
+                                || now.saturating_sub(self.last_action) > 4000
+                            {
+                                return Err(Error::Gameplay("Deployment could not be confirmed; stopped without repeating the drop".into()));
+                            }
+                        } else {
+                            let mut transform = field.transform(image, self.camera)?;
+                            if transform.is_none() && self.camera.is_some() {
+                                transform = field.transform(image, None)?;
+                            }
+                            let transform=transform.ok_or_else(||Error::Gameplay("Battlefield landmarks are no longer visible; stopped deployment".into()))?;
+                            self.camera = Some(transform);
+                            let location = field.project(point, transform);
+                            if super::battlefield::visible(location).is_none() {
+                                if self.pans >= 4 {
+                                    return Err(Error::Gameplay(
+                                        "Deployment position could not be brought into view".into(),
+                                    ));
+                                }
+                                let dx = if !(80..=1200).contains(&location[0]) {
+                                    (640 - location[0]).clamp(-260, 260)
+                                } else {
+                                    0
+                                };
+                                let dy = (320 - location[1]).clamp(-170, 170);
+                                adb.gesture(
+                                    detector,
+                                    &allowed,
+                                    Gesture::Pan {
+                                        from: Point(640, 320),
+                                        to: Point((640 + dx) as u32, (320 + dy) as u32),
+                                    },
+                                    cancel,
+                                )
+                                .await?;
+                                self.pans += 1;
+                                self.camera = None;
+                                self.delay(now, 600);
+                            } else if !selected {
+                                adb.tap(detector, &allowed, slot, cancel).await?;
+                                selected = true;
+                                self.delay(now, 250);
+                            } else {
+                                self.unconfirmed_input = true;
+                                adb.tap_checked(detector,&allowed,|frame| {
+                                    if !army::selected(frame,slot)? {return Err(Error::Gameplay("The requested army card was not selected; no unit deployed".into()));}
+                                    if card.remaining(frame,digits)? != Some(initial_count-sent) {return Err(Error::Gameplay("Army count changed before deployment".into()));}
+                                    let fresh=field.transform(frame,Some(transform))?.ok_or(Error::InputGuard)?;
+                                    let target=field.project(point,fresh);
+                                    Ok((super::battlefield::visible(target).ok_or(Error::InputGuard)?,()))
+                                },cancel).await?;
+                                waited = true;
+                                self.last_action = now;
+                                self.delay(now, 500);
+                            }
+                        }
+                    }
+                    Deployment::PreciseAbility { card } => {
+                        let ready = card.ability_ready(image, digits)?;
+                        if waited {
+                            if ready == Some(false) {
+                                done = true;
+                                self.unconfirmed_input = false;
+                            } else if now.saturating_sub(self.last_action) > 4000 {
+                                return Err(Error::Gameplay("Ability activation could not be confirmed; stopped without repeating it".into()));
+                            }
+                        } else if ready == Some(true) {
+                            self.unconfirmed_input = true;
+                            adb.tap_checked(
+                                detector,
+                                &allowed,
+                                |frame| {
+                                    if card.ability_ready(frame, digits)? != Some(true) {
+                                        return Err(Error::InputGuard);
+                                    }
+                                    Ok((card.card.slot, ()))
+                                },
+                                cancel,
+                            )
+                            .await?;
+                            waited = true;
+                            self.last_action = now;
+                            self.delay(now, 500);
+                        } else {
+                            return Err(Error::Gameplay("The planned ability is not ready; increase its wait or update the plan".into()));
+                        }
+                    }
                     Deployment::Ability { slots, wait_ms } => {
                         if !waited && wait_ms > 0 {
                             waited = true;
@@ -1419,6 +1592,7 @@ impl Engine {
                     selected = false;
                     sent = 0;
                     waited = false;
+                    self.pans = 0;
                 }
                 self.stage = Stage::Deploy {
                     source,
@@ -1450,7 +1624,7 @@ impl Engine {
                     }
                     if now >= self.hero_ready_at {
                         for slot in &self.heroes {
-                            if army::hero_ready(image, *slot)? {
+                            if army::hero_charge(image, *slot)? == 3 {
                                 adb.gesture(
                                     detector.clone(),
                                     &[screen],
@@ -1627,6 +1801,119 @@ mod tests {
         vision::Detector,
     };
     use std::{path::Path, sync::Arc};
+
+    #[tokio::test]
+    async fn custom_drop_does_not_replay_an_input_after_transport_timeout() {
+        use army::recipe::BoundCard;
+        let profile = Profile::load(&root()).unwrap();
+        let digits = Digits::load(&root(), Path::new("calibration/digits")).unwrap();
+        let detector = Arc::new(
+            Detector::load(
+                &Calibration::load(&root().join("config.json")).unwrap(),
+                &root(),
+            )
+            .unwrap(),
+        );
+        let vision = GameVision {
+            profile: &profile,
+            digits: &digits,
+            detector: detector.clone(),
+        };
+        let (mut fake, image) = Fake::new("battlefield-selected-army.png");
+        fake.fail_after_tap = true;
+        let (_, original) = Fake::new("battlefield-classic.png");
+        let bar = profile
+            .screen(Screen::HomeScout)
+            .unwrap()
+            .auto
+            .as_ref()
+            .unwrap()
+            .bar;
+        let cards = army::cards(&original, bar, false, &digits).unwrap();
+        let card = BoundCard::new(&cards[0], &original, false).unwrap();
+        let mut engine = Engine::new(Options::default(), SessionMode::Farming, &profile).unwrap();
+        engine.battlefield = Some(
+            super::super::battlefield::identify(&profile.battlefields, Screen::HomeScout, &image)
+                .unwrap(),
+        );
+        engine.pending_attack = true;
+        engine.stage = Stage::Deploy {
+            source: Screen::HomeScout,
+            steps: vec![Deployment::PreciseDrop {
+                card,
+                point: Point(0, 500),
+                count: 1,
+                interval_ms: 300,
+                initial_count: 15,
+            }]
+            .into(),
+            selected: true,
+            sent: 0,
+            waited: false,
+        };
+        let temp = tempfile::tempdir().unwrap();
+        let mut adb = fake.adb(temp.path());
+        let frame = FrameView {
+            image: &image,
+            detection: &Detection::Known(Screen::HomeScout),
+            elapsed_ms: 1000,
+            captured_at_ms: 1000,
+        };
+        let error = engine
+            .tick(&vision, &mut adb, &frame, &CancellationToken::new())
+            .await
+            .err()
+            .expect("custom input must fail");
+        assert!(matches!(error, Error::Timeout));
+        assert_eq!(fake.taps.lock().unwrap().len(), 1);
+        assert!(!engine.recovery_safe());
+        assert!(engine.recover(2000).is_err());
+        assert_eq!(fake.taps.lock().unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn custom_deadline_keeps_a_completed_result_and_sends_no_more_input() {
+        let profile = Profile::load(&root()).unwrap();
+        let digits = Digits::load(&root(), Path::new("calibration/digits")).unwrap();
+        let detector = Arc::new(
+            Detector::load(
+                &Calibration::load(&root().join("config.json")).unwrap(),
+                &root(),
+            )
+            .unwrap(),
+        );
+        let vision = GameVision {
+            profile: &profile,
+            digits: &digits,
+            detector,
+        };
+        let (fake, image) = Fake::new("english-numeric-home-victory.png");
+        let temp = tempfile::tempdir().unwrap();
+        let mut adb = fake.adb(temp.path());
+        let mut engine = Engine::new(Options::default(), SessionMode::Farming, &profile).unwrap();
+        engine.battlefield = Some(0);
+        engine.pending_attack = true;
+        engine.stage = Stage::Deploy {
+            source: Screen::HomeScout,
+            steps: vec![Deployment::Wait(10000)].into(),
+            selected: false,
+            sent: 0,
+            waited: true,
+        };
+        engine.not_before = 190000;
+        let frame = FrameView {
+            image: &image,
+            detection: &Detection::Known(Screen::HomeResult),
+            elapsed_ms: 180001,
+            captured_at_ms: 180001,
+        };
+        engine
+            .tick(&vision, &mut adb, &frame, &CancellationToken::new())
+            .await
+            .unwrap();
+        assert!(matches!(engine.stage, Stage::Result { .. }));
+        assert!(fake.taps.lock().unwrap().is_empty());
+    }
 
     #[tokio::test]
     async fn daily_reward_claims_before_closing_and_bounds_stuck_dialogs() {

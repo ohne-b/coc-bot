@@ -11,9 +11,12 @@ use crate::{
     calibration::{Region, Resolution},
     device::Point,
 };
+pub mod recipe;
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct Layout {
+    #[serde(default)]
+    pub recipe: Option<recipe::Recipe>,
     pub bar: Region,
     #[serde(default)]
     pub deploy: Option<Point>,
@@ -33,6 +36,9 @@ pub struct Layout {
 
 impl Layout {
     pub fn validate(&self, resolution: Resolution) -> Result<()> {
+        if let Some(recipe) = &self.recipe {
+            recipe.validate(resolution)?;
+        }
         self.bar.validate(resolution)?;
         if let Some(point) = self.deploy {
             point.validate(resolution)?;
@@ -74,6 +80,7 @@ pub enum Kind {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Card {
+    pub count_region: Option<Region>,
     pub slot: Point,
     pub kind: Kind,
     pub group: usize,
@@ -82,6 +89,17 @@ pub struct Card {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Deployment {
+    Wait(u32),
+    PreciseAbility {
+        card: recipe::BoundCard,
+    },
+    PreciseDrop {
+        card: recipe::BoundCard,
+        point: Point,
+        count: u32,
+        interval_ms: u32,
+        initial_count: u32,
+    },
     Drop {
         slot: Point,
         point: Point,
@@ -162,7 +180,7 @@ pub fn cards(image: &Mat, bar: Region, camps: bool, digits: &Digits) -> Result<V
             start.get_or_insert(column);
         } else if let Some(left) = start.take() {
             let w = column - left;
-            if (65..=98).contains(&w)
+            if (65..=110).contains(&w)
                 && share(&colour, Region(x + left, y, w, height), |p| {
                     p[1] > 100 && p[2] > 80
                 })? >= 0.43
@@ -221,11 +239,29 @@ pub fn cards(image: &Mat, bar: Region, camps: bool, digits: &Digits) -> Result<V
             }
         };
         let top = if camps { Some(y) } else { y.checked_sub(10) };
-        let count = top
-            .and_then(|top| crop(image, Region(left + 25, top, right - left - 27, 26)).ok())
+        let slot = Point((left + right) / 2, y + height / 2);
+        let is_selected = !camps && selected(image, slot)?;
+        let count_region = top.map(|top| {
+            if is_selected {
+                Region(slot.0.saturating_sub(16), top, 55, 26)
+            } else {
+                Region(left + 25, top, right - left - 27, 26)
+            }
+        });
+        let count = count_region
+            .and_then(|Region(x, y, w, h)| {
+                let region = if is_selected {
+                    let top = y.saturating_sub(16);
+                    Region(x, top, w + 6, h + y - top)
+                } else {
+                    Region(x, y, w, h)
+                };
+                crop(image, region).ok()
+            })
             .and_then(|label| digits.card_count(&label, camps).ok());
         found.push(Card {
-            slot: Point((left + right) / 2, y + height / 2),
+            count_region,
+            slot,
             kind,
             group,
             count,
@@ -399,19 +435,73 @@ pub fn empty(image: &Mat, slot: Point) -> Result<bool> {
     Ok(core::mean(&colour, &core::no_array())?[1] < 20.0)
 }
 
-pub fn hero_ready(image: &Mat, slot: Point) -> Result<bool> {
+pub fn selected(image: &Mat, slot: Point) -> Result<bool> {
+    slot.validate(resolution(image)?)?;
+    let white = |x: u32, y: u32| -> Result<bool> {
+        Ok(image
+            .at_2d::<Vec3b>(y as i32, x as i32)?
+            .iter()
+            .all(|c| *c > 215))
+    };
+    if slot.0 < 55 || slot.0 + 55 >= image.cols() as u32 || image.rows() < 720 {
+        return Ok(false);
+    }
+    for side in [-1_i32, 1] {
+        let mut border = false;
+        for offset in 38..=55 {
+            let x = (slot.0 as i32 + side * offset) as u32;
+            let mut count = 0;
+            for y in 625..685 {
+                count += u32::from(white(x, y)?);
+            }
+            border |= count >= 45;
+        }
+        if !border {
+            return Ok(false);
+        }
+    }
+    for y in 708..719 {
+        let mut count = 0;
+        for x in slot.0 - 32..slot.0 + 32 {
+            count += u32::from(white(x, y)?);
+        }
+        if count >= 50 {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+pub fn hero_charge(image: &Mat, slot: Point) -> Result<u8> {
     let colour = hsv(image)?;
     let top = slot.1.checked_sub(89).ok_or(Error::Unreadable)?;
     let left = slot.0.checked_sub(36).ok_or(Error::Unreadable)?;
+    let mut charge = 0;
     for (offset, width) in [(0, 20), (22, 19), (43, 30)] {
         if share(&colour, Region(left + offset, top, width, 8), |p| {
             (140..=165).contains(&p[0]) && p[1] > 100 && p[2] > 150
         })? < 0.5
         {
-            return Ok(false);
+            return Ok(charge);
+        }
+        charge += 1;
+    }
+    Ok(charge)
+}
+
+pub fn home_hero_deployed(image: &Mat, slot: Point) -> Result<bool> {
+    let x = slot.0.checked_sub(32).ok_or(Error::Unreadable)?;
+    // Deployed Home heroes grow a raised card with a health bar between two black rails.
+    for y in slot.1.checked_sub(85).ok_or(Error::Unreadable)?..slot.1 - 65 {
+        let rail = |row| share(image, Region(x, row, 64, 1), |p| p.iter().all(|v| *v < 60));
+        if rail(y)? > 0.9
+            && rail(y + 11)? > 0.9
+            && share(image, Region(x, y + 3, 64, 7), |p| p[1] > 180 && p[0] < 110)? > 0.5
+        {
+            return Ok(true);
         }
     }
-    Ok(true)
+    Ok(false)
 }
 
 pub fn stars(image: &Mat, regions: &[Region]) -> Result<u8> {
