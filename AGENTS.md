@@ -69,8 +69,9 @@ reset data. Keep personal app data separate from shared calibration and source.
   scale, language and device coordinates are calibration inputs, not universal constants.
 - Gate input on a recognized screen. Unknown or unreadable state must not trigger blind
   taps. Keep dry-run input guards, cancellation, timeouts and bounded recovery attempts.
-- Custom deployment replaces automatic spells and abilities. Bind actions to captured army
-  portraits and quantities, register the normalized outer border against calibrated terrain,
+- Custom deployment replaces automatic spells and abilities. Plans follow army slots and
+  unit categories; capture fresh portraits and quantities for each attack, without requiring
+  the saved unit's appearance. Register the normalized outer border against calibrated terrain,
   and verify each input's result before continuing. Unknown scenery or an unconfirmed input
   stops the plan; recovery must not replay it. Keep two-finger camera movement bounded.
 - Preserve resource reserves, price/icon checks and gem protections. Never spend gems,

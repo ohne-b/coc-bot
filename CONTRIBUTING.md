@@ -117,8 +117,9 @@ post-confirmation balances. Their HUD positions reuse captured pixels; successfu
 accounting uses an explicitly simulated prior balance, not a captured live upgrade.
 Full live gameplay parity remains unverified. Custom Home and Builder sequences have been
 exercised on LDPlayer; custom Builder stage-two plans still need live validation. Custom plans bind ordered
-actions to captured army portraits, split quantities across normalized border positions,
-and explicitly schedule spells and abilities. Camera registration requires three agreeing
+actions to army slots and unit categories, split quantities across normalized border positions,
+and explicitly schedule spells and abilities. Changed units in the same slot and category are
+accepted; fresh portraits verify the current card during each attack. Camera registration requires three agreeing
 terrain landmarks from a supported scenery profile. Unknown scenery, missing units or an
 unconfirmed drop/ability stop the plan without replay. Saved automatic layouts remain
 available; choosing a custom plan replaces their automatic spell and ability behavior.

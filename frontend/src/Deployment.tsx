@@ -385,11 +385,11 @@ function Editor({
               </span>
             )}
             <Help label="Army binding">
-              Choose the card used by the selected action. Its appearance is
-              saved with the plan and checked before input. A changed or
-              unreadable army stops the attack plan. Labels are yours to name;
-              the bot does not recognize unit names. Only the visible army bar
-              is supported.
+              Choose the army slot used by the selected action. The plan follows
+              that slot when you change units. A troop, spell, hero or siege
+              category mismatch stops the plan. The current card and quantity
+              are checked during each attack. Labels are yours to name; only the
+              visible army bar is supported.
             </Help>
           </div>
           <div className="section-heading">

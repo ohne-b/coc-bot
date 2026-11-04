@@ -2,8 +2,9 @@
 
 ## Unreleased
 
-- Replace coordinate-only deployment editing with ordered, army-bound actions, split
-  quantities, separate hero/siege positions and timed spells on a fixed planning map.
+- Replace coordinate-only deployment editing with ordered, slot-based actions, split
+  quantities, separate hero/siege positions and timed spells on a fixed planning map,
+  including all four corners.
 - Verify custom placements against terrain and army state, with bounded camera movement
   and no automatic replay of unconfirmed inputs.
 - Include the separately displayed league bonus in attack earnings and keep readable

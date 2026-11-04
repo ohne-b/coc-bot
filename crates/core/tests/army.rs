@@ -261,6 +261,10 @@ fn explicit_actions_split_units_place_heroes_and_cast_only_requested_spells() {
     assert!(recipe.compile(&cards, &image, false).is_err());
     recipe.steps.pop();
     recipe.steps[0].portrait.fill(0);
+    let rebound = recipe.compile(&cards, &image, false).unwrap();
+    assert!(matches!(&rebound[0], Deployment::PreciseDrop { card, .. }
+        if card.portrait == portrait(&image, cards[0].slot).unwrap()));
+    recipe.steps[0].kind = UnitKind::Spell;
     assert!(recipe.compile(&cards, &image, false).is_err());
     recipe.steps[0] = action(4, UnitKind::Hero, 1, Point(0, 300));
     recipe.steps[0].ability = true;
@@ -306,7 +310,7 @@ fn captured_hero_meters_and_stars_match_baseline() {
 }
 
 #[test]
-fn bound_portraits_survive_selection_but_reject_every_other_captured_unit() {
+fn plans_follow_slots_while_live_cards_reject_identity_changes() {
     use army::recipe::{Recipe, Step, portrait, unit_kind};
     let source = fixture("battlefield-classic.png");
     let selected = fixture("battlefield-selected-army.png");
@@ -348,8 +352,14 @@ fn bound_portraits_survive_selection_but_reject_every_other_captured_unit() {
         for j in 0..original.len() {
             if i != j {
                 recipe.steps[0].portrait = portrait(&source, original[j].slot).unwrap();
+                recipe.compile(&original, &source, false).unwrap();
+                let wrong = army::recipe::BoundCard {
+                    card: original[i].clone(),
+                    portrait: recipe.steps[0].portrait.clone(),
+                    builder: false,
+                };
                 assert!(
-                    recipe.compile(&original, &source, false).is_err(),
+                    wrong.remaining(&source, &digits()).unwrap().is_none(),
                     "Different units {i} and {j} matched"
                 );
             }

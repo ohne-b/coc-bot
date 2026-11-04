@@ -382,13 +382,6 @@ impl Recipe {
             let card = cards
                 .get(i)
                 .ok_or_else(|| Error::Gameplay(format!("Army slot {} is missing", action.slot)))?;
-            let current = portrait(image, card.slot)?;
-            if portrait_difference(&current, &action.portrait) > 18.0 {
-                return Err(Error::Gameplay(format!(
-                    "Army slot {} changed; bind this action to the current army",
-                    action.slot
-                )));
-            }
             if kind(card) != action.kind {
                 return Err(Error::Gameplay(format!(
                     "Army slot {} does not match the planned unit type",
