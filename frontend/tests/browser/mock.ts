@@ -19,6 +19,9 @@ export async function mock(
     discovery?: "multiple" | "empty" | "error";
     extendedFolder?: boolean;
     rejectDeviceSave?: boolean;
+    armyCount?: number;
+    holdArmyRead?: boolean;
+    armyReadError?: boolean;
   } = {},
 ) {
   const frame = readFileSync(
@@ -35,6 +38,14 @@ export async function mock(
         active_ms: 365_000,
       };
       const snapshot = {
+        army_scanning: false,
+        army_complete: true,
+        army_screen:
+          options.screen?.includes("scout") ||
+          options.screen === "builder_stage2"
+            ? options.screen
+            : null,
+        army_observed_at_ms: Date.now(),
         army: [
           {
             slot: 1,
@@ -162,6 +173,14 @@ export async function mock(
           },
         },
       };
+      if (options.armyCount)
+        snapshot.army = Array.from({ length: options.armyCount }, (_, i) => ({
+          slot: i + 1,
+          kind: i === options.armyCount! - 1 ? "spell" : "troop",
+          center: [130, 650],
+          count: i === options.armyCount! - 1 ? 3 : 15,
+          portrait: Array(768).fill(90),
+        }));
       const total = {
         amount: null,
         measured_attacks: 0,
@@ -281,6 +300,21 @@ export async function mock(
             }
             if (options.error) throw "Unable to read the history database";
             if (command === "snapshot") return structuredClone(snapshot);
+            if (command === "scan_army") {
+              if (options.armyReadError)
+                throw "Open an attack's scout screen before reading the army";
+              snapshot.army_scanning = true;
+              snapshot.revision++;
+              if (options.holdArmyRead)
+                await new Promise<void>((resolve) =>
+                  Object.assign(window, { resolveArmyRead: resolve }),
+                );
+              snapshot.army_complete = true;
+              snapshot.army_scanning = false;
+              snapshot.army_observed_at_ms = Date.now();
+              snapshot.revision++;
+              return;
+            }
             if (command === "screenshot") {
               if (options.holdNextFrame && Number(args.sequence) > 1)
                 await new Promise(() => {});
@@ -309,6 +343,10 @@ export async function mock(
               return;
             }
             if (command === "stop") {
+              snapshot.army_scanning = false;
+              (
+                window as unknown as { resolveArmyRead?: () => void }
+              ).resolveArmyRead?.();
               snapshot.session.state = "stopped";
               snapshot.revision++;
               return;

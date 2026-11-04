@@ -61,7 +61,8 @@ function Overview({
   const [error, setError] = useState<string>();
   const running = snapshot.session?.state === "running";
   const paused = snapshot.session?.state === "paused";
-  const active = running || paused;
+  const scanning = snapshot.army_scanning === true;
+  const active = running || paused || scanning;
   const stats = snapshot.statistics?.find((item) => item.village === village);
   const currentScreen =
     snapshot.detection.status === "known" ? snapshot.detection.screens : null;
@@ -132,7 +133,7 @@ function Overview({
           </Help>
           {active ? (
             <>
-              {snapshot.session?.mode !== "observe" && (
+              {!scanning && snapshot.session?.mode !== "observe" && (
                 <IconButton
                   path={paused ? mdiPlay : mdiPause}
                   label={paused ? "Resume" : "Pause"}
@@ -142,7 +143,7 @@ function Overview({
               )}
               <IconButton
                 path={mdiStop}
-                label="Stop"
+                label={scanning ? "Cancel army read" : "Stop"}
                 disabled={stopping}
                 onClick={() => void control("stop")}
               />
@@ -365,6 +366,7 @@ export default function App() {
   const { snapshot, error } = useSnapshot();
   const active =
     updating ||
+    snapshot?.army_scanning === true ||
     snapshot?.session?.state === "running" ||
     snapshot?.session?.state === "paused";
   const nav = [

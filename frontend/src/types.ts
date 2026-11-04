@@ -19,7 +19,7 @@ export interface Layout {
 }
 export interface DeploymentAction {
   supports_ability?: boolean;
-  portrait: number[];
+  portrait?: number[];
   label: string;
   slot: number;
   kind: "troop" | "hero" | "siege" | "spell";
@@ -82,6 +82,10 @@ export interface Session {
   active_ms: number;
 }
 export interface Snapshot {
+  army_complete?: boolean;
+  army_scanning?: boolean;
+  army_screen?: DeployScreen | null;
+  army_observed_at_ms?: number | null;
   army?: {
     kind: DeploymentAction["kind"];
     slot: number;
