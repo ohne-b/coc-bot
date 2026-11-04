@@ -32,6 +32,7 @@ pub enum SettingsUpdate {
     Layout {
         screen: crate::calibration::Screen,
         layout: Option<crate::vision::army::Layout>,
+        spread: Option<bool>,
     },
 }
 
@@ -53,7 +54,11 @@ impl Settings {
                 options.layouts = self.farming.layouts.clone();
                 self.farming = options;
             }
-            SettingsUpdate::Layout { screen, layout } => {
+            SettingsUpdate::Layout {
+                screen,
+                layout,
+                spread,
+            } => {
                 if !matches!(
                     screen,
                     crate::calibration::Screen::HomeScout
@@ -66,6 +71,17 @@ impl Settings {
                     self.farming.layouts.insert(screen, layout);
                 } else {
                     self.farming.layouts.remove(&screen);
+                }
+                if let Some(spread) = spread {
+                    if screen == crate::calibration::Screen::HomeScout {
+                        self.farming.strategy = if spread {
+                            crate::gameplay::Strategy::Ring
+                        } else {
+                            crate::gameplay::Strategy::Stack
+                        };
+                    } else {
+                        self.farming.builder_stack = !spread;
+                    }
                 }
             }
         }

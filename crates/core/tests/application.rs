@@ -661,6 +661,7 @@ async fn settings_patches_preserve_other_editors_and_failed_updates_are_atomic()
     app.update_settings(SettingsUpdate::Layout {
         screen: Screen::HomeScout,
         layout: Some(layout.clone()),
+        spread: None,
     })
     .await
     .unwrap();
@@ -674,6 +675,33 @@ async fn settings_patches_preserve_other_editors_and_failed_updates_are_atomic()
     assert_eq!(saved.device, settings.device);
     assert_eq!(saved.farming.layouts[&Screen::HomeScout], layout);
     assert_eq!(saved.farming.attacks, 7);
+    app.update_settings(SettingsUpdate::Layout {
+        screen: Screen::HomeScout,
+        layout: Some(layout.clone()),
+        spread: Some(true),
+    })
+    .await
+    .unwrap();
+    assert_eq!(
+        app.snapshot().settings.farming.strategy,
+        coc_bot_core::gameplay::Strategy::Ring
+    );
+    assert_eq!(app.snapshot().settings.farming.attacks, 7);
+    let builder = app.snapshot().default_layouts[&Screen::BuilderScout].clone();
+    app.update_settings(SettingsUpdate::Layout {
+        screen: Screen::BuilderScout,
+        layout: Some(builder),
+        spread: Some(false),
+    })
+    .await
+    .unwrap();
+    let saved = app.snapshot().settings;
+    assert!(saved.farming.builder_stack);
+    assert_eq!(
+        saved.farming.strategy,
+        coc_bot_core::gameplay::Strategy::Ring
+    );
+    assert_eq!(saved.device, settings.device);
     assert!(
         app.update_settings(SettingsUpdate::Farming(Options {
             villages: vec![],
@@ -753,11 +781,12 @@ async fn pause_freezes_active_time_and_keeps_settings_locked() {
     assert!(app.save_settings(settings).await.is_err());
     tokio::time::sleep(Duration::from_millis(650)).await;
     assert_eq!(app.snapshot().session.unwrap().active_ms, paused.active_ms);
+    let resumed_at = std::time::Instant::now();
     app.pause(false).await.unwrap();
     tokio::time::sleep(Duration::from_millis(30)).await;
     app.stop().await.unwrap();
     let ended = app.snapshot().session.unwrap();
     assert!(ended.active_ms >= paused.active_ms + 20);
-    assert!(ended.active_ms < paused.active_ms + 500);
+    assert!(ended.active_ms - paused.active_ms <= resumed_at.elapsed().as_millis() as i64);
     app.shutdown().await.unwrap();
 }
