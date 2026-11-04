@@ -898,6 +898,9 @@ impl Engine {
                         .and_then(|value| u32::try_from(value).ok());
                     let Some(amount) = amount else {
                         if required {
+                            if now.saturating_sub(self.since) <= 15_000 {
+                                return Ok(outcome);
+                            }
                             return Err(Error::Unreadable);
                         }
                         if opened && spec.label.locate(image)?.is_some() {
@@ -1817,6 +1820,112 @@ mod tests {
                 matches!(engine.stage, Stage::Check { index: next, opened: false } if next == index + 1)
             );
         }
+    }
+
+    #[tokio::test]
+    async fn required_balance_retries_captured_unreadable_frame_with_a_deadline() {
+        let profile = Profile::load(&root()).unwrap();
+        let digits = Digits::load(&root(), Path::new("calibration/digits")).unwrap();
+        let detector = Arc::new(
+            Detector::load(
+                &Calibration::load(&root().join("config.json")).unwrap(),
+                &root(),
+            )
+            .unwrap(),
+        );
+        let vision = GameVision {
+            profile: &profile,
+            digits: &digits,
+            detector: detector.clone(),
+        };
+        let (fake, unreadable) = Fake::new("english-home-elixir-unreadable.png");
+        let (readable_fake, readable) = Fake::new("english-home-elixir-readable.png");
+        for image in [&unreadable, &readable] {
+            assert_eq!(
+                detector.detect(image).unwrap(),
+                Detection::Known(Screen::Home)
+            );
+        }
+        let spec = &profile.capacity["home"]["elixir"];
+        assert!(
+            digits
+                .trailing(&crop(&unreadable, spec.bar).unwrap(), 0.65, 110)
+                .is_err()
+        );
+        let temp = tempfile::tempdir().unwrap();
+        let mut adb = fake.adb(temp.path());
+        let mut engine = Engine::new(Options::default(), SessionMode::Walls, &profile).unwrap();
+        engine.stage = Stage::Check {
+            index: 1,
+            opened: true,
+        };
+        engine.since = 1000;
+        let frame = FrameView {
+            image: &unreadable,
+            detection: &Detection::Known(Screen::Home),
+            elapsed_ms: 2000,
+            captured_at_ms: 2000,
+        };
+        for elapsed_ms in [2000, 16000] {
+            let outcome = engine
+                .tick(
+                    &vision,
+                    &mut adb,
+                    &FrameView {
+                        elapsed_ms,
+                        ..frame
+                    },
+                    &CancellationToken::new(),
+                )
+                .await
+                .unwrap();
+            assert!(outcome.resources.is_empty());
+            assert!(matches!(
+                engine.stage,
+                Stage::Check {
+                    index: 1,
+                    opened: true
+                }
+            ));
+        }
+        assert!(fake.taps.lock().unwrap().is_empty());
+        assert!(matches!(
+            engine
+                .tick(
+                    &vision,
+                    &mut adb,
+                    &FrameView {
+                        elapsed_ms: 16001,
+                        ..frame
+                    },
+                    &CancellationToken::new()
+                )
+                .await,
+            Err(Error::Unreadable)
+        ));
+        let mut adb = readable_fake.adb(temp.path());
+        let outcome = engine
+            .tick(
+                &vision,
+                &mut adb,
+                &FrameView {
+                    image: &readable,
+                    elapsed_ms: 17000,
+                    ..frame
+                },
+                &CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        assert!(matches!(
+            outcome.resources[0].reading,
+            Reading::Known(Balance {
+                amount: 3_500_219,
+                capacity: Some(26_000_000)
+            })
+        ));
+        assert_eq!(engine.recovery_count, 0);
+        assert_eq!(readable_fake.taps.lock().unwrap().len(), 1);
     }
 
     #[tokio::test]

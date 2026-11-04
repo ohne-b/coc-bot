@@ -1,4 +1,12 @@
 {
+  "home_elixir_unreadable": {
+    "file": "english-home-elixir-unreadable.png",
+    "state": "home"
+  },
+  "home_elixir_readable": {
+    "file": "english-home-elixir-readable.png",
+    "state": "home"
+  },
   "home": {
     "file": "english-home.png",
     "state": "home"
