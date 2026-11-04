@@ -66,7 +66,11 @@ function Editor({
       setDraft(current);
       setBaseline(current);
     } else if (observedSpread.current !== current.spread) {
-      setDraft((old) => old.spread === baseline.spread ? { ...old, spread: current.spread } : old);
+      setDraft((old) =>
+        old.spread === baseline.spread
+          ? { ...old, spread: current.spread }
+          : old,
+      );
       setBaseline((old) => ({ ...old, spread: current.spread }));
     }
     observedSpread.current = current.spread;
