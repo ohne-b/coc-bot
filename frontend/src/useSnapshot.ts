@@ -37,6 +37,7 @@ export function useScreenshot(snapshot: Snapshot | undefined) {
     sequence: number;
     screen: string | null;
     url: string;
+    blob: Blob;
     at: number | null;
   }>();
   const [error, setError] = useState<{ session: number; message: string }>();
@@ -55,9 +56,8 @@ export function useScreenshot(snapshot: Snapshot | undefined) {
     void invoke<ArrayBuffer>("screenshot", { sessionId: session, sequence })
       .then((bytes) => {
         if (cancelled) return;
-        const next = URL.createObjectURL(
-          new Blob([bytes], { type: "image/jpeg" }),
-        );
+        const blob = new Blob([bytes], { type: "image/jpeg" });
+        const next = URL.createObjectURL(blob);
         if (current.current) URL.revokeObjectURL(current.current);
         current.current = next;
         setImage({
@@ -68,6 +68,7 @@ export function useScreenshot(snapshot: Snapshot | undefined) {
               ? snapshot.detection.screens
               : null,
           url: next,
+          blob,
           at: snapshot?.captured_at_ms ?? null,
         });
         setError(undefined);

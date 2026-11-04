@@ -142,8 +142,41 @@ main:focus-visible {
   font-weight: 400;
   margin-top: 4px;
 }
-.deployment-tabs {
-  margin-bottom: 20px;
+.deployment-tools,
+.deployment-tool-actions,
+.placement-tools button,
+.reference-caption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.deployment-tools {
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.deployment-tools .field-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+.deployment-tool-actions {
+  margin-left: auto;
+}
+.reference-caption {
+  justify-content: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+.camp-number {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  border-radius: 50%;
+  background: var(--raised);
+  color: var(--text);
+  width: 18px;
+  height: 18px;
 }
 .history-tabs {
   margin-bottom: 24px;
@@ -164,10 +197,13 @@ main:focus-visible {
 .deployment-surface {
   position: relative;
   aspect-ratio: 16 / 9;
-  width: min(100%, max(480px, calc((100dvh - 330px) * 16 / 9)));
+  width: min(100%, max(480px, calc((100dvh - 240px) * 16 / 9)));
   background: #151515;
   margin: 16px auto;
-  border-radius: 8px;
+  border-radius: 4px;
+}
+.deployment-surface.has-reference {
+  cursor: crosshair;
 }
 .deployment-surface > img {
   display: block;
@@ -177,13 +213,18 @@ main:focus-visible {
 .deployment-placeholder {
   position: absolute;
   inset: 0;
-  display: grid;
-  place-items: center;
-  background-image:
-    linear-gradient(#ffffff08 1px, transparent 1px),
-    linear-gradient(90deg, #ffffff08 1px, transparent 1px);
-  background-size: 5% 8.89%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  padding: 24px;
+  text-align: center;
   color: var(--muted);
+}
+.deployment-placeholder span {
+  max-width: 340px;
+  line-height: 1.6;
 }
 .deployment-point {
   position: absolute;
@@ -197,6 +238,9 @@ main:focus-visible {
   touch-action: none;
   font-size: 12px;
   font-weight: 650;
+  display: grid;
+  place-items: center;
+  cursor: grab;
 }
 .deployment-point.selected {
   background: var(--accent);

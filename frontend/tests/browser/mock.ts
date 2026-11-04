@@ -316,11 +316,20 @@ export async function mock(
                   const value = update.value as {
                     screen: string;
                     layout: unknown;
+                    spread?: boolean;
                   };
                   if (value.layout)
                     snapshot.settings.farming.layouts[value.screen] =
                       value.layout;
                   else delete snapshot.settings.farming.layouts[value.screen];
+                  if (value.spread !== undefined) {
+                    if (value.screen === "home_scout")
+                      snapshot.settings.farming.strategy = value.spread
+                        ? "ring"
+                        : "stack";
+                    else
+                      snapshot.settings.farming.builder_stack = !value.spread;
+                  }
                 }
                 snapshot.revision++;
               };
