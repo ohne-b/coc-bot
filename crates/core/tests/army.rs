@@ -362,10 +362,34 @@ fn builder_card_states_require_the_bound_portrait_and_deployment_evidence() {
         hero.ability_ready(&deployed, &digits()).unwrap(),
         Some(true)
     );
+    let low = low_health(&deployed, hero.card.slot);
+    assert_eq!(hero.remaining(&low, &digits()).unwrap(), Some(0));
+    assert_eq!(hero.ability_ready(&low, &digits()).unwrap(), Some(true));
     let survivors = fixture("deployment-builder-survivors.png");
     assert_eq!(hero.remaining(&survivors, &digits()).unwrap(), Some(1));
+    let selected = fixture("deployment-builder-selected.png");
+    assert!(army::selected(&selected, cards[1].slot).unwrap());
+    for card in cards.iter().skip(2) {
+        assert!(!army::selected(&selected, card.slot).unwrap());
+    }
     let mut troop = BoundCard::new(&cards[1], &before, true).unwrap();
+    assert_eq!(troop.remaining(&selected, &digits()).unwrap(), Some(1));
     assert_eq!(troop.remaining(&survivors, &digits()).unwrap(), Some(0));
+    for (file, ready) in [
+        ("deployment-builder-full-health-ready.png", true),
+        ("deployment-builder-full-health-used.png", false),
+    ] {
+        let image = fixture(file);
+        assert_eq!(troop.remaining(&image, &digits()).unwrap(), Some(0));
+        assert_eq!(troop.ability_ready(&image, &digits()).unwrap(), Some(ready));
+    }
+    let low = fixture("deployment-builder-low-health-ready.png");
+    let low_troop = BoundCard::new(&cards[3], &before, true).unwrap();
+    assert_eq!(low_troop.remaining(&low, &digits()).unwrap(), Some(0));
+    assert_eq!(
+        low_troop.ability_ready(&low, &digits()).unwrap(),
+        Some(true)
+    );
     troop.card.slot = Point(850, 648);
     let ready = fixture("deployment-builder-ability-ready.png");
     let used = fixture("deployment-builder-ability-used.png");
@@ -403,6 +427,23 @@ fn home_health_bars_distinguish_individually_placed_heroes_from_the_battlefield(
                 bound.ability_ready(&after, &digits()).unwrap(),
                 if expected == 0 { Some(true) } else { None }
             );
+            for (j, other) in cards.iter().enumerate().filter(|(j, _)| *j != i) {
+                let mut wrong = bound.clone();
+                wrong.portrait = army::recipe::portrait(&before, other.slot).unwrap();
+                assert_eq!(
+                    wrong.remaining(&after, &digits()).unwrap(),
+                    None,
+                    "slot {} bound to {}",
+                    i + 1,
+                    j + 1
+                );
+                assert_eq!(wrong.ability_ready(&after, &digits()).unwrap(), None);
+            }
+            if expected == 0 {
+                let low = low_health(&after, card.slot);
+                assert_eq!(bound.remaining(&low, &digits()).unwrap(), Some(0));
+                assert_eq!(bound.ability_ready(&low, &digits()).unwrap(), Some(true));
+            }
         }
     }
     let used = fixture("deployment-home-ability-used.png");
@@ -413,8 +454,22 @@ fn home_health_bars_distinguish_individually_placed_heroes_from_the_battlefield(
         siege
             .remaining(&fixture("deployment-home-siege-deployed.png"), &digits())
             .unwrap(),
-        Some(0)
+        None
     );
     let spell = BoundCard::new(&cards[7], &before, false).unwrap();
     assert_eq!(spell.remaining(&used, &digits()).unwrap(), Some(2));
+}
+
+fn low_health(source: &Mat, slot: Point) -> Mat {
+    let mut image = source.clone();
+    // Simulate a nearly depleted bar while retaining its captured rails and leftmost fill.
+    for y in slot.1 - 85..slot.1 - 54 {
+        for x in slot.0 - 27..slot.0 + 32 {
+            let p = image.at_2d_mut::<core::Vec3b>(y as i32, x as i32).unwrap();
+            if p[1] > 180 && p[0] < 110 {
+                *p = core::Vec3b::from([15, 50, 22]);
+            }
+        }
+    }
+    image
 }

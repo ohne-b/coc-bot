@@ -451,6 +451,16 @@ impl Engine {
                 Detection::Known(
                     Screen::HomeResult | Screen::BuilderResult | Screen::Home | Screen::Builder
                 )
+            )
+            || matches!(
+                (&self.stage, detection),
+                (
+                    Stage::Deploy {
+                        source: Screen::BuilderScout,
+                        ..
+                    },
+                    Detection::Known(Screen::BuilderStage2)
+                )
             );
         if !finished
             && self.battlefield.is_some()
@@ -664,6 +674,7 @@ impl Engine {
                 } | Stage::Surrender
             )
         {
+            self.unconfirmed_input = false;
             if self.options.surrender_stars > 0 && !self.climbing {
                 self.go(Stage::Surrender, now);
             } else {
@@ -1378,7 +1389,19 @@ impl Engine {
                         let field = self.battlefield.ok_or(Error::InputGuard)?;
                         let field = profile.battlefields.get(field).ok_or(Error::InputGuard)?;
                         if waited {
-                            let left = card.remaining(image, digits)?;
+                            // Siege cards change artwork after deployment; accept the new health frame
+                            // only as the response to this already identity-checked, pending input.
+                            let left = if self.unconfirmed_input
+                                && !card.builder
+                                && card.card.kind == army::Kind::Siege
+                                && initial_count == 1
+                                && sent == 0
+                                && army::hero_deployed(image, slot)?
+                            {
+                                Some(0)
+                            } else {
+                                card.remaining(image, digits)?
+                            };
                             if left == Some(initial_count - sent - 1) {
                                 self.unconfirmed_input = false;
                                 sent += 1;
@@ -1912,6 +1935,125 @@ mod tests {
             .await
             .unwrap();
         assert!(matches!(engine.stage, Stage::Result { .. }));
+        assert!(fake.taps.lock().unwrap().is_empty());
+
+        let (fake, image) = Fake::new("english-builder_fourth_current.png");
+        let mut adb = fake.adb(temp.path());
+        let mut engine = Engine::new(
+            Options {
+                villages: vec![Village::Builder],
+                ..Options::default()
+            },
+            SessionMode::Farming,
+            &profile,
+        )
+        .unwrap();
+        engine.battlefield = Some(0);
+        engine.pending_attack = true;
+        engine.unconfirmed_input = true;
+        engine.stage = Stage::Deploy {
+            source: Screen::BuilderScout,
+            steps: vec![Deployment::Wait(10000)].into(),
+            selected: true,
+            sent: 0,
+            waited: true,
+        };
+        engine.not_before = 190000;
+        engine
+            .tick(
+                &vision,
+                &mut adb,
+                &FrameView {
+                    image: &image,
+                    detection: &Detection::Known(Screen::BuilderStage2),
+                    elapsed_ms: 180001,
+                    captured_at_ms: 180001,
+                },
+                &CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        assert!(matches!(
+            engine.stage,
+            Stage::Plan {
+                screen: Screen::BuilderStage2,
+                ..
+            }
+        ));
+        assert!(engine.recovery_safe());
+        assert!(fake.taps.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn pending_siege_drop_accepts_the_changed_artwork_without_repeating_input() {
+        use army::recipe::BoundCard;
+        let profile = Profile::load(&root()).unwrap();
+        let digits = Digits::load(&root(), Path::new("calibration/digits")).unwrap();
+        let detector = Arc::new(
+            Detector::load(
+                &Calibration::load(&root().join("config.json")).unwrap(),
+                &root(),
+            )
+            .unwrap(),
+        );
+        let vision = GameVision {
+            profile: &profile,
+            digits: &digits,
+            detector,
+        };
+        let (_, before) = Fake::new("battlefield-classic.png");
+        let (fake, after) = Fake::new("deployment-home-siege-deployed.png");
+        let cards = army::cards(
+            &before,
+            profile
+                .screen(Screen::HomeScout)
+                .unwrap()
+                .auto
+                .as_ref()
+                .unwrap()
+                .bar,
+            false,
+            &digits,
+        )
+        .unwrap();
+        let card = BoundCard::new(&cards[2], &before, false).unwrap();
+        assert_eq!(card.remaining(&after, &digits).unwrap(), None);
+        let temp = tempfile::tempdir().unwrap();
+        let mut adb = fake.adb(temp.path());
+        let mut engine = Engine::new(Options::default(), SessionMode::Farming, &profile).unwrap();
+        engine.battlefield = Some(0);
+        engine.pending_attack = true;
+        engine.unconfirmed_input = true;
+        engine.stage = Stage::Deploy {
+            source: Screen::HomeScout,
+            steps: vec![Deployment::PreciseDrop {
+                card,
+                point: Point(0, 500),
+                count: 1,
+                interval_ms: 300,
+                initial_count: 1,
+            }]
+            .into(),
+            selected: true,
+            sent: 0,
+            waited: true,
+        };
+        engine
+            .tick(
+                &vision,
+                &mut adb,
+                &FrameView {
+                    image: &after,
+                    detection: &Detection::Known(Screen::HomeBattle),
+                    elapsed_ms: 1000,
+                    captured_at_ms: 1000,
+                },
+                &CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        assert!(engine.recovery_safe());
+        assert!(matches!(engine.stage,Stage::Deploy {ref steps,..} if steps.is_empty()));
         assert!(fake.taps.lock().unwrap().is_empty());
     }
 

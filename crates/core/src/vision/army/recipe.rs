@@ -20,19 +20,24 @@ impl BoundCard {
     }
 
     pub fn remaining(&self, image: &Mat, digits: &super::Digits) -> Result<Option<u32>> {
-        if !self.builder
-            && matches!(self.card.kind, Kind::Hero | Kind::Warden | Kind::Siege)
-            && super::home_hero_deployed(image, self.card.slot)?
-        {
+        let raised = matches!(self.card.kind, Kind::Hero | Kind::Warden | Kind::Siege)
+            && super::hero_deployed(image, self.card.slot)?;
+        if !matches_portrait(
+            image,
+            self.card.slot,
+            &self.portrait,
+            raised && !self.builder,
+        )? {
+            return Ok(None);
+        }
+        if super::empty(image, self.card.slot)? {
             return Ok(Some(0));
         }
-        let current = portrait(image, self.card.slot)?;
-        if super::empty(image, self.card.slot)? {
-            // An exhausted portrait must still depict this unit; a black or missing card is unknown.
-            return Ok(gray_match(&current, &self.portrait).then_some(0));
-        }
-        if !matches_portrait(image, self.card.slot, &self.portrait)? {
-            return Ok(None);
+        if !self.builder
+            && matches!(self.card.kind, Kind::Hero | Kind::Warden | Kind::Siege)
+            && raised
+        {
+            return Ok(Some(0));
         }
         if matches!(self.card.kind, Kind::Sized)
             || (self.card.kind == Kind::Counted && !self.builder)
@@ -59,23 +64,6 @@ impl BoundCard {
                 .builder_troop_state(&colour)?
                 .map(|state| u32::from(state == 0)));
         }
-        let mut health = 0_f64;
-        for offset in if self.builder {
-            &[79, 53][..]
-        } else {
-            &[79][..]
-        } {
-            health = health.max(super::share(
-                &colour,
-                crate::calibration::Region(
-                    slot.0.checked_sub(32).ok_or(Error::Unreadable)?,
-                    slot.1.checked_sub(*offset).ok_or(Error::Unreadable)?,
-                    64,
-                    8,
-                ),
-                green,
-            )?);
-        }
         if self.builder {
             // The swap button remains on a surviving hero before its stage-two placement.
             let swap = super::share(
@@ -86,8 +74,9 @@ impl BoundCard {
             if swap {
                 return Ok(Some(1));
             }
+            return Ok(raised.then_some(0));
         }
-        Ok(Some(u32::from(!self.builder || health <= 0.5)))
+        Ok(Some(1))
     }
 
     fn builder_troop_state(&self, colour: &Mat) -> Result<Option<u8>> {
@@ -98,22 +87,41 @@ impl BoundCard {
             64,
             10,
         );
-        let charged = super::share(colour, region, |p| {
-            (25..=85).contains(&p[0]) && p[1] > 110 && p[2] > 90
-        })?;
-        if charged > 0.95 {
-            return Ok(Some(1));
-        }
-        if super::share(colour, region, |p| {
+        let waiting_header = crate::calibration::Region(
+            slot.0 + 3,
+            slot.1.checked_sub(46).ok_or(Error::Unreadable)?,
+            30,
+            6,
+        );
+        if super::share(colour, waiting_header, |p| {
             (90..=170).contains(&p[0]) && p[1] > 100 && p[2] > 60
-        })? > 0.65
+        })? > 0.8
         {
             return Ok(Some(0));
         }
-        if charged + super::share(colour, region, |p| p[1] < 60 && (25..=100).contains(&p[2]))?
+        let health = super::share(colour, region, |p| p[0] <= 85 && p[1] > 110 && p[2] > 90)?;
+        if health
+            + super::share(colour, region, |p| {
+                (p[1] < 60 || p[0] <= 85) && (25..=100).contains(&p[2])
+            })?
             > 0.85
         {
-            return Ok(Some(2));
+            // Ability charge is the raised header above the health bar, not health itself.
+            let header = crate::calibration::Region(
+                slot.0 + 3,
+                slot.1.checked_sub(76).ok_or(Error::Unreadable)?,
+                30,
+                20,
+            );
+            if super::share(colour, header, |p| {
+                (135..=165).contains(&p[0]) && p[1] > 100 && p[2] > 120
+            })? > 0.5
+            {
+                return Ok(Some(1));
+            }
+            if super::share(colour, header, |p| p[1] < 60 && (20..=100).contains(&p[2]))? > 0.5 {
+                return Ok(Some(2));
+            }
         }
         Ok(None)
     }
@@ -151,11 +159,11 @@ impl BoundCard {
     }
 }
 
-fn gray_match(current: &[u8], saved: &[u8]) -> bool {
+fn gray_match(current: &[u8], saved: &[u8], face: bool) -> bool {
     for dy in -2..=2 {
         for dx in -2..=2 {
             let mut pairs = Vec::with_capacity(144);
-            for y in 2..14 {
+            for y in 2..if face { 8 } else { 14 } {
                 for x in 2..14 {
                     let gray = |p: &[u8], i: usize| {
                         f64::from(p[i]) * 0.114
@@ -168,12 +176,13 @@ fn gray_match(current: &[u8], saved: &[u8]) -> bool {
                     ));
                 }
             }
-            let a = pairs.iter().map(|p| p.0).sum::<f64>() / 144.;
-            let b = pairs.iter().map(|p| p.1).sum::<f64>() / 144.;
+            let n = pairs.len() as f64;
+            let a = pairs.iter().map(|p| p.0).sum::<f64>() / n;
+            let b = pairs.iter().map(|p| p.1).sum::<f64>() / n;
             let va = pairs.iter().map(|p| (p.0 - a).powi(2)).sum::<f64>();
             let vb = pairs.iter().map(|p| (p.1 - b).powi(2)).sum::<f64>();
             let cross = pairs.iter().map(|p| (p.0 - a) * (p.1 - b)).sum::<f64>();
-            if va > 144. * 25. && vb > 144. * 25. && cross / (va * vb).sqrt() > 0.9 {
+            if va > n * 25. && vb > n * 25. && cross / (va * vb).sqrt() > 0.9 {
                 return true;
             }
         }
@@ -181,14 +190,14 @@ fn gray_match(current: &[u8], saved: &[u8]) -> bool {
     false
 }
 
-fn matches_portrait(image: &Mat, slot: Point, saved: &[u8]) -> Result<bool> {
+fn matches_portrait(image: &Mat, slot: Point, saved: &[u8], raised: bool) -> Result<bool> {
     use opencv::{
         core::{Mat, Size},
         imgproc,
         prelude::*,
     };
-    for (w, h) in [(48, 40), (56, 46), (64, 54)] {
-        for lift in [-16_i32, -8, 0, 8, 16, 24, 32, 40] {
+    for (w, h) in [(48, 40), (44, 32), (56, 46), (64, 54)] {
+        for lift in [-16_i32, -8, 0, 8, 16, 20, 24, 32, 40] {
             let patch = super::crop(
                 image,
                 crate::calibration::Region(
@@ -209,8 +218,21 @@ fn matches_portrait(image: &Mat, slot: Point, saved: &[u8]) -> Result<bool> {
                 0.,
                 imgproc::INTER_AREA,
             )?;
-            if portrait_difference(small.data_bytes()?, saved) <= 18.
-                || gray_match(small.data_bytes()?, saved)
+            let pixels = small.data_bytes()?;
+            // Raised hero cards replace the lower portrait with ability artwork; retain the face.
+            let face = raised
+                && (0..8)
+                    .flat_map(|y| {
+                        (2..14).flat_map(move |x| (0..3).map(move |c| (y * 16 + x) * 3 + c))
+                    })
+                    .map(|i| (f64::from(pixels[i]) - f64::from(saved[i])).abs())
+                    .sum::<f64>()
+                    / 288.
+                    <= 18.;
+            if portrait_difference(pixels, saved) <= 18.
+                || gray_match(pixels, saved, false)
+                || face
+                || (raised && gray_match(pixels, saved, true))
             {
                 return Ok(true);
             }

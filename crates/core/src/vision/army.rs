@@ -460,7 +460,7 @@ pub fn selected(image: &Mat, slot: Point) -> Result<bool> {
             return Ok(false);
         }
     }
-    for y in 708..719 {
+    for y in 700..719 {
         let mut count = 0;
         for x in slot.0 - 32..slot.0 + 32 {
             count += u32::from(white(x, y)?);
@@ -489,14 +489,16 @@ pub fn hero_charge(image: &Mat, slot: Point) -> Result<u8> {
     Ok(charge)
 }
 
-pub fn home_hero_deployed(image: &Mat, slot: Point) -> Result<bool> {
+pub fn hero_deployed(image: &Mat, slot: Point) -> Result<bool> {
     let x = slot.0.checked_sub(32).ok_or(Error::Unreadable)?;
-    // Deployed Home heroes grow a raised card with a health bar between two black rails.
+    // Deployment raises a framed health bar; its fill can be green, yellow, red or depleted.
     for y in slot.1.checked_sub(85).ok_or(Error::Unreadable)?..slot.1 - 65 {
         let rail = |row| share(image, Region(x, row, 64, 1), |p| p.iter().all(|v| *v < 60));
         if rail(y)? > 0.9
             && rail(y + 11)? > 0.9
-            && share(image, Region(x, y + 3, 64, 7), |p| p[1] > 180 && p[0] < 110)? > 0.5
+            && share(image, Region(x, y + 3, 64, 7), |p| {
+                *p.iter().max().unwrap() > 20
+            })? > 0.85
         {
             return Ok(true);
         }

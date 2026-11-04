@@ -24,6 +24,7 @@ pub struct Anchor {
 }
 
 pub fn load(root: &Path) -> Result<Vec<Field>> {
+    // shortcut: only captured sceneries are supported; add verified landmarks for other terrain.
     let path = root.join("battlefields.json");
     if !path.exists() {
         return Ok(vec![]);
@@ -57,6 +58,11 @@ pub fn load(root: &Path) -> Result<Vec<Field>> {
     Ok(fields)
 }
 impl Field {
+    fn supports(&self, screen: Screen) -> bool {
+        self.screen == screen
+            || (matches!(self.screen, Screen::BuilderScout | Screen::BuilderStage2)
+                && matches!(screen, Screen::BuilderScout | Screen::BuilderStage2))
+    }
     pub fn transform(
         &self,
         image: &Mat,
@@ -147,7 +153,7 @@ pub fn identify(fields: &[Field], screen: Screen, image: &Mat) -> Result<usize> 
     for (i, field) in fields
         .iter()
         .enumerate()
-        .filter(|(_, f)| f.screen == screen)
+        .filter(|(_, f)| f.supports(screen))
     {
         if field.transform(image, None)?.is_some() {
             if found.is_some() {
@@ -167,7 +173,7 @@ pub fn locate(fields: &[Field], screen: Screen, image: &Mat, point: Point) -> Re
         return Err(Error::InputGuard);
     }
     let mut result = None;
-    for field in fields.iter().filter(|f| f.screen == screen) {
+    for field in fields.iter().filter(|f| f.supports(screen)) {
         if let Some(transform) = field.transform(image, None)? {
             if result.is_some() {
                 return Err(Error::Gameplay("Battlefield scenery is ambiguous".into()));
