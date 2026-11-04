@@ -115,8 +115,8 @@ Offline attack regressions cover Home and both Builder stages. Wall replays cove
 villages from list scanning through confirmation, reserve refusal and rejection of unchanged
 post-confirmation balances. Their HUD positions reuse captured pixels; successful spending
 accounting uses an explicitly simulated prior balance, not a captured live upgrade.
-Full live gameplay parity remains unverified. A custom Home sequence has been exercised on
-LDPlayer; custom Builder execution still needs live validation. Custom plans bind ordered
+Full live gameplay parity remains unverified. Custom Home and Builder sequences have been
+exercised on LDPlayer; custom Builder stage-two plans still need live validation. Custom plans bind ordered
 actions to captured army portraits, split quantities across normalized border positions,
 and explicitly schedule spells and abilities. Camera registration requires three agreeing
 terrain landmarks from a supported scenery profile. Unknown scenery, missing units or an
