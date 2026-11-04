@@ -35,6 +35,29 @@ export async function mock(
         active_ms: 365_000,
       };
       const snapshot = {
+        army: [
+          {
+            slot: 1,
+            kind: "troop",
+            center: [130, 650],
+            count: 15,
+            portrait: Array(768).fill(90),
+          },
+          {
+            slot: 2,
+            kind: "hero",
+            center: [230, 650],
+            count: null,
+            portrait: Array(768).fill(150),
+          },
+          {
+            slot: 3,
+            kind: "spell",
+            center: [330, 650],
+            count: 3,
+            portrait: Array(768).fill(210),
+          },
+        ],
         revision: 1,
         settings: {
           device: {

@@ -5,170 +5,178 @@ import {
   mdiSwordCross,
   mdiFlaskOutline,
   mdiCrownOutline,
-  mdiUndo,
-  mdiRestore,
-  mdiTune,
+  mdiTruckOutline,
+  mdiPlus,
   mdiDeleteOutline,
+  mdiArrowUp,
+  mdiArrowDown,
+  mdiContentCopy,
+  mdiUndo,
   mdiStop,
 } from "@mdi/js";
-import { Button, Empty, Help, IconButton } from "./ui";
-import { time } from "./format";
-import { useScreenshot } from "./useSnapshot";
-import type { DeployScreen, Layout, Point, Snapshot } from "./types";
+import { Button, Help, IconButton } from "./ui";
+import { mapPoint, placement, planError } from "./deploymentPlan";
+import type {
+  DeployScreen,
+  Layout,
+  Point,
+  Snapshot,
+  DeploymentAction,
+} from "./types";
 
-type Group = "deploy" | "points" | "ring" | "spells" | "spell_spread" | "quake";
-type Draft = { layout: Layout; spread: boolean };
-type Reference = { url: string; at: number | null; session: number };
 const screens: DeployScreen[] = [
   "home_scout",
   "builder_scout",
   "builder_stage2",
 ];
-const same = (a: Draft, b: Draft) => JSON.stringify(a) === JSON.stringify(b);
+const icons = {
+  troop: mdiSwordCross,
+  hero: mdiCrownOutline,
+  siege: mdiTruckOutline,
+  spell: mdiFlaskOutline,
+};
+const names = { troop: "Troop", hero: "Hero", siege: "Siege", spell: "Spell" };
+const equal = (a: unknown, b: unknown) =>
+  JSON.stringify(a) === JSON.stringify(b);
+function Portrait({ pixels }: { pixels: number[] }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    if (pixels.length !== 768) return;
+    const context = ref.current?.getContext("2d");
+    if (!context) return;
+    const image = context.createImageData(16, 16);
+    for (let i = 0; i < 256; i++)
+      image.data.set(
+        [pixels[i * 3 + 2], pixels[i * 3 + 1], pixels[i * 3], 255],
+        i * 4,
+      );
+    context.putImageData(image, 0, 0);
+  }, [pixels]);
+  return (
+    <canvas
+      ref={ref}
+      width={16}
+      height={16}
+      className="unit-portrait"
+      aria-hidden="true"
+    />
+  );
+}
+const blank = (): DeploymentAction => ({
+  portrait: [],
+  label: "",
+  slot: 1,
+  kind: "troop",
+  point: [0, 500],
+  count: 1,
+  delay_ms: 0,
+  interval_ms: 300,
+  ability: false,
+});
 
 function Editor({
   snapshot,
   screen,
   onScreen,
   disabled,
-  reference,
 }: {
   snapshot: Snapshot;
   screen: DeployScreen;
-  onScreen: (screen: DeployScreen) => void;
+  onScreen: (s: DeployScreen) => void;
   disabled: boolean;
-  reference?: Reference;
 }) {
-  const defaults = snapshot.default_layouts[screen]!;
-  const home = screen === "home_scout";
-  const current: Draft = {
-    layout: snapshot.settings.farming.layouts[screen] ?? defaults,
-    spread: home
-      ? snapshot.settings.farming.strategy === "ring"
-      : !snapshot.settings.farming.builder_stack,
-  };
-  const [draft, setDraft] = useState(current);
+  const current =
+    snapshot.settings.farming.layouts[screen] ??
+    snapshot.default_layouts[screen]!;
+  const [draft, setDraft] = useState<Layout>(current);
   const [baseline, setBaseline] = useState(current);
-  const [history, setHistory] = useState<Draft[]>([]);
-  const [group, setGroup] = useState<Group>(
-    current.spread ? (home ? "ring" : "points") : "deploy",
-  );
+  const [history, setHistory] = useState<Layout[]>([]);
   const [selected, setSelected] = useState(0);
-  const [advanced, setAdvanced] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
-  const [error, setError] = useState<string>();
+  const [army, setArmy] = useState<NonNullable<Snapshot["army"]>>([]);
+  const armySession = useRef(snapshot.session?.id);
+  useEffect(() => {
+    if (armySession.current !== snapshot.session?.id) {
+      armySession.current = snapshot.session?.id;
+      setArmy([]);
+    }
+    if (
+      snapshot.detection.status === "known" &&
+      snapshot.detection.screens === screen &&
+      snapshot.army?.length
+    )
+      setArmy(snapshot.army);
+  }, [snapshot.army, snapshot.detection, snapshot.session?.id, screen]);
   const edited = useRef(false);
-  const observedSpread = useRef(current.spread);
   const surface = useRef<HTMLDivElement>(null);
+  const dragging = useRef<number | null>(null);
+  const home = screen === "home_scout";
+  const locked = disabled || busy;
+  const steps = draft.recipe?.steps ?? [];
+  const active = steps[selected];
+  const dirty = !equal(draft, baseline);
   useEffect(() => {
     if (!edited.current) {
       setDraft(current);
       setBaseline(current);
-    } else if (observedSpread.current !== current.spread) {
-      setDraft((old) =>
-        old.spread === baseline.spread
-          ? { ...old, spread: current.spread }
-          : old,
-      );
-      setBaseline((old) => ({ ...old, spread: current.spread }));
     }
-    observedSpread.current = current.spread;
-  }, [current.layout, current.spread]);
-  const locked = disabled || busy;
-  const dirty = !same(draft, baseline);
-  const groups: { key: Group; name: string; icon: string }[] = [
-    {
-      key: draft.spread ? (home ? "ring" : "points") : "deploy",
-      name: draft.spread ? (home ? "Troops" : "Camps") : "Troops & heroes",
-      icon: mdiSwordCross,
-    },
-    ...(draft.spread
-      ? [
-          {
-            key: "deploy" as const,
-            name: home ? "Heroes & siege" : "Hero",
-            icon: mdiCrownOutline,
-          },
-        ]
-      : []),
-    ...(home
-      ? [
-          {
-            key: (snapshot.settings.farming.earthquake
-              ? "quake"
-              : draft.spread && draft.layout.spell_spread.length
-                ? "spell_spread"
-                : "spells") as Group,
-            name: snapshot.settings.farming.earthquake
-              ? "Earthquakes"
-              : "Spells",
-            icon: mdiFlaskOutline,
-          },
-        ]
-      : []),
-  ];
-  const active = groups.find((g) => g.key === group) ?? groups[0];
-  const points =
-    active.key === "deploy"
-      ? draft.layout.deploy
-        ? [draft.layout.deploy]
-        : []
-      : draft.layout[active.key];
-  const index = Math.min(selected, Math.max(0, points.length - 1));
-  const canRemove = active.key !== "deploy" && points.length > 1;
-  function change(next: Draft, checkpoint = true) {
-    if (locked || same(next, draft)) return;
-    if (checkpoint) setHistory((old) => [...old.slice(-49), draft]);
+  }, [current]);
+  function change(next: Layout, checkpoint = true) {
+    if (locked || equal(next, draft)) return;
+    if (checkpoint) setHistory((h) => [...h.slice(-49), draft]);
     edited.current = true;
-    setSaved(false);
     setDraft(next);
+    setSaved(false);
+    setError("");
   }
-  function setPoints(next: Point[], checkpoint = true) {
-    change(
-      {
-        ...draft,
-        layout: {
-          ...draft.layout,
-          [active.key]: active.key === "deploy" ? (next[0] ?? null) : next,
-        },
-      },
+  function replace(next: DeploymentAction[], checkpoint = true) {
+    change({ ...draft, recipe: { steps: next } }, checkpoint);
+  }
+  function patch(value: Partial<DeploymentAction>, checkpoint = true) {
+    replace(
+      steps.map((s, i) => (i === selected ? { ...s, ...value } : s)),
       checkpoint,
     );
   }
-  function move(i: number, x: number, y: number, checkpoint = true) {
-    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
-    setPoints(
-      points.map((p, n) =>
-        n === i
-          ? [
-              Math.max(0, Math.min(1279, Math.round(x))),
-              Math.max(0, Math.min(719, Math.round(y))),
-            ]
-          : p,
-      ),
-      checkpoint,
-    );
+  function add(action = blank()) {
+    replace([...steps, structuredClone(action)]);
+    setSelected(steps.length);
   }
-  function remove(i: number) {
-    if (!canRemove) return;
-    setPoints(points.filter((_, n) => n !== i));
-    setSelected(Math.max(0, i - 1));
+  function remove() {
+    replace(steps.filter((_, i) => i !== selected));
+    setSelected(Math.max(0, selected - 1));
+  }
+  function reorder(direction: number) {
+    const next = [...steps];
+    const index = selected + direction;
+    [next[index], next[selected]] = [next[selected], next[index]];
+    replace(next);
+    setSelected(index);
+  }
+  function pointer(
+    event: { clientX: number; clientY: number },
+    kind = active.kind,
+  ): Point {
+    const rect = surface.current!.getBoundingClientRect();
+    return placement(
+      ((event.clientX - rect.left) / rect.width) * 1280,
+      ((event.clientY - rect.top) / rect.height) * 640,
+      kind,
+    );
   }
   async function save() {
+    const invalid = draft.recipe ? planError(steps) : "";
+    if (invalid) {
+      setError(invalid);
+      return;
+    }
     setBusy(true);
-    setError(undefined);
-    setSaved(false);
+    setError("");
     try {
       await invoke("save_settings", {
-        update: {
-          type: "layout",
-          value: {
-            screen,
-            layout: draft.layout,
-            spread: draft.spread !== baseline.spread ? draft.spread : undefined,
-          },
-        },
+        update: { type: "layout", value: { screen, layout: draft } },
       });
       setBaseline(draft);
       setSaved(true);
@@ -178,25 +186,8 @@ function Editor({
       setBusy(false);
     }
   }
-  const coordinates = (event: { clientX: number; clientY: number }): Point => {
-    const bounds = surface.current!.getBoundingClientRect();
-    return [
-      Math.max(
-        0,
-        Math.min(
-          1279,
-          Math.round(((event.clientX - bounds.left) / bounds.width) * 1280),
-        ),
-      ),
-      Math.max(
-        0,
-        Math.min(
-          719,
-          Math.round(((event.clientY - bounds.top) / bounds.height) * 720),
-        ),
-      ),
-    ];
-  };
+  const title = (s: DeploymentAction) =>
+    s.label || `${names[s.kind]} in slot ${s.slot}`;
   return (
     <>
       <header className="page-header overview-header">
@@ -222,13 +213,8 @@ function Editor({
             <IconButton
               path={mdiStop}
               label="Stop session"
-              disabled={busy}
               onClick={() => {
-                setBusy(true);
-                setError(undefined);
-                void invoke("stop")
-                  .catch((e: unknown) => setError(String(e)))
-                  .finally(() => setBusy(false));
+                void invoke("stop").catch((e) => setError(String(e)));
               }}
             />
           )}
@@ -242,7 +228,6 @@ function Editor({
             onClick={() => {
               setDraft(history[history.length - 1]);
               setHistory(history.slice(0, -1));
-              setSaved(false);
               setSelected(0);
             }}
           />
@@ -251,272 +236,434 @@ function Editor({
             disabled={locked || !dirty}
             onClick={() => void save()}
           >
-            Save
+            Save plan
           </Button>
         </div>
       </header>
-      <div className="deployment-tools">
-        {!home && (
-          <div className="tabs" role="group" aria-label="Builder stage">
-            <button
-              aria-pressed={screen === "builder_scout"}
-              onClick={() => onScreen("builder_scout")}
-            >
-              Stage 1
-            </button>
-            <button
-              aria-pressed={screen === "builder_stage2"}
-              onClick={() => onScreen("builder_stage2")}
-            >
-              Stage 2
-            </button>
-          </div>
-        )}
+      <div className="plan-mode">
         <label className="field-label">
-          Strategy
+          Deployment
           <select
             className="field"
+            value={draft.recipe ? "custom" : "automatic"}
             disabled={locked}
-            value={draft.spread ? "spread" : "single"}
-            onChange={(e) => {
-              change({ ...draft, spread: e.target.value === "spread" });
-              setGroup(
-                e.target.value === "spread"
-                  ? home
-                    ? "ring"
-                    : "points"
-                  : "deploy",
-              );
-              setSelected(0);
-            }}
+            onChange={(e) =>
+              change({
+                ...draft,
+                recipe: e.target.value === "automatic" ? null : { steps: [] },
+              })
+            }
           >
-            <option value="single">Single point</option>
-            <option value="spread">
-              {home ? "Spread around base" : "Separate camps"}
-            </option>
+            <option value="automatic">Automatic</option>
+            <option value="custom">Custom sequence</option>
           </select>
         </label>
-        <div
-          className="tabs placement-tools"
-          role="group"
-          aria-label="Placement tools"
-        >
-          {groups.map((g) => (
-            <button
-              key={g.key}
-              aria-pressed={active.key === g.key}
-              onClick={() => {
-                setGroup(g.key);
-                setSelected(0);
-              }}
-            >
-              <Icon path={g.icon} aria-hidden="true" />
-              {g.name}
-            </button>
-          ))}
-        </div>
-        <div className="deployment-tool-actions">
-          <IconButton
-            path={mdiDeleteOutline}
-            label="Remove selected point"
-            disabled={locked || !canRemove}
-            onClick={() => remove(index)}
-          />
-          <IconButton
-            path={mdiTune}
-            label="Coordinates"
-            aria-expanded={advanced}
-            onClick={() => setAdvanced(!advanced)}
-          />
-          <IconButton
-            path={mdiRestore}
-            label="Restore defaults"
-            disabled={locked}
-            onClick={() => {
-              change({ ...draft, layout: defaults });
-              setSelected(0);
-            }}
-          />
-          <Help label="Deployment editing">
-            Click the screenshot to place a point. Drag to move; arrow keys move
-            one pixel, Shift moves ten. Delete removes the selected point.
-            Builder camps use positions in army-bar order and repeat when there
-            are more camps than points. Heroes share the main point with siege
-            units. Save applies to the next session. Builder strategy applies to
-            both stages. Placement does not check the game's deployment
-            boundary.
-          </Help>
-        </div>
+        <Help label="Deployment mode">
+          Automatic uses your previous farming strategy. Custom sequence uses
+          only the actions you save here, including spells and abilities.
+          Changing this setting takes effect after saving.
+        </Help>
       </div>
-      {advanced && (
-        <div className="editor-toolbar" aria-label="Point coordinates">
-          <label className="field-label">
-            Point
-            <select
-              className="field"
-              value={index}
-              disabled={!points.length}
-              onChange={(e) => setSelected(Number(e.target.value))}
-            >
-              {points.map((_, i) => (
-                <option key={i} value={i}>
-                  {active.name} {i + 1}
-                </option>
-              ))}
-            </select>
-          </label>
-          {([0, 1] as const).map((axis) => (
-            <label className="field-label" key={axis}>
-              {axis === 0 ? "X" : "Y"}
-              <input
-                className="field number-field"
-                type="number"
-                min={0}
-                max={axis === 0 ? 1279 : 719}
-                disabled={locked || !points[index]}
-                value={points[index]?.[axis] ?? ""}
-                onChange={(e) => {
-                  const p = points[index];
-                  if (p)
-                    move(
-                      index,
-                      axis === 0 ? e.target.valueAsNumber : p[0],
-                      axis === 1 ? e.target.valueAsNumber : p[1],
-                    );
-                }}
-              />
-            </label>
-          ))}
-          <Button
-            disabled={locked || active.key === "deploy" || points.length >= 32}
-            onClick={() => {
-              setPoints([...points, [640, 360]]);
-              setSelected(points.length);
-            }}
+      {!home && (
+        <div className="tabs" role="group" aria-label="Builder stage">
+          <button
+            aria-pressed={screen === "builder_scout"}
+            onClick={() => onScreen("builder_scout")}
           >
-            Add point
-          </Button>
+            Stage 1
+          </button>
+          <button
+            aria-pressed={screen === "builder_stage2"}
+            onClick={() => onScreen("builder_stage2")}
+          >
+            Stage 2
+          </button>
         </div>
       )}
+      <div className="plan-workspace">
+        <section className="plan-sequence" aria-label="Attack sequence">
+          <div className="section-heading">
+            <h2>Actions</h2>
+            <Help label="Attack sequence">
+              Actions run from top to bottom. Add the same army slot more than
+              once to split its units between positions. Delays begin after the
+              previous action finishes. Only listed units are used. The bot
+              checks recognized counts before starting and refuses a plan with
+              missing units. Slots count left to right across the whole visible
+              army bar, including heroes and spells. Names are your labels, not
+              automatic unit recognition.
+            </Help>
+            <IconButton
+              path={mdiPlus}
+              label="Add action"
+              disabled={locked || steps.length >= 64}
+              onClick={() => add()}
+            />
+          </div>
+          {!steps.length && (
+            <div className="plan-empty">
+              <p>
+                {draft.recipe
+                  ? "Build your attack"
+                  : "Automatic deployment is selected"}
+              </p>
+              <Button primary disabled={locked} onClick={() => add()}>
+                Add first action
+              </Button>
+              <Help label="Existing deployment">
+                Your saved deployment stays unchanged until you save a new plan.
+                A new plan replaces automatic troop, spell and ability
+                deployment for this village and stage.
+              </Help>
+            </div>
+          )}
+          <ol className="action-list">
+            {steps.map((s, i) => (
+              <li key={i}>
+                <button
+                  className={i === selected ? "selected" : ""}
+                  aria-pressed={i === selected}
+                  onClick={() => setSelected(i)}
+                >
+                  <span className="action-number">{i + 1}</span>
+                  <Icon path={icons[s.kind]} aria-hidden="true" />
+                  <span>
+                    <strong>{title(s)}</strong>
+                    <small>
+                      {s.ability
+                        ? "Activate ability"
+                        : `${s.count || "Remaining"} ${s.kind === "spell" ? "cast" : "unit"}${s.count === 1 ? "" : "s"}`}
+                      {s.delay_ms ? ` after ${s.delay_ms / 1000}s` : ""}
+                    </small>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ol>
+        </section>
+        <section className="plan-map-section" aria-label="Placement">
+          <div className="army-strip" aria-label="Captured army">
+            {army.map((unit) => (
+              <button
+                key={unit.slot}
+                className="army-card"
+                disabled={locked || !active}
+                aria-label={`Use ${names[unit.kind]} ${unit.slot}${unit.count == null ? "" : ` x${unit.count}`}`}
+                onClick={() =>
+                  patch({
+                    slot: unit.slot,
+                    portrait: unit.portrait,
+                    supports_ability:
+                      unit.supports_ability ?? unit.kind === "hero",
+                    kind: unit.kind,
+                    ability: false,
+                    count:
+                      unit.kind === "hero" || unit.kind === "siege"
+                        ? 1
+                        : active.count,
+                    point: placement(...mapPoint(active.point), unit.kind),
+                  })
+                }
+              >
+                <Portrait pixels={unit.portrait} />
+                <span>
+                  {names[unit.kind]} {unit.slot}
+                  {unit.count == null ? (
+                    ""
+                  ) : (
+                    <>
+                      {" "}
+                      <small>x{unit.count}</small>
+                    </>
+                  )}
+                </span>
+              </button>
+            ))}
+            {!army.length && (
+              <span className="muted">
+                Observe a scout screen to capture your army.
+              </span>
+            )}
+            <Help label="Army binding">
+              Choose the card used by the selected action. Its appearance is
+              saved with the plan and checked before input. A changed or
+              unreadable army stops the attack plan. Labels are yours to name;
+              the bot does not recognize unit names. Only the visible army bar
+              is supported.
+            </Help>
+          </div>
+          <div className="section-heading">
+            <h2>{active ? title(active) : "Battlefield"}</h2>
+            <Help label="Planning map">
+              Troops, heroes and siege machines snap to the outer grass border.
+              Spells can target inside the field. The bot matches fixed terrain
+              before each placement and moves the camera when needed.
+              Unrecognized scenery stops the plan. Click or drag a marker; arrow
+              keys move it.
+            </Help>
+          </div>
+          <div
+            ref={surface}
+            className="plan-map"
+            onPointerDown={(e) => {
+              if (
+                !locked &&
+                active &&
+                !active.ability &&
+                e.target === e.currentTarget
+              )
+                patch({ point: pointer(e) });
+            }}
+          >
+            <svg
+              viewBox="0 0 1280 640"
+              aria-hidden="true"
+              className="plan-terrain"
+            >
+              <defs>
+                <pattern
+                  id={`grid-${screen}`}
+                  width="80"
+                  height="40"
+                  patternUnits="userSpaceOnUse"
+                >
+                  <path
+                    d="M0 20 40 0 80 20 40 40Z"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1"
+                  />
+                </pattern>
+              </defs>
+              <path
+                className="plan-grass"
+                d="M640 28 1150 320 640 612 130 320Z"
+              />
+              <path
+                className="plan-field"
+                d="M640 72 1070 320 640 568 210 320Z"
+              />
+              <path
+                d="M640 72 1070 320 640 568 210 320Z"
+                fill={`url(#grid-${screen})`}
+                opacity=".12"
+              />
+              <text x="640" y="325" textAnchor="middle">
+                BASE
+              </text>
+              <text x="640" y="52" textAnchor="middle">
+                OUTER BORDER
+              </text>
+            </svg>
+            {steps.map(
+              (s, i) =>
+                !s.ability && (
+                  <button
+                    key={i}
+                    className={`plan-marker ${s.kind} ${i === selected ? "selected" : ""}`}
+                    style={{
+                      left: `${mapPoint(s.point)[0] / 12.8}%`,
+                      top: `${mapPoint(s.point)[1] / 6.4}%`,
+                    }}
+                    aria-label={`Position for action ${i + 1}: ${title(s)}`}
+                    disabled={locked}
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                      setSelected(i);
+                      dragging.current = i;
+                      setHistory((h) => [...h.slice(-49), draft]);
+                      e.currentTarget.setPointerCapture(e.pointerId);
+                    }}
+                    onPointerMove={(e) => {
+                      if (dragging.current === i) {
+                        const point = pointer(e, s.kind);
+                        replace(
+                          steps.map((a, n) => (n === i ? { ...a, point } : a)),
+                          false,
+                        );
+                      }
+                    }}
+                    onPointerUp={() => {
+                      dragging.current = null;
+                    }}
+                    onPointerCancel={() => {
+                      dragging.current = null;
+                    }}
+                    onKeyDown={(e) => {
+                      if (
+                        [
+                          "ArrowLeft",
+                          "ArrowRight",
+                          "ArrowUp",
+                          "ArrowDown",
+                        ].includes(e.key)
+                      ) {
+                        e.preventDefault();
+                        const d = e.shiftKey ? 20 : 5;
+                        replace(
+                          steps.map((a, n) =>
+                            n === i
+                              ? {
+                                  ...a,
+                                  point: placement(
+                                    mapPoint(a.point)[0] +
+                                      (e.key === "ArrowRight"
+                                        ? d
+                                        : e.key === "ArrowLeft"
+                                          ? -d
+                                          : 0),
+                                    mapPoint(a.point)[1] +
+                                      (e.key === "ArrowDown"
+                                        ? d
+                                        : e.key === "ArrowUp"
+                                          ? -d
+                                          : 0),
+                                    a.kind,
+                                  ),
+                                }
+                              : a,
+                          ),
+                        );
+                      }
+                    }}
+                  >
+                    <Icon path={icons[s.kind]} aria-hidden="true" />
+                    <span>{i + 1}</span>
+                  </button>
+                ),
+            )}
+          </div>
+          {active && (
+            <fieldset className="action-inspector" disabled={locked}>
+              <div className="section-heading">
+                <h2>Action {selected + 1}</h2>
+                <div className="page-actions">
+                  <IconButton
+                    path={mdiArrowUp}
+                    label="Move action earlier"
+                    disabled={locked || selected === 0}
+                    onClick={() => reorder(-1)}
+                  />
+                  <IconButton
+                    path={mdiArrowDown}
+                    label="Move action later"
+                    disabled={locked || selected === steps.length - 1}
+                    onClick={() => reorder(1)}
+                  />
+                  <IconButton
+                    path={mdiContentCopy}
+                    label="Duplicate action"
+                    disabled={locked || steps.length >= 64}
+                    onClick={() => add(active)}
+                  />
+                  <IconButton
+                    path={mdiDeleteOutline}
+                    label="Delete action"
+                    onClick={remove}
+                  />
+                </div>
+              </div>
+              <div className="action-fields">
+                <label className="field-label">
+                  Name
+                  <input
+                    className="field"
+                    maxLength={40}
+                    value={active.label}
+                    placeholder="e.g. Dragons, first wave"
+                    onChange={(e) => patch({ label: e.target.value })}
+                  />
+                </label>
+                <label className="field-label">
+                  Army card
+                  <span className="field">
+                    {active.portrait.length
+                      ? `Slot ${active.slot}`
+                      : "Choose a card above"}
+                  </span>
+                </label>
+                {(active.kind === "hero" ||
+                  (!home &&
+                    active.kind === "troop" &&
+                    active.supports_ability)) && (
+                  <label className="field-label">
+                    Action
+                    <select
+                      className="field"
+                      value={active.ability ? "ability" : "deploy"}
+                      onChange={(e) =>
+                        patch({ ability: e.target.value === "ability" })
+                      }
+                    >
+                      <option value="deploy">Deploy</option>
+                      <option value="ability">Activate ability</option>
+                    </select>
+                  </label>
+                )}
+                {!active.ability && (
+                  <label className="field-label">
+                    Quantity
+                    <input
+                      className="field"
+                      aria-label="Quantity"
+                      type="number"
+                      min={0}
+                      max={300}
+                      value={active.count}
+                      onChange={(e) => patch({ count: Number(e.target.value) })}
+                    />
+                    <span className="field-hint">0 = remaining</span>
+                  </label>
+                )}
+                <label className="field-label">
+                  Wait before (s)
+                  <input
+                    className="field"
+                    type="number"
+                    min={0}
+                    max={180}
+                    step={0.1}
+                    value={active.delay_ms / 1000}
+                    onChange={(e) =>
+                      patch({
+                        delay_ms: Math.round(Number(e.target.value) * 1000),
+                      })
+                    }
+                  />
+                </label>
+                {!active.ability && (
+                  <label className="field-label">
+                    Between drops (s)
+                    <input
+                      className="field"
+                      type="number"
+                      min={0.1}
+                      max={10}
+                      step={0.1}
+                      value={active.interval_ms / 1000}
+                      onChange={(e) =>
+                        patch({
+                          interval_ms: Math.round(
+                            Number(e.target.value) * 1000,
+                          ),
+                        })
+                      }
+                    />
+                  </label>
+                )}
+              </div>
+            </fieldset>
+          )}
+        </section>
+      </div>
       {error && (
         <p role="alert" className="error">
           {error}
         </p>
       )}
-      {disabled && (
-        <p className="muted">
-          {snapshot.session?.state === "running" ||
-          snapshot.session?.state === "paused"
-            ? "Stop the session to edit deployment."
-            : "Reconnect to edit deployment."}
-        </p>
-      )}
-      <div
-        ref={surface}
-        className={`deployment-surface ${reference ? "has-reference" : ""}`}
-        onClick={(event) => {
-          if (locked || !reference) return;
-          const point = coordinates(event);
-          if (active.key === "deploy") setPoints([point]);
-          else if (points.length < 32) {
-            setPoints([...points, point]);
-            setSelected(points.length);
-          }
-        }}
-      >
-        {reference ? (
-          <img
-            src={reference.url}
-            alt="Deployment reference screenshot"
-            width={1280}
-            height={720}
-            draggable={false}
-          />
-        ) : (
-          <div className="deployment-placeholder">
-            <strong>No scout screenshot yet</strong>
-            <span>
-              Observe an opponent scout screen in LDPlayer, then stop
-              observation to place troops.
-            </span>
-          </div>
-        )}
-        {reference &&
-          points.map(([x, y], i) => (
-            <button
-              key={`${active.key}-${i}`}
-              type="button"
-              disabled={locked}
-              className={`deployment-point ${index === i ? "selected" : ""}`}
-              style={{
-                left: `${(x / 1280) * 100}%`,
-                top: `${(y / 720) * 100}%`,
-              }}
-              aria-label={`${active.name} ${i + 1}, X ${x}, Y ${y}`}
-              aria-pressed={index === i}
-              onClick={(e) => {
-                e.stopPropagation();
-                setSelected(i);
-              }}
-              onPointerDown={(e) => {
-                if (locked) return;
-                e.preventDefault();
-                e.stopPropagation();
-                setSelected(i);
-                e.currentTarget.focus();
-                e.currentTarget.setPointerCapture(e.pointerId);
-                setHistory((old) => [...old.slice(-49), draft]);
-              }}
-              onPointerMove={(e) => {
-                if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-                  const p = coordinates(e);
-                  move(i, ...p, false);
-                }
-              }}
-              onPointerUp={(e) => {
-                if (e.currentTarget.hasPointerCapture(e.pointerId))
-                  e.currentTarget.releasePointerCapture(e.pointerId);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Delete" || e.key === "Backspace") {
-                  e.preventDefault();
-                  remove(i);
-                  return;
-                }
-                const delta = e.shiftKey ? 10 : 1;
-                const step: Record<string, Point> = {
-                  ArrowLeft: [-delta, 0],
-                  ArrowRight: [delta, 0],
-                  ArrowUp: [0, -delta],
-                  ArrowDown: [0, delta],
-                };
-                if (step[e.key]) {
-                  e.preventDefault();
-                  move(i, x + step[e.key][0], y + step[e.key][1]);
-                }
-              }}
-            >
-              <Icon path={active.icon} aria-hidden="true" />
-              {active.key === "points" && (
-                <span className="camp-number">{i + 1}</span>
-              )}
-            </button>
-          ))}
-      </div>
-      {reference && (
-        <div className="reference-caption">
-          Captured {time(reference.at)}
-          <Help label="Reference screenshot">
-            This saved reference stays available while editing this village and
-            stage. It is not a live view. Starting another session clears
-            previous references.
-          </Help>
-        </div>
-      )}
     </>
   );
 }
-
 export default function Deployment({
   snapshot,
   offline,
@@ -525,45 +672,6 @@ export default function Deployment({
   offline: boolean;
 }) {
   const [screen, setScreen] = useState<DeployScreen>("home_scout");
-  const screenshot = useScreenshot(snapshot);
-  const [references, setReferences] = useState<
-    Partial<Record<DeployScreen, Reference>>
-  >({});
-  const urls = useRef<Partial<Record<DeployScreen, Reference>>>({});
-  useEffect(() => {
-    for (const ref of Object.values(urls.current)) URL.revokeObjectURL(ref.url);
-    urls.current = {};
-    setReferences({});
-  }, [snapshot.session?.id]);
-  useEffect(() => {
-    const image = screenshot.image;
-    if (!image || image.sequence !== snapshot.frame_sequence) return;
-    const key =
-      image.screen === "home_scout" || image.screen === "home_battle"
-        ? "home_scout"
-        : image.screen === "builder_scout" || image.screen === "builder_battle"
-          ? "builder_scout"
-          : image.screen === "builder_stage2" ||
-              image.screen === "builder_battle2"
-            ? "builder_stage2"
-            : null;
-    if (!key) return;
-    const old = urls.current[key];
-    if (old) URL.revokeObjectURL(old.url);
-    urls.current[key] = {
-      url: URL.createObjectURL(image.blob),
-      at: image.at,
-      session: image.session,
-    };
-    setReferences({ ...urls.current });
-  }, [screenshot.image, snapshot.frame_sequence]);
-  useEffect(
-    () => () => {
-      for (const ref of Object.values(urls.current))
-        URL.revokeObjectURL(ref.url);
-    },
-    [],
-  );
   return (
     <>
       {screens.map(
@@ -579,20 +687,9 @@ export default function Deployment({
                   snapshot.session?.state === "running" ||
                   snapshot.session?.state === "paused"
                 }
-                reference={
-                  references[key]?.session === snapshot.session?.id
-                    ? references[key]
-                    : undefined
-                }
               />
             </div>
           ),
-      )}
-      {!snapshot.default_layouts[screen] && <Empty>No calibrated layout</Empty>}
-      {screenshot.error && (
-        <p role="status" className="error">
-          {screenshot.error}
-        </p>
       )}
     </>
   );

@@ -620,8 +620,15 @@ test("one farming page starts the saved wall option and keeps earnings separate"
     page.getByRole("heading", { name: "Loot", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Wall spending", exact: true }),
+    page.getByRole("region", { name: "Wall spending", exact: true }),
   ).toBeVisible();
+  const walls = page.getByRole("region", {
+    name: "Wall spending",
+    exact: true,
+  });
+  await expect(walls.getByText("Upgraded", { exact: true })).toBeVisible();
+  await expect(walls.getByText("Gold spent", { exact: true })).toBeVisible();
+  await expect(walls.getByText("Elixir spent", { exact: true })).toBeVisible();
   await open();
   await expect(
     page.getByLabel("Upgrade walls", { exact: true }),
@@ -644,215 +651,6 @@ test("one farming page starts the saved wall option and keeps earnings separate"
   await expect.poll(sessionMode).toBe("farming");
 });
 
-test("deployment points support keyboard, bounds, save and reset without replacing farming settings", async ({
-  page,
-}) => {
-  await mock(page, { screen: "home_scout" });
-  await page.goto("/");
-  await page.getByRole("button", { name: "Deployment", exact: true }).click();
-  await expect(
-    page.getByRole("img", { name: "Deployment reference screenshot" }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Coordinates", exact: true }).click();
-  const point = page.getByRole("button", {
-    name: "Troops & heroes 1, X 100, Y 300",
-    exact: true,
-  });
-  await point.focus();
-  await page.keyboard.press("Shift+ArrowRight");
-  await expect(page.getByLabel("X", { exact: true })).toHaveValue("110");
-  await page.getByLabel("X", { exact: true }).fill("9000");
-  await expect(page.getByLabel("X", { exact: true })).toHaveValue("1279");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.getByRole("status")).toHaveText("Saved");
-  await page.getByRole("button", { name: "Farming", exact: true }).click();
-  await page
-    .getByRole("button", { name: "Farming settings", exact: true })
-    .click();
-  await page.getByLabel("Attack limit", { exact: true }).fill("8");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.getByRole("status")).toHaveText("Saved");
-  await page
-    .getByRole("button", { name: "Back to farming", exact: true })
-    .click();
-  await page.getByRole("button", { name: "Deployment", exact: true }).click();
-  await page.getByRole("button", { name: "Coordinates", exact: true }).click();
-  await expect(page.getByLabel("X", { exact: true })).toHaveValue("1279");
-  await page
-    .getByRole("button", { name: "Restore defaults", exact: true })
-    .click();
-  await expect(page.getByLabel("X", { exact: true })).toHaveValue("100");
-  await page.getByRole("button", { name: "Coordinates", exact: true }).click();
-  await page.getByRole("button", { name: "Builder", exact: true }).click();
-  await page.getByRole("button", { name: "Stage 2", exact: true }).click();
-  await page.getByRole("button", { name: "Camps", exact: true }).click();
-  await page.getByRole("button", { name: "Coordinates", exact: true }).click();
-  await expect(page.getByLabel("X", { exact: true })).toHaveValue("300");
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
-  await page.setViewportSize({ width: 390, height: 844 });
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth,
-    ),
-  ).toBe(true);
-});
-
-test("deployment supports direct placement, dragging, deletion, undo and village drafts", async ({
-  page,
-}) => {
-  await mock(page, { screen: "home_scout" });
-  await page.goto("/");
-  await page.getByRole("button", { name: "Deployment", exact: true }).click();
-  await expect(
-    page.getByRole("img", { name: "Deployment reference screenshot" }),
-  ).toBeVisible();
-  await expect(page.getByLabel("X", { exact: true })).toHaveCount(0);
-  await page
-    .getByRole("combobox", { name: "Strategy", exact: true })
-    .selectOption("spread");
-  const canvas = page.locator(".deployment-surface:visible");
-  const points = canvas.locator(".deployment-point");
-  const initial = await points.count();
-  await canvas.click({ position: { x: 200, y: 200 } });
-  await expect(points).toHaveCount(initial + 1);
-  const added = points.last();
-  const box = await added.boundingBox();
-  await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(box!.x + 50, box!.y + 40, { steps: 3 });
-  await page.mouse.up();
-  const moved = await added.getAttribute("aria-label");
-  await added.focus();
-  await page.keyboard.press("Delete");
-  await expect(points).toHaveCount(initial);
-  await page.getByRole("button", { name: "Undo", exact: true }).click();
-  await expect(points.last()).toHaveAttribute("aria-label", moved!);
-  await page.getByRole("button", { name: "Builder", exact: true }).click();
-  await page.getByRole("button", { name: "Home", exact: true }).click();
-  await expect(points).toHaveCount(initial + 1);
-  await expect(page.getByRole("status")).toHaveText("Unsaved");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.getByRole("status")).toHaveText("Saved");
-  await expect(
-    page.getByRole("combobox", { name: "Strategy", exact: true }),
-  ).toHaveValue("spread");
-  await page.screenshot({
-    path: "../.tools/deployment-editor.png",
-    fullPage: true,
-  });
-});
-
-test("deployment keeps a stopped reference, clears new sessions and locks active input", async ({
-  page,
-}) => {
-  await mock(page, { screen: "home_scout", running: true });
-  await page.goto("/");
-  await page.getByRole("button", { name: "Deployment", exact: true }).click();
-  const reference = page.getByRole("img", {
-    name: "Deployment reference screenshot",
-  });
-  await expect(reference).toBeVisible();
-  await expect(
-    page.getByRole("combobox", { name: "Strategy", exact: true }),
-  ).toBeDisabled();
-  await page.getByRole("button", { name: "Stop session", exact: true }).click();
-  await expect(
-    page.getByRole("combobox", { name: "Strategy", exact: true }),
-  ).toBeEnabled();
-  await page.evaluate(() => {
-    const s = (
-      window as unknown as {
-        fixtureSnapshot: {
-          detection: { screens: string };
-          revision: number;
-          frame_sequence: number;
-        };
-      }
-    ).fixtureSnapshot;
-    s.detection.screens = "home";
-    s.frame_sequence++;
-    s.revision++;
-  });
-  await expect(reference).toBeVisible();
-  await expect(page.getByText(/^Captured /)).toBeVisible();
-  await page.evaluate(() => {
-    const s = (
-      window as unknown as {
-        fixtureSnapshot: {
-          session: { id: number };
-          revision: number;
-          frame_sequence: number;
-        };
-      }
-    ).fixtureSnapshot;
-    s.session.id++;
-    s.frame_sequence++;
-    s.revision++;
-  });
-  await expect(reference).toHaveCount(0);
-  await expect(
-    page.locator(".deployment-surface:visible .deployment-point"),
-  ).toHaveCount(0);
-});
-
-test("saving another Builder stage cannot overwrite an unacknowledged strategy", async ({
-  page,
-}) => {
-  await mock(page, { holdSettings: true });
-  await page.goto("/");
-  await page.getByRole("button", { name: "Deployment", exact: true }).click();
-  await page.getByRole("button", { name: "Builder", exact: true }).click();
-  await page
-    .getByRole("combobox", { name: "Strategy", exact: true })
-    .selectOption("single");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.getByRole("status")).toHaveText("Saved");
-  await page.evaluate(() => {
-    const w = window as unknown as {
-      acknowledgeSettings: () => void;
-      firstSave: () => void;
-    };
-    w.firstSave = w.acknowledgeSettings;
-  });
-  await page.getByRole("button", { name: "Stage 2", exact: true }).click();
-  await page.getByRole("button", { name: "Coordinates", exact: true }).click();
-  await page.getByLabel("X", { exact: true }).fill("333");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
-  await page.evaluate(() => {
-    const w = window as unknown as {
-      acknowledgeSettings: () => void;
-      firstSave: () => void;
-    };
-    w.firstSave();
-    w.acknowledgeSettings();
-  });
-  await expect(
-    page.getByRole("combobox", { name: "Strategy", exact: true }),
-  ).toHaveValue("single");
-  await expect
-    .poll(() =>
-      page.evaluate(() => {
-        const s = (
-          window as unknown as {
-            fixtureSnapshot: {
-              settings: {
-                farming: {
-                  builder_stack: boolean;
-                  layouts: Record<string, { points: number[][] }>;
-                };
-              };
-            };
-          }
-        ).fixtureSnapshot;
-        return {
-          stack: s.settings.farming.builder_stack,
-          x: s.settings.farming.layouts.builder_stage2.points[0][0],
-        };
-      }),
-    )
-    .toEqual({ stack: true, x: 333 });
-});
-
 test("Stop remains available while Pause is waiting for the worker", async ({
   page,
 }) => {
@@ -865,38 +663,6 @@ test("Stop remains available while Pause is waiting for the worker", async ({
   ).toBeDisabled();
   await page.getByRole("button", { name: "Stop", exact: true }).click();
   await expect(page.getByText("Stopped", { exact: true })).toBeVisible();
-});
-
-test("deployment never relabels an older frame after a scout screen changes", async ({
-  page,
-}) => {
-  await mock(page, { holdNextFrame: true, screen: "home_scout" });
-  await page.goto("/");
-  await page.getByRole("button", { name: "Deployment", exact: true }).click();
-  const reference = page.getByRole("img", {
-    name: "Deployment reference screenshot",
-  });
-  await expect(reference).toBeVisible();
-  await page.evaluate(() => {
-    const snapshot = (
-      window as unknown as {
-        fixtureSnapshot: {
-          detection: { screens: string };
-          revision: number;
-          frame_sequence: number;
-        };
-      }
-    ).fixtureSnapshot;
-    snapshot.detection.screens = "builder_stage2";
-    snapshot.frame_sequence = 2;
-    snapshot.revision++;
-  });
-  await page.getByRole("button", { name: "Builder", exact: true }).click();
-  await page.getByRole("button", { name: "Stage 2", exact: true }).click();
-  await expect(reference).toHaveCount(0);
-  await expect(
-    page.getByText("No scout screenshot yet").filter({ visible: true }),
-  ).toBeVisible();
 });
 
 test("emulator search uses the entered folder and selection requires Save", async ({

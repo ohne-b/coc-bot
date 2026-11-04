@@ -282,10 +282,6 @@ function Overview({
               <dt>Attacks</dt>
               <dd>{number(stats?.attacks)}</dd>
             </div>
-            <div>
-              <dt>Wall upgrades</dt>
-              <dd>{number(stats?.wall_upgrades)}</dd>
-            </div>
           </dl>
           <section className="session-loot">
             <div className="section-heading">
@@ -294,7 +290,9 @@ function Overview({
                 Only confirmed result readings count as earned loot. Rates use
                 active time, including searching and recovery, excluding pauses.
                 Wall spending is separate. Unreadable results remain
-                unavailable.
+                unavailable. A ≥ prefix means the displayed result loot is known
+                but part of the bonus could not be verified; the amount and rate
+                are lower bounds.
               </Help>
             </div>
             <dl className="summary-row">
@@ -308,8 +306,14 @@ function Overview({
                 <div key={key}>
                   <dt>{key === "dark" ? "Dark Elixir" : title(key)}</dt>
                   <dd>
+                    {stats?.[key as "gold" | "elixir" | "dark"].is_lower_bound
+                      ? "≥ "
+                      : ""}
                     {number(stats?.[key as "gold" | "elixir" | "dark"].amount)}
                     <span className="stat-rate">
+                      {stats?.[key as "gold" | "elixir" | "dark"].is_lower_bound
+                        ? "≥ "
+                        : ""}
                       {number(
                         stats?.[key as "gold" | "elixir" | "dark"].per_hour,
                       )}
@@ -324,9 +328,13 @@ function Overview({
             (stats?.wall_upgrades ?? 0) > 0) && (
             <section className="session-loot" aria-label="Wall spending">
               <div className="section-heading">
-                <h2>Wall spending</h2>
+                <h2>Walls</h2>
               </div>
               <dl className="summary-row">
+                <div>
+                  <dt>Upgraded</dt>
+                  <dd>{number(stats?.wall_upgrades)}</dd>
+                </div>
                 <div>
                   <dt>Gold spent</dt>
                   <dd>{number(stats?.wall_gold)}</dd>

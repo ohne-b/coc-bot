@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Replace coordinate-only deployment editing with ordered, army-bound actions, split
+  quantities, separate hero/siege positions and timed spells on a fixed planning map.
+- Verify custom placements against terrain and army state, with bounded camera movement
+  and no automatic replay of unconfirmed inputs.
+- Include the separately displayed league bonus in attack earnings and keep readable
+  loot when a bonus is unavailable. Group wall upgrades and spending together.
 - Add TDM-style desktop update controls, cancellable verified downloads and guarded
   installer handoff, with release signature/version checks.
 - Retire Python, the old web dashboard and relay; keep English calibration in `assets/`

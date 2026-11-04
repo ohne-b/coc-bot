@@ -7,6 +7,7 @@ export interface Settings {
 export type Point = [number, number];
 export type DeployScreen = "home_scout" | "builder_scout" | "builder_stage2";
 export interface Layout {
+  recipe?: { steps: DeploymentAction[] } | null;
   bar: [number, number, number, number];
   deploy: Point | null;
   hold: number;
@@ -15,6 +16,18 @@ export interface Layout {
   ring: Point[];
   spell_spread: Point[];
   quake: Point[];
+}
+export interface DeploymentAction {
+  supports_ability?: boolean;
+  portrait: number[];
+  label: string;
+  slot: number;
+  kind: "troop" | "hero" | "siege" | "spell";
+  point: Point;
+  count: number;
+  delay_ms: number;
+  interval_ms: number;
+  ability: boolean;
 }
 export interface FarmingOptions {
   villages: Village[];
@@ -69,6 +82,14 @@ export interface Session {
   active_ms: number;
 }
 export interface Snapshot {
+  army?: {
+    kind: DeploymentAction["kind"];
+    slot: number;
+    center: Point;
+    count: number | null;
+    portrait: number[];
+    supports_ability?: boolean;
+  }[];
   revision: number;
   settings: Settings;
   session: Session | null;
@@ -104,6 +125,7 @@ export interface Installation {
   }[];
 }
 export interface ResourceTotal {
+  is_lower_bound?: boolean;
   amount: number | null;
   measured_attacks: number;
   average_per_attack: number | null;

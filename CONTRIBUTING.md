@@ -115,11 +115,18 @@ Offline attack regressions cover Home and both Builder stages. Wall replays cove
 villages from list scanning through confirmation, reserve refusal and rejection of unchanged
 post-confirmation balances. Their HUD positions reuse captured pixels; successful spending
 accounting uses an explicitly simulated prior balance, not a captured live upgrade.
-Live gameplay parity remains unverified.
+Full live gameplay parity remains unverified. A custom Home sequence has been exercised on
+LDPlayer; custom Builder execution still needs live validation. Custom plans bind ordered
+actions to captured army portraits, split quantities across normalized border positions,
+and explicitly schedule spells and abilities. Camera registration requires three agreeing
+terrain landmarks from a supported scenery profile. Unknown scenery, missing units or an
+unconfirmed drop/ability stop the plan without replay. Saved automatic layouts remain
+available; choosing a custom plan replaces their automatic spell and ability behavior.
 Captured English result layouts require two independent guards and exactly one match. Absent currencies remain
 unavailable; a separately displayed bonus is added only with explicit inclusion semantics.
-The captured Home victory has unverified bonus inclusion, so its aggregate earnings remain
-unavailable. Home silver stars and uncaptured recovery screens are also unavailable rather
+The captured Home victory adds the separately displayed league bonus to stolen loot.
+If a bonus cannot be read, the displayed loot remains a labeled lower bound.
+Home silver stars and uncaptured recovery screens are unavailable rather
 than inferred. Native numeric regressions consume `crates/core/tests/fixtures/english-readings.json`, including
 the HUD balance whose leading digits the Python baseline drops. The Rust reader preserves
 that captured value without lowering confidence thresholds. Rust tests also verify fixture
