@@ -476,6 +476,126 @@ async fn cancellation_during_multitouch_still_releases_fingers() {
 }
 
 #[tokio::test]
+async fn checked_gestures_resolve_fresh_frames_and_reject_stale_or_cancelled_resolvers() {
+    let (_folder, config, fake) = setup();
+    let mut adb = Adb::new(config, InputMode::Live, fake.clone()).unwrap();
+    let token = CancellationToken::new();
+    let gesture = || Gesture::TimedTaps {
+        points: vec![Point(10, 20), Point(30, 40)],
+        spacing: Duration::from_millis(100),
+    };
+    let value = adb
+        .gesture_checked(
+            detector(),
+            &[Screen::Home],
+            |image| {
+                assert_eq!(image.cols(), 1280);
+                assert_eq!(image.rows(), 720);
+                Ok((gesture(), 7))
+            },
+            &token,
+        )
+        .await
+        .unwrap();
+    assert_eq!(value, 7);
+    fake.0.lock().unwrap().calls.clear();
+    assert!(matches!(
+        adb.gesture_checked(
+            detector(),
+            &[Screen::Builder],
+            |_| { panic!("A mismatched frame must not reach the resolver") },
+            &token
+        )
+        .await,
+        Err::<(), _>(Error::InputGuard)
+    ));
+    assert!(matches!(
+        adb.gesture_checked(
+            detector(),
+            &[Screen::Home],
+            |_| {
+                std::thread::sleep(Duration::from_millis(2100));
+                Ok((gesture(), ()))
+            },
+            &token
+        )
+        .await,
+        Err(Error::InputGuard)
+    ));
+    assert!(matches!(
+        adb.gesture_checked(
+            detector(),
+            &[Screen::Home],
+            |_| {
+                token.cancel();
+                Ok((gesture(), ()))
+            },
+            &token
+        )
+        .await,
+        Err(Error::Cancelled)
+    ));
+    assert!(
+        fake.0
+            .lock()
+            .unwrap()
+            .calls
+            .iter()
+            .all(|call| !call.args.iter().any(|arg| arg == "/dev/input/event4"))
+    );
+}
+
+#[tokio::test]
+async fn checked_tap_bursts_release_after_uncertain_transport_or_cancellation() {
+    for cancelled in [false, true] {
+        let (_folder, config, fake) = setup();
+        let mut adb = Adb::new(config, InputMode::Live, fake.clone()).unwrap();
+        {
+            let mut state = fake.0.lock().unwrap();
+            state.fail_touch = !cancelled;
+            state.cancel_touch = cancelled;
+        }
+        let token = CancellationToken::new();
+        let result = adb
+            .gesture_checked(
+                detector(),
+                &[Screen::Home],
+                |_| {
+                    Ok((
+                        Gesture::TimedTaps {
+                            points: vec![Point(400, 300); 5],
+                            spacing: Duration::from_millis(100),
+                        },
+                        (),
+                    ))
+                },
+                &token,
+            )
+            .await;
+        if cancelled {
+            assert!(matches!(result, Err(Error::Cancelled)));
+        } else {
+            assert!(matches!(result, Err(Error::Timeout)));
+        }
+        let state = fake.0.lock().unwrap();
+        let commands: Vec<_> = state
+            .calls
+            .iter()
+            .filter(|call| call.args.iter().any(|arg| arg == "/dev/input/event4"))
+            .collect();
+        assert_eq!(commands.len(), 2);
+        assert_eq!(commands[0].input.len(), 10);
+        assert_eq!(commands[1].timeout, Duration::from_secs(2));
+        assert_eq!(commands[1].input.len(), 1);
+        let release = BASE64_STANDARD
+            .decode(commands[1].input[0].bytes.trim_ascii())
+            .unwrap();
+        assert_eq!(release.len(), 4 * 24);
+        assert_eq!(&release[24 + 20..2 * 24], &(-1_i32).to_le_bytes());
+    }
+}
+
+#[tokio::test]
 async fn stale_and_ambiguous_frames_cannot_authorize_input() {
     let (_folder, config, fake) = setup();
     let mut adb = Adb::new(config, InputMode::Live, fake.clone()).unwrap();
