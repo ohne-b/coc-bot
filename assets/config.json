@@ -2141,6 +2141,26 @@
       ]
     },
     "daily_reward": {
+      "alt_anchors": [
+        [
+          {
+            "roi": [495, 94, 255, 40],
+            "file": "calibration/english/daily-reward-title.png"
+          },
+          {
+            "roi": [1052, 79, 51, 50],
+            "file": "calibration/english/daily-reward-close-pending.png"
+          }
+        ]
+      ],
+      "targets": {
+        "claim": {
+          "file": "calibration/english/daily-reward-claim.png",
+          "max_score": 0.03,
+          "scales": [1.0],
+          "region": [180, 270, 860, 275]
+        }
+      },
       "anchors": [
         {
           "roi": [
