@@ -781,11 +781,12 @@ async fn pause_freezes_active_time_and_keeps_settings_locked() {
     assert!(app.save_settings(settings).await.is_err());
     tokio::time::sleep(Duration::from_millis(650)).await;
     assert_eq!(app.snapshot().session.unwrap().active_ms, paused.active_ms);
+    let resumed_at = std::time::Instant::now();
     app.pause(false).await.unwrap();
     tokio::time::sleep(Duration::from_millis(30)).await;
     app.stop().await.unwrap();
     let ended = app.snapshot().session.unwrap();
     assert!(ended.active_ms >= paused.active_ms + 20);
-    assert!(ended.active_ms < paused.active_ms + 500);
+    assert!(ended.active_ms - paused.active_ms <= resumed_at.elapsed().as_millis() as i64);
     app.shutdown().await.unwrap();
 }
