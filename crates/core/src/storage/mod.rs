@@ -136,21 +136,34 @@ impl Store {
         require_active(&transaction, id)?;
         let village = key(observation.village)?;
         let resource = key(observation.resource)?;
-        let previous: Option<(i64, String)> = transaction.query_row(
-            "SELECT checked_at_ms, latest FROM resources WHERE session_id = ?1 AND village = ?2 AND resource = ?3",
-            params![id, village, resource], |r| Ok((r.get(0)?, r.get(1)?)),
+        let previous: Option<(i64, String, Option<String>)> = transaction.query_row(
+            "SELECT checked_at_ms, latest, last_known FROM resources WHERE session_id = ?1 AND village = ?2 AND resource = ?3",
+            params![id, village, resource], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
         ).optional()?;
         let latest = serde_json::to_string(&observation)?;
-        if let Some((at, prior)) = previous
-            && (at > observation.checked_at_ms
-                || (at == observation.checked_at_ms && prior != latest))
+        if let Some((at, prior, _)) = &previous
+            && (*at > observation.checked_at_ms
+                || (*at == observation.checked_at_ms && *prior != latest))
         {
             return Err(invalid(
                 "Resource observation is stale or conflicts with an existing reading",
             ));
         }
         let known = match observation.reading {
-            Reading::Known(balance) => Some(serde_json::to_string(&balance)?),
+            Reading::Known(mut balance) => {
+                // Closing the tooltip hides capacity, but does not change the storage maximum.
+                if balance.capacity.is_none() {
+                    let prior = previous
+                        .as_ref()
+                        .and_then(|(_, _, known)| known.as_deref())
+                        .map(serde_json::from_str::<Balance>)
+                        .transpose()?;
+                    balance.capacity = prior
+                        .and_then(|v| v.capacity)
+                        .filter(|maximum| *maximum >= balance.amount);
+                }
+                Some(serde_json::to_string(&balance)?)
+            }
             _ => None,
         };
         transaction.execute(

@@ -70,7 +70,7 @@ impl Transport for Fake {
             .join(" ");
         assert!(
             !args.contains("input ")
-                && !args.contains("exec-in")
+                && !args.contains("toybox base64 -d")
                 && !args.contains("launch")
                 && !args.contains("force-stop"),
             "Observation must never send input: {args}"
@@ -535,7 +535,7 @@ async fn a_connected_device_with_broken_capture_is_restarted_and_recovery_is_bou
         assert!(
             calls
                 .iter()
-                .all(|args| !args.contains("input ") && !args.contains("exec-in"))
+                .all(|args| !args.contains("input ") && !args.contains("toybox base64 -d"))
         );
         app.shutdown().await.unwrap();
     }

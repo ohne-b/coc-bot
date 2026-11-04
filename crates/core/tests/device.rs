@@ -1,3 +1,4 @@
+use base64::{Engine as _, prelude::BASE64_STANDARD};
 use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
@@ -67,11 +68,11 @@ impl Transport for Fake {
             }
             return Ok(state.frame.clone());
         }
-        if args.contains("exec-in dd") && state.fail_touch {
+        if args.contains("toybox base64 -d") && state.fail_touch {
             state.fail_touch = false;
             return Err(Error::Timeout);
         }
-        if args.contains("exec-in dd") && state.cancel_touch {
+        if args.contains("toybox base64 -d") && state.cancel_touch {
             state.cancel_touch = false;
             cancel.cancel();
             return Err(Error::Cancelled);
@@ -367,22 +368,83 @@ async fn failed_multitouch_releases_every_finger_with_a_separate_deadline() {
     let commands: Vec<_> = state
         .calls
         .iter()
-        .filter(|call| call.args.iter().any(|arg| arg == "dd"))
+        .filter(|call| call.args.iter().any(|arg| arg == "/dev/input/event4"))
         .collect();
     assert_eq!(commands.len(), 2);
     for command in &commands {
-        assert!(command.args.iter().any(|arg| arg == "ibs=24"));
-        assert!(command.args.iter().any(|arg| arg == "obs=24"));
-        assert!(!command.args.iter().any(|arg| arg == "bs=24"));
+        assert!(command.args.iter().any(|arg| arg == "-T"));
+        assert!(!command.args.iter().any(|arg| arg == "exec-in"));
+        let replay = command.args[6].to_string_lossy();
+        assert!(replay.contains("set -o pipefail || exit"));
+        assert!(replay.contains("toybox dd ibs=4096 obs=24"));
+        for frame in &command.input {
+            assert!(frame.bytes.is_ascii());
+            assert_eq!(frame.bytes.last(), Some(&b'\n'));
+            assert_eq!(
+                BASE64_STANDARD
+                    .decode(frame.bytes.trim_ascii())
+                    .unwrap()
+                    .len()
+                    % 24,
+                0
+            );
+        }
     }
     assert_eq!(commands[1].timeout, Duration::from_secs(2));
-    assert_eq!(commands[1].input[0].bytes.len(), 6 * 24);
+    assert_eq!(
+        BASE64_STANDARD
+            .decode(commands[1].input[0].bytes.trim_ascii())
+            .unwrap()
+            .len(),
+        6 * 24
+    );
     assert!(
         commands[1]
             .args
             .iter()
-            .any(|arg| arg == "of=/dev/input/event4")
+            .any(|arg| arg == "/dev/input/event4")
     );
+}
+
+#[tokio::test]
+async fn touch_frames_preserve_windows_control_bytes_and_press_timing() {
+    let (_folder, config, fake) = setup();
+    let mut adb = Adb::new(config, InputMode::Live, fake.clone()).unwrap();
+    adb.gesture(
+        detector(),
+        &[Screen::Home],
+        Gesture::Taps(vec![Point(10, 26), Point(13, 126)]),
+        &CancellationToken::new(),
+    )
+    .await
+    .unwrap();
+    let state = fake.0.lock().unwrap();
+    let command = state
+        .calls
+        .iter()
+        .find(|call| call.args.iter().any(|arg| arg == "/dev/input/event4"))
+        .unwrap();
+    assert_eq!(command.input.len(), 4);
+    for (index, frame) in command.input.iter().enumerate() {
+        assert_eq!(frame.wait, Duration::from_millis(30));
+        let line = String::from_utf8(frame.bytes.clone())
+            .unwrap()
+            .replace('\n', "\r\n");
+        let decoded = BASE64_STANDARD.decode(line.trim()).unwrap();
+        if index % 2 == 0 {
+            assert_eq!(decoded.len(), 7 * 24);
+            let point = if index == 0 {
+                Point(10, 26)
+            } else {
+                Point(13, 126)
+            };
+            assert_eq!(&decoded[2 * 24 + 20..3 * 24], &point.0.to_le_bytes());
+            assert_eq!(&decoded[3 * 24 + 20..4 * 24], &point.1.to_le_bytes());
+        } else {
+            assert_eq!(decoded.len(), 4 * 24);
+            assert_eq!(&decoded[24 + 20..2 * 24], &(-1_i32).to_le_bytes());
+        }
+    }
 }
 
 #[tokio::test]
@@ -407,7 +469,7 @@ async fn cancellation_during_multitouch_still_releases_fingers() {
         state
             .calls
             .iter()
-            .filter(|call| call.args.iter().any(|arg| arg == "dd"))
+            .filter(|call| call.args.iter().any(|arg| arg == "/dev/input/event4"))
             .count(),
         2
     );

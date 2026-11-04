@@ -11,6 +11,12 @@ test("observation controls, help and history use native commands", async ({
     page.getByRole("img", { name: "Latest emulator screenshot" }),
   ).toBeVisible();
   await expect(page.getByText("26,000,000", { exact: true })).toBeVisible();
+  await expect(page.locator(".resource-gold .capacity-label")).toHaveText(
+    "/ 26m",
+  );
+  await expect(
+    page.getByRole("progressbar", { name: "Gold storage" }),
+  ).toHaveAttribute("max", "26000000");
   await page.getByRole("button", { name: "Observe", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "Stop", exact: true }),

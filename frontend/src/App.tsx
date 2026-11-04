@@ -15,7 +15,15 @@ import {
 } from "@mdi/js";
 import logo from "../../.github/assets/clash-shield.svg?no-inline";
 import { Empty, Help, IconButton } from "./ui";
-import { dateTime, duration, fresh, number, time, title } from "./format";
+import {
+  capacity,
+  dateTime,
+  duration,
+  fresh,
+  number,
+  time,
+  title,
+} from "./format";
 import { useScreenshot, useSnapshot } from "./useSnapshot";
 import Settings from "./Settings";
 import History from "./History";
@@ -203,8 +211,11 @@ function Overview({
                   </div>
                   <div className="resource-amount">
                     <strong>{number(known?.amount)}</strong>
-                    <span className="capacity-label">
-                      / {number(known?.capacity)}
+                    <span
+                      className="capacity-label"
+                      title={`Last recognized capacity: ${number(known?.capacity)}`}
+                    >
+                      / {capacity(known?.capacity)}
                     </span>
                   </div>
                   {known?.capacity ? (

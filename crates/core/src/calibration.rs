@@ -28,6 +28,7 @@ pub enum Screen {
     BuilderStarBonus,
     RewardChest,
     RewardCard,
+    DailyReward,
     LayoutBlocked,
     League,
     Welcome,

@@ -178,7 +178,7 @@ pub fn cards(image: &Mat, bar: Region, camps: bool, digits: &Digits) -> Result<V
     let mut group = 0;
     let mut previous = None;
     for (left, right) in spans {
-        if previous.is_some_and(|last| left - last > 17) {
+        if previous.is_some_and(|last| left - last > 20) {
             group += 1;
         }
         previous = Some(right);

@@ -1,5 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
+use base64::{Engine as _, prelude::BASE64_STANDARD};
 use tokio_util::sync::CancellationToken;
 
 use super::{
@@ -244,23 +245,37 @@ impl<T: Transport> Adb<T> {
             ));
         }
         self.guard(detector, expected, cancel).await?;
-        let invocation = |input, timeout| Invocation {
-            program: self.config.adb.clone(),
-            args: [
-                "-s",
-                &self.config.serial,
-                "exec-in",
-                "dd",
-                &format!("of={}", touch.node),
-                // Separate sizes buffer short pipe reads into complete input_event records.
-                "ibs=24",
-                "obs=24",
-            ]
-            .map(Into::into)
-            .to_vec(),
-            input,
-            output_limit: 4096,
-            timeout,
+        let replay = concat!(
+            "'set -o pipefail || exit; while IFS= read -r frame; do printf %s \"$frame\" | ",
+            "toybox base64 -d | toybox dd ibs=4096 obs=24 of=\"$1\" status=none || exit; done'"
+        );
+        let invocation = |input: Vec<WriteFrame>, timeout| {
+            Invocation {
+                program: self.config.adb.clone(),
+                args: [
+                    "-s",
+                    &self.config.serial,
+                    "shell",
+                    "-T",
+                    "sh",
+                    "-c",
+                    replay,
+                    "touch",
+                    &touch.node,
+                ]
+                .map(Into::into)
+                .to_vec(),
+                // Windows adb shell translates binary stdin; send each complete frame as ASCII.
+                input: input
+                    .into_iter()
+                    .map(|frame| WriteFrame {
+                        bytes: format!("{}\n", BASE64_STANDARD.encode(frame.bytes)).into_bytes(),
+                        wait: frame.wait,
+                    })
+                    .collect(),
+                output_limit: 4096,
+                timeout,
+            }
         };
         let result = self
             .transport

@@ -73,6 +73,10 @@ enum Stage {
         waited: bool,
     },
     Battle,
+    Result {
+        screen: Screen,
+        previous: Option<super::results::BattleResult>,
+    },
     Surrender,
     Return,
     Walls,
@@ -202,6 +206,7 @@ impl Engine {
             Stage::Plan { .. } => "Reading army",
             Stage::Deploy { .. } => "Deploying",
             Stage::Battle => "In battle",
+            Stage::Result { .. } => "Reading result",
             Stage::Surrender => "Ending battle",
             Stage::Return => "Returning to village",
             Stage::Walls => self
@@ -453,6 +458,9 @@ impl Engine {
             if let Stage::Next { stable, .. } = &mut self.stage {
                 *stable = None;
             }
+            if let Stage::Result { previous, .. } = &mut self.stage {
+                *previous = None;
+            }
             return Ok(outcome);
         };
         self.unknown_since = None;
@@ -467,7 +475,7 @@ impl Engine {
             ));
         }
         let popup = match screen {
-            Screen::League => Some("close"),
+            Screen::League | Screen::DailyReward => Some("close"),
             Screen::Welcome
             | Screen::LayoutBlocked
             | Screen::StarBonus
@@ -553,17 +561,18 @@ impl Engine {
                 Screen::HomeResult | Screen::BuilderResult | Screen::Home | Screen::Builder
             )
         {
-            self.finish_attack(screen, now, at, &mut outcome);
-            if let Some(attack) = &mut outcome.attack {
-                let result = super::results::read(
-                    &profile.screen(screen)?.result_readings,
-                    image,
-                    digits,
-                    self.village(),
-                )?;
-                attack.loot = result.loot;
-                attack.damage = result.damage;
-                attack.stars = result.stars;
+            if matches!(screen, Screen::HomeResult | Screen::BuilderResult) {
+                self.go(
+                    Stage::Result {
+                        screen,
+                        previous: None,
+                    },
+                    now,
+                );
+                // Result counters and stars animate after the return button appears.
+                self.delay(now, 3000);
+            } else {
+                self.finish_attack(screen, now, at, &mut outcome);
             }
             return Ok(outcome);
         }
@@ -732,12 +741,25 @@ impl Engine {
             Stage::Cart(step) => {
                 if screen == Screen::Builder && matches!(step, CartPhase::Find) {
                     if let Some(target) = profile.screen(screen)?.targets.get("cart") {
-                        if target.locate(image)?.is_some() {
-                            if self
-                                .action(vision, adb, screen, "cart", now, cancel)
-                                .await?
+                        if let Some(point) = target.locate(image)? {
+                            if self.last_action == 0 || now.saturating_sub(self.last_action) >= 2000
                             {
+                                adb.tap_checked(
+                                    detector,
+                                    &[screen],
+                                    |fresh| {
+                                        Ok((
+                                            target
+                                                .locate_near(fresh, point)?
+                                                .ok_or(Error::Unreadable)?,
+                                            (),
+                                        ))
+                                    },
+                                    cancel,
+                                )
+                                .await?;
                                 self.go(Stage::Cart(CartPhase::Claim), now);
+                                self.delay(now, 500);
                             }
                         } else if let Some([start, end]) =
                             target.pan.filter(|_| self.pans < target.pan_attempts)
@@ -844,19 +866,24 @@ impl Engine {
                     outcome.completed = true;
                     return Ok(outcome);
                 }
-                let resources = if self.mode == SessionMode::Walls {
+                let targets = if self.mode == SessionMode::Walls {
                     vec![Resource::Gold, Resource::Elixir]
                 } else {
                     self.options.targets.clone()
                 };
-                let resources: Vec<_> = resources
+                let targets: Vec<_> = targets
                     .into_iter()
                     .filter(|r| self.village() == Village::Home || *r != Resource::Dark)
                     .collect();
-                if (self.options.until_full || self.mode == SessionMode::Walls)
-                    && index < resources.len()
-                {
+                let resources = if self.village() == Village::Home {
+                    &[Resource::Gold, Resource::Elixir, Resource::Dark][..]
+                } else {
+                    &[Resource::Gold, Resource::Elixir][..]
+                };
+                if index < resources.len() {
                     let resource = resources[index];
+                    let required = (self.options.until_full || self.mode == SessionMode::Walls)
+                        && targets.contains(&resource);
                     let key = resource_name(resource);
                     let spec = profile
                         .capacity
@@ -865,26 +892,41 @@ impl Engine {
                         .ok_or_else(|| {
                             Error::Calibration(format!("Missing {key} capacity calibration"))
                         })?;
-                    let amount =
-                        u32::try_from(digits.trailing(&crop(image, spec.bar)?, 0.65, 110)?)
-                            .map_err(|_| Error::Unreadable)?;
+                    let amount = digits
+                        .trailing(&crop(image, spec.bar)?, 0.65, 110)
+                        .ok()
+                        .and_then(|value| u32::try_from(value).ok());
+                    let Some(amount) = amount else {
+                        if required {
+                            return Err(Error::Unreadable);
+                        }
+                        if opened && spec.label.locate(image)?.is_some() {
+                            adb.tap(detector, &[screen], spec.tap, cancel).await?;
+                            self.delay(now, 1000);
+                        }
+                        self.stage = Stage::Check {
+                            index: index + 1,
+                            opened: false,
+                        };
+                        self.since = now;
+                        return Ok(outcome);
+                    };
                     let cache_key = (self.name().to_owned(), key.to_owned());
                     if self.capacities.get(&cache_key).is_some_and(|v| amount > *v) {
                         self.capacities.remove(&cache_key);
                     }
-                    let maximum = if let Some(maximum) = self.capacities.get(&cache_key) {
-                        Some(*maximum)
-                    } else if spec.label.locate(image)?.is_some() {
-                        let value =
-                            u32::try_from(digits.number(&crop(image, spec.maximum)?, 0.65)?)
-                                .map_err(|_| Error::Unreadable)?;
-                        if value == 0 || value < amount {
-                            return Err(Error::Unreadable);
+                    let maximum = if spec.label.locate(image)?.is_some() {
+                        let value = digits
+                            .number(&crop(image, spec.maximum)?, 0.65)
+                            .ok()
+                            .and_then(|value| u32::try_from(value).ok())
+                            .filter(|value| *value > 0 && *value >= amount);
+                        if let Some(value) = value {
+                            self.capacities.insert(cache_key, value);
                         }
-                        self.capacities.insert(cache_key, value);
-                        Some(value)
+                        value
                     } else {
-                        None
+                        self.capacities.get(&cache_key).copied()
                     };
                     if let Some(maximum) = maximum {
                         self.values.insert(key.into(), amount);
@@ -914,17 +956,29 @@ impl Engine {
                         };
                         self.since = now;
                         self.delay(now, 500);
-                    } else if now.saturating_sub(self.since) > 15_000 {
-                        return Err(Error::Unreadable);
+                    } else if now.saturating_sub(self.since) > if required { 15_000 } else { 3000 }
+                    {
+                        if required {
+                            return Err(Error::Unreadable);
+                        }
+                        if spec.label.locate(image)?.is_some() {
+                            adb.tap(detector, &[screen], spec.tap, cancel).await?;
+                            self.delay(now, 1000);
+                        }
+                        self.stage = Stage::Check {
+                            index: index + 1,
+                            opened: false,
+                        };
+                        self.since = now;
                     }
                 } else {
                     let cart_goal = self.mode == SessionMode::Farming
                         && self.options.until_full
                         && self.village() == Village::Builder
                         && self.options.cart_goal;
-                    let full = (!resources.is_empty() || cart_goal)
+                    let full = (!targets.is_empty() || cart_goal)
                         && (!cart_goal || self.cart_full)
-                        && resources.iter().all(|r| {
+                        && targets.iter().all(|r| {
                             let key = resource_name(*r);
                             self.values
                                 .get(key)
@@ -1374,6 +1428,41 @@ impl Engine {
                     }
                 }
             }
+            Stage::Result {
+                screen: expected,
+                previous,
+            } => {
+                if screen == expected {
+                    let reading = super::results::read(
+                        &profile.screen(screen)?.result_readings,
+                        image,
+                        digits,
+                        self.village(),
+                    )?;
+                    let stable = previous.as_ref() == Some(&reading);
+                    if stable || now.saturating_sub(self.since) >= 10_000 {
+                        let reading = if stable {
+                            reading
+                        } else {
+                            super::results::BattleResult::default()
+                        };
+                        self.finish_attack(screen, now, at, &mut outcome);
+                        if let Some(attack) = &mut outcome.attack {
+                            attack.loot = reading.loot;
+                            attack.damage = reading.damage;
+                            attack.stars = reading.stars;
+                        }
+                    } else {
+                        self.stage = Stage::Result {
+                            screen,
+                            previous: Some(reading),
+                        };
+                        self.delay(now, 500);
+                    }
+                } else if matches!(screen, Screen::Home | Screen::Builder) {
+                    self.finish_attack(screen, now, at, &mut outcome);
+                }
+            }
             Stage::Surrender => {
                 if screen == Screen::SurrenderConfirm {
                     self.action(vision, adb, screen, "confirm", now, cancel)
@@ -1502,6 +1591,498 @@ mod tests {
     use std::{path::Path, sync::Arc};
 
     #[tokio::test]
+    async fn daily_reward_closes_only_with_both_captured_anchors() {
+        let profile = Profile::load(&root()).unwrap();
+        let digits = Digits::load(&root(), Path::new("calibration/digits")).unwrap();
+        let calibration = Calibration::load(&root().join("config.json")).unwrap();
+        let detector = Arc::new(Detector::load(&calibration, &root()).unwrap());
+        let vision = GameVision {
+            profile: &profile,
+            digits: &digits,
+            detector: detector.clone(),
+        };
+        let (_, original) = Fake::new("english-daily_reward.png");
+        let temp = tempfile::tempdir().unwrap();
+        for missing in [None, Some(0), Some(1)] {
+            let mut image = original.clone();
+            if let Some(index) = missing {
+                let crate::calibration::Region(x, y, w, h) =
+                    calibration.screens[&Screen::DailyReward].anchors[index]
+                        .region()
+                        .unwrap();
+                Mat::roi_mut(
+                    &mut image,
+                    core::Rect::new(x as i32, y as i32, w as i32, h as i32),
+                )
+                .unwrap()
+                .set_to(&core::Scalar::all(0.0), &core::no_array())
+                .unwrap();
+            }
+            let fake = Fake::from_image(&image);
+            let mut adb = fake.adb(temp.path());
+            let mut engine =
+                Engine::new(Options::default(), SessionMode::Farming, &profile).unwrap();
+            let detection = detector.detect(&image).unwrap();
+            assert_eq!(
+                detection,
+                if missing.is_none() {
+                    Detection::Known(Screen::DailyReward)
+                } else {
+                    Detection::Unknown
+                }
+            );
+            engine
+                .tick(
+                    &vision,
+                    &mut adb,
+                    &FrameView {
+                        image: &image,
+                        detection: &detection,
+                        elapsed_ms: 3000,
+                        captured_at_ms: 3000,
+                    },
+                    &CancellationToken::new(),
+                )
+                .await
+                .unwrap();
+            let taps = fake.taps.lock().unwrap();
+            if missing.is_none() {
+                assert_eq!(*taps, vec!["-s emulator-5554 shell input tap 1077 104"]);
+            } else {
+                assert!(taps.is_empty());
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn result_animation_settles_before_recording_or_returning() {
+        let profile = Profile::load(&root()).unwrap();
+        let digits = Digits::load(&root(), Path::new("calibration/digits")).unwrap();
+        let detector = Arc::new(
+            Detector::load(
+                &Calibration::load(&root().join("config.json")).unwrap(),
+                &root(),
+            )
+            .unwrap(),
+        );
+        let vision = GameVision {
+            profile: &profile,
+            digits: &digits,
+            detector,
+        };
+        let (fake, zero) = Fake::new("english-numeric-builder-zero.png");
+        let (_, two) = Fake::new("english-numeric-builder-two-stars.png");
+        let temp = tempfile::tempdir().unwrap();
+        let mut adb = fake.adb(temp.path());
+        for changing in [false, true] {
+            let mut engine = Engine::new(
+                Options {
+                    villages: vec![Village::Builder],
+                    ..Options::default()
+                },
+                SessionMode::Farming,
+                &profile,
+            )
+            .unwrap();
+            engine.stage = Stage::Battle;
+            engine.pending_attack = true;
+            let frames = if changing {
+                (0..=20)
+                    .map(|i| (1000 + i * 500, if i % 2 == 0 { &zero } else { &two }, true))
+                    .collect::<Vec<_>>()
+            } else {
+                vec![
+                    (1000, &zero, true),
+                    (2000, &zero, true),
+                    (3999, &zero, true),
+                    (4000, &zero, true),
+                    (4500, &two, true),
+                    (5000, &two, false),
+                    (5500, &two, true),
+                    (6000, &two, true),
+                ]
+            };
+            let last = frames.last().unwrap().0;
+            for (now, image, known) in frames {
+                let detection = if known {
+                    Detection::Known(Screen::BuilderResult)
+                } else {
+                    Detection::Unknown
+                };
+                let outcome = engine
+                    .tick(
+                        &vision,
+                        &mut adb,
+                        &FrameView {
+                            image,
+                            detection: &detection,
+                            elapsed_ms: now,
+                            captured_at_ms: now as i64,
+                        },
+                        &CancellationToken::new(),
+                    )
+                    .await
+                    .unwrap();
+                assert!(fake.taps.lock().unwrap().is_empty());
+                if now < last {
+                    assert!(outcome.attack.is_none());
+                } else {
+                    let attack = outcome.attack.unwrap();
+                    assert_eq!(attack.loot.gold, if changing { None } else { Some(75000) });
+                    assert_eq!(attack.damage, if changing { None } else { Some(72) });
+                    assert_eq!(attack.stars, if changing { None } else { Some(2) });
+                    assert!(matches!(engine.stage, Stage::Return));
+                    assert_eq!(engine.attacks, 1);
+                }
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn normal_farming_reads_all_storage_tooltips_without_requiring_stop_targets() {
+        let profile = Profile::load(&root()).unwrap();
+        let digits = Digits::load(&root(), Path::new("calibration/digits")).unwrap();
+        let detector = Arc::new(
+            Detector::load(
+                &Calibration::load(&root().join("config.json")).unwrap(),
+                &root(),
+            )
+            .unwrap(),
+        );
+        let vision = GameVision {
+            profile: &profile,
+            digits: &digits,
+            detector: detector.clone(),
+        };
+        for (village, key, index, expected) in [
+            (Village::Home, "gold", 0, 26_000_000),
+            (Village::Home, "elixir", 1, 26_000_000),
+            (Village::Home, "dark", 2, 430_000),
+            (Village::Builder, "gold", 0, 5_500_000),
+            (Village::Builder, "elixir", 1, 5_500_000),
+        ] {
+            let name = if village == Village::Home {
+                "home"
+            } else {
+                "builder"
+            };
+            let screen = if village == Village::Home {
+                Screen::Home
+            } else {
+                Screen::Builder
+            };
+            let (fake, image) = Fake::new(&format!("english-numeric-{name}-{key}-tooltip.png"));
+            assert_eq!(detector.detect(&image).unwrap(), Detection::Known(screen));
+            let temp = tempfile::tempdir().unwrap();
+            let mut adb = fake.adb(temp.path());
+            let mut engine = Engine::new(
+                Options {
+                    villages: vec![village],
+                    targets: vec![],
+                    until_full: false,
+                    ..Options::default()
+                },
+                SessionMode::Farming,
+                &profile,
+            )
+            .unwrap();
+            engine.stage = Stage::Check {
+                index,
+                opened: true,
+            };
+            engine
+                .capacities
+                .insert((name.into(), key.into()), expected + 1);
+            let outcome = engine
+                .tick(
+                    &vision,
+                    &mut adb,
+                    &FrameView {
+                        image: &image,
+                        detection: &Detection::Known(screen),
+                        elapsed_ms: 3000,
+                        captured_at_ms: 3000,
+                    },
+                    &CancellationToken::new(),
+                )
+                .await
+                .unwrap();
+            let Reading::Known(balance) = outcome.resources[0].reading else {
+                panic!("capacity unavailable")
+            };
+            assert_eq!(balance.capacity, Some(expected), "{name} {key}");
+            assert!(!outcome.completed);
+            assert_eq!(fake.taps.lock().unwrap().len(), 1);
+            assert!(
+                matches!(engine.stage, Stage::Check { index: next, opened: false } if next == index + 1)
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn unreadable_optional_balance_closes_its_tooltip_before_the_next_target() {
+        let profile = Profile::load(&root()).unwrap();
+        let digits = Digits::load(&root(), Path::new("calibration/digits")).unwrap();
+        let detector = Arc::new(
+            Detector::load(
+                &Calibration::load(&root().join("config.json")).unwrap(),
+                &root(),
+            )
+            .unwrap(),
+        );
+        let vision = GameVision {
+            profile: &profile,
+            digits: &digits,
+            detector: detector.clone(),
+        };
+        let (_, mut image) = Fake::new("english-numeric-home-gold-tooltip.png");
+        let crate::calibration::Region(x, y, w, h) = profile.capacity["home"]["gold"].bar;
+        opencv::imgproc::rectangle(
+            &mut image,
+            core::Rect::new(x as i32, y as i32, w as i32, h as i32),
+            core::Scalar::all(0.0),
+            -1,
+            opencv::imgproc::LINE_8,
+            0,
+        )
+        .unwrap();
+        assert_eq!(
+            detector.detect(&image).unwrap(),
+            Detection::Known(Screen::Home)
+        );
+        let fake = Fake::from_image(&image);
+        let temp = tempfile::tempdir().unwrap();
+        let mut adb = fake.adb(temp.path());
+        let mut engine = Engine::new(
+            Options {
+                until_full: true,
+                targets: vec![Resource::Elixir],
+                ..Options::default()
+            },
+            SessionMode::Farming,
+            &profile,
+        )
+        .unwrap();
+        engine.stage = Stage::Check {
+            index: 0,
+            opened: true,
+        };
+        let frame = FrameView {
+            image: &image,
+            detection: &Detection::Known(Screen::Home),
+            elapsed_ms: 1000,
+            captured_at_ms: 1000,
+        };
+        let outcome = engine
+            .tick(&vision, &mut adb, &frame, &CancellationToken::new())
+            .await
+            .unwrap();
+        assert!(outcome.resources.is_empty());
+        assert_eq!(
+            *fake.taps.lock().unwrap(),
+            vec!["-s emulator-5554 shell input tap 1120 38"]
+        );
+        assert!(matches!(
+            engine.stage,
+            Stage::Check {
+                index: 1,
+                opened: false
+            }
+        ));
+        engine
+            .tick(
+                &vision,
+                &mut adb,
+                &FrameView {
+                    elapsed_ms: 1500,
+                    ..frame
+                },
+                &CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(fake.taps.lock().unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn missing_optional_capacity_is_bounded_but_required_capacity_fails_closed() {
+        let profile = Profile::load(&root()).unwrap();
+        let digits = Digits::load(&root(), Path::new("calibration/digits")).unwrap();
+        let detector = Arc::new(
+            Detector::load(
+                &Calibration::load(&root().join("config.json")).unwrap(),
+                &root(),
+            )
+            .unwrap(),
+        );
+        let vision = GameVision {
+            profile: &profile,
+            digits: &digits,
+            detector,
+        };
+        for required in [false, true] {
+            let (fake, image) = Fake::new("english-home.png");
+            let temp = tempfile::tempdir().unwrap();
+            let mut adb = fake.adb(temp.path());
+            let mut engine = Engine::new(
+                Options {
+                    until_full: required,
+                    ..Options::default()
+                },
+                SessionMode::Farming,
+                &profile,
+            )
+            .unwrap();
+            engine.stage = Stage::Check {
+                index: 0,
+                opened: false,
+            };
+            let frame = FrameView {
+                image: &image,
+                detection: &Detection::Known(Screen::Home),
+                elapsed_ms: 1000,
+                captured_at_ms: 1000,
+            };
+            engine
+                .tick(&vision, &mut adb, &frame, &CancellationToken::new())
+                .await
+                .unwrap();
+            assert_eq!(
+                *fake.taps.lock().unwrap(),
+                vec!["-s emulator-5554 shell input tap 1120 38"]
+            );
+            let result = engine
+                .tick(
+                    &vision,
+                    &mut adb,
+                    &FrameView {
+                        elapsed_ms: 17000,
+                        ..frame
+                    },
+                    &CancellationToken::new(),
+                )
+                .await;
+            if required {
+                assert!(matches!(result, Err(Error::Unreadable)));
+            } else {
+                assert!(result.unwrap().resources.is_empty());
+                assert!(matches!(
+                    engine.stage,
+                    Stage::Check {
+                        index: 1,
+                        opened: false
+                    }
+                ));
+            }
+            assert_eq!(fake.taps.lock().unwrap().len(), 1);
+        }
+    }
+
+    #[tokio::test]
+    async fn visible_elixir_cart_is_opened_without_panning() {
+        let profile = Profile::load(&root()).unwrap();
+        let digits = Digits::load(&root(), Path::new("calibration/digits")).unwrap();
+        let detector = Arc::new(
+            Detector::load(
+                &Calibration::load(&root().join("config.json")).unwrap(),
+                &root(),
+            )
+            .unwrap(),
+        );
+        let vision = GameVision {
+            profile: &profile,
+            digits: &digits,
+            detector: detector.clone(),
+        };
+        let (fake, image) = Fake::new("english-builder-visible-cart.png");
+        assert_eq!(
+            detector.detect(&image).unwrap(),
+            Detection::Known(Screen::Builder)
+        );
+        let target = &profile.screens[&Screen::Builder].targets["cart"];
+        let point = target.locate(&image).unwrap().unwrap();
+        assert!((795..=836).contains(&point.0) && (340..=370).contains(&point.1));
+        let temp = tempfile::tempdir().unwrap();
+        let mut adb = fake.adb(temp.path());
+        let mut engine = Engine::new(
+            Options {
+                villages: vec![Village::Builder],
+                ..Options::default()
+            },
+            SessionMode::Farming,
+            &profile,
+        )
+        .unwrap();
+        engine.stage = Stage::Cart(CartPhase::Find);
+        engine
+            .tick(
+                &vision,
+                &mut adb,
+                &FrameView {
+                    image: &image,
+                    detection: &Detection::Known(Screen::Builder),
+                    elapsed_ms: 3000,
+                    captured_at_ms: 3000,
+                },
+                &CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            *fake.taps.lock().unwrap(),
+            vec![format!(
+                "-s emulator-5554 shell input tap {} {}",
+                point.0, point.1
+            )]
+        );
+        assert_eq!(engine.pans, 0);
+        assert!(matches!(engine.stage, Stage::Cart(CartPhase::Claim)));
+
+        // The elixir bubble alone must not identify a cart or another collector.
+        let mut no_cart = image.try_clone().unwrap();
+        opencv::imgproc::rectangle(
+            &mut no_cart,
+            core::Rect::new(789, 337, 52, 38),
+            core::Scalar::all(0.0),
+            -1,
+            opencv::imgproc::LINE_8,
+            0,
+        )
+        .unwrap();
+        assert!(target.locate(&no_cart).unwrap().is_none());
+        for moved in [false, true] {
+            let mut fresh = no_cart.try_clone().unwrap();
+            if moved {
+                Mat::roi(&image, core::Rect::new(789, 304, 52, 71))
+                    .unwrap()
+                    .copy_to(
+                        &mut Mat::roi_mut(&mut fresh, core::Rect::new(400, 300, 52, 71)).unwrap(),
+                    )
+                    .unwrap();
+                assert!(target.locate(&fresh).unwrap().is_some());
+            }
+            let fake = Fake::from_image(&fresh);
+            let mut adb = fake.adb(temp.path());
+            engine.stage = Stage::Cart(CartPhase::Find);
+            let result = engine
+                .tick(
+                    &vision,
+                    &mut adb,
+                    &FrameView {
+                        image: &image,
+                        detection: &Detection::Known(Screen::Builder),
+                        elapsed_ms: 6000,
+                        captured_at_ms: 6000,
+                    },
+                    &CancellationToken::new(),
+                )
+                .await;
+            assert!(matches!(result, Err(Error::Unreadable)));
+            assert!(fake.taps.lock().unwrap().is_empty());
+        }
+    }
+
+    #[tokio::test]
     async fn cart_goal_requires_stable_readings_and_stops_after_missing_visits() {
         let mut profile = Profile::load(&root()).unwrap();
         let digits = Digits::load(&root(), Path::new("calibration/digits")).unwrap();
@@ -1557,7 +2138,7 @@ mod tests {
             captured_at_ms: 1_700_000_000_000,
         };
         engine.stage = Stage::Check {
-            index: 0,
+            index: 2,
             opened: false,
         };
         assert!(
@@ -1568,7 +2149,7 @@ mod tests {
                 .completed
         );
         engine.stage = Stage::Check {
-            index: 0,
+            index: 2,
             opened: false,
         };
         engine.cart_full = true;

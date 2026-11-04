@@ -13,6 +13,10 @@ export const time = (value: number | null) =>
         second: "2-digit",
         hour12: false,
       }).format(value);
+export const capacity = (value: number | null | undefined) =>
+  value != null && value >= 1_000_000
+    ? `${new Intl.NumberFormat("en", { maximumFractionDigits: 6 }).format(value / 1_000_000)}m`
+    : number(value);
 export const dateTime = (value: number) =>
   new Intl.DateTimeFormat("en-GB", {
     day: "2-digit",
