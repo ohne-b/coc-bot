@@ -388,6 +388,7 @@ impl Engine {
                     village: self.village(),
                     completed_at_ms: at,
                     loot: Loot::default(),
+                    displayed_loot: Loot::default(),
                     damage: self.previous_damage,
                     stars: self.previous_stars,
                 });
@@ -1485,6 +1486,7 @@ impl Engine {
                         self.finish_attack(screen, now, at, &mut outcome);
                         if let Some(attack) = &mut outcome.attack {
                             attack.loot = reading.loot;
+                            attack.displayed_loot = reading.displayed_loot;
                             attack.damage = reading.damage;
                             attack.stars = reading.stars;
                         }

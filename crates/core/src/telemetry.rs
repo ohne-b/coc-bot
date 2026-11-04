@@ -86,6 +86,8 @@ pub struct Attack {
     pub village: Village,
     pub completed_at_ms: i64,
     pub loot: Loot,
+    #[serde(default)]
+    pub displayed_loot: Loot,
     pub damage: Option<u8>,
     pub stars: Option<u8>,
 }
@@ -108,7 +110,8 @@ impl Attack {
                     3
                 }
             })
-            || (self.village == Village::Builder && self.loot.dark.is_some())
+            || (self.village == Village::Builder
+                && (self.loot.dark.is_some() || self.displayed_loot.dark.is_some()))
         {
             return Err(invalid("Invalid battle result"));
         }
@@ -190,6 +193,7 @@ pub struct Activity {
 
 #[derive(Clone, Debug, Serialize, PartialEq)]
 pub struct ResourceTotal {
+    pub is_lower_bound: bool,
     pub amount: Option<i64>,
     pub measured_attacks: u32,
     pub average_per_attack: Option<f64>,

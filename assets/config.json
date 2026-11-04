@@ -877,6 +877,7 @@
         },
         {
           "name": "home_three_resources",
+          "bonus_included": false,
           "damage_color": "green",
           "guards": [
             {

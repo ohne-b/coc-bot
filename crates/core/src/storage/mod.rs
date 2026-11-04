@@ -335,22 +335,40 @@ impl Store {
         let session = session(&transaction, id)?;
         let village_key = key(village)?;
         let mut result = transaction.query_row(
-            "SELECT COUNT(*), SUM(gold), COUNT(gold), SUM(elixir), COUNT(elixir), SUM(dark), COUNT(dark)
-             FROM attacks WHERE session_id = ?1 AND village = ?2", params![id, village_key],
+            "SELECT COUNT(*), SUM(g), COUNT(g), SUM(e), COUNT(e), SUM(d), COUNT(d),
+             COUNT(CASE WHEN gold IS NULL AND g IS NOT NULL THEN 1 END),
+             COUNT(CASE WHEN elixir IS NULL AND e IS NOT NULL THEN 1 END),
+             COUNT(CASE WHEN dark IS NULL AND d IS NOT NULL THEN 1 END)
+             FROM (SELECT *, COALESCE(gold, json_extract(data, '$.displayed_loot.gold')) AS g,
+              COALESCE(elixir, json_extract(data, '$.displayed_loot.elixir')) AS e,
+              COALESCE(dark, json_extract(data, '$.displayed_loot.dark')) AS d
+              FROM attacks WHERE session_id = ?1 AND village = ?2)",
+            params![id, village_key],
             |row| {
                 let attacks: u32 = row.get(0)?;
                 let total = |column| -> rusqlite::Result<ResourceTotal> {
                     let amount = row.get(column)?;
                     let measured_attacks: u32 = row.get(column + 1)?;
                     Ok(ResourceTotal {
-                        amount, measured_attacks,
-                        average_per_attack: amount.filter(|_| measured_attacks > 0).map(|v| v as f64 / f64::from(measured_attacks)),
+                        is_lower_bound: row.get::<_, u32>(7 + (column - 1) / 2)? > 0,
+                        amount,
+                        measured_attacks,
+                        average_per_attack: amount
+                            .filter(|_| measured_attacks > 0)
+                            .map(|v| v as f64 / f64::from(measured_attacks)),
                         per_hour: rate(amount, session.active_ms),
                     })
                 };
                 Ok(Statistics {
-                    village, attacks, attacks_per_hour: rate(Some(i64::from(attacks)), session.active_ms),
-                    gold: total(1)?, elixir: total(3)?, dark: total(5)?, wall_upgrades: 0, wall_gold: 0, wall_elixir: 0,
+                    village,
+                    attacks,
+                    attacks_per_hour: rate(Some(i64::from(attacks)), session.active_ms),
+                    gold: total(1)?,
+                    elixir: total(3)?,
+                    dark: total(5)?,
+                    wall_upgrades: 0,
+                    wall_gold: 0,
+                    wall_elixir: 0,
                 })
             },
         )?;

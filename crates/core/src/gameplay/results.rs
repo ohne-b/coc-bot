@@ -33,6 +33,7 @@ pub enum DamageColor {
 #[derive(Clone, Default, PartialEq, Eq)]
 pub struct BattleResult {
     pub loot: Loot,
+    pub displayed_loot: Loot,
     pub damage: Option<u8>,
     pub stars: Option<u8>,
 }
@@ -127,6 +128,11 @@ pub fn read(
         }
     };
     Ok(BattleResult {
+        displayed_loot: Loot {
+            gold: layout.loot.get("gold").and_then(number),
+            elixir: layout.loot.get("elixir").and_then(number),
+            dark: layout.loot.get("dark").and_then(number),
+        },
         loot: Loot {
             gold: earned("gold"),
             elixir: earned("elixir"),
