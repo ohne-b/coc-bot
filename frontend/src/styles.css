@@ -1172,6 +1172,12 @@ td {
 .action-fields .field {
   width: 100%;
 }
+.army-binding {
+  display: block;
+  min-height: 36px;
+  padding: 7px 0;
+  color: var(--text);
+}
 .field-hint {
   font-size: 11px;
   color: #aaa99c;

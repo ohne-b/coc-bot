@@ -548,14 +548,14 @@ function Editor({
                     onChange={(e) => patch({ label: e.target.value })}
                   />
                 </label>
-                <label className="field-label">
+                <div className="field-label">
                   Army card
-                  <span className="field">
+                  <span className="army-binding">
                     {active.portrait.length
                       ? `Slot ${active.slot}`
                       : "Choose a card above"}
                   </span>
-                </label>
+                </div>
                 {(active.kind === "hero" ||
                   (!home &&
                     active.kind === "troop" &&
