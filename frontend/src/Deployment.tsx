@@ -420,21 +420,6 @@ function Editor({
               aria-hidden="true"
               className="plan-terrain"
             >
-              <defs>
-                <pattern
-                  id={`grid-${screen}`}
-                  width="80"
-                  height="40"
-                  patternUnits="userSpaceOnUse"
-                >
-                  <path
-                    d="M0 20 40 0 80 20 40 40Z"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1"
-                  />
-                </pattern>
-              </defs>
               <path
                 className="plan-grass"
                 d="M640 28 1150 320 640 612 130 320Z"
@@ -443,17 +428,6 @@ function Editor({
                 className="plan-field"
                 d="M640 72 1070 320 640 568 210 320Z"
               />
-              <path
-                d="M640 72 1070 320 640 568 210 320Z"
-                fill={`url(#grid-${screen})`}
-                opacity=".12"
-              />
-              <text x="640" y="325" textAnchor="middle">
-                BASE
-              </text>
-              <text x="640" y="52" textAnchor="middle">
-                OUTER BORDER
-              </text>
             </svg>
             {steps.map(
               (s, i) =>
