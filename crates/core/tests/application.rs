@@ -661,6 +661,7 @@ async fn settings_patches_preserve_other_editors_and_failed_updates_are_atomic()
     app.update_settings(SettingsUpdate::Layout {
         screen: Screen::HomeScout,
         layout: Some(layout.clone()),
+        spread: None,
     })
     .await
     .unwrap();
@@ -674,6 +675,33 @@ async fn settings_patches_preserve_other_editors_and_failed_updates_are_atomic()
     assert_eq!(saved.device, settings.device);
     assert_eq!(saved.farming.layouts[&Screen::HomeScout], layout);
     assert_eq!(saved.farming.attacks, 7);
+    app.update_settings(SettingsUpdate::Layout {
+        screen: Screen::HomeScout,
+        layout: Some(layout.clone()),
+        spread: Some(true),
+    })
+    .await
+    .unwrap();
+    assert_eq!(
+        app.snapshot().settings.farming.strategy,
+        coc_bot_core::gameplay::Strategy::Ring
+    );
+    assert_eq!(app.snapshot().settings.farming.attacks, 7);
+    let builder = app.snapshot().default_layouts[&Screen::BuilderScout].clone();
+    app.update_settings(SettingsUpdate::Layout {
+        screen: Screen::BuilderScout,
+        layout: Some(builder),
+        spread: Some(false),
+    })
+    .await
+    .unwrap();
+    let saved = app.snapshot().settings;
+    assert!(saved.farming.builder_stack);
+    assert_eq!(
+        saved.farming.strategy,
+        coc_bot_core::gameplay::Strategy::Ring
+    );
+    assert_eq!(saved.device, settings.device);
     assert!(
         app.update_settings(SettingsUpdate::Farming(Options {
             villages: vec![],
