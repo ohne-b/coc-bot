@@ -197,6 +197,33 @@ fn explicit_actions_split_units_place_heroes_and_cast_only_requested_spells() {
         interval_ms: 300,
         ability: false,
     };
+    for (slot, kind) in [
+        (1, UnitKind::Troop),
+        (3, UnitKind::Siege),
+        (4, UnitKind::Hero),
+    ] {
+        for point in [
+            Point(0, 0),
+            Point(0, 1000),
+            Point(1000, 0),
+            Point(1000, 1000),
+        ] {
+            let recipe = Recipe {
+                steps: vec![action(slot, kind, 1, point)],
+            };
+            let plan = recipe.compile(&cards, &image, false).unwrap();
+            assert!(matches!(
+                plan.as_slice(),
+                [Deployment::PreciseDrop { point: target, count: 1, .. }] if *target == point
+            ));
+        }
+        for point in [Point(500, 500), Point(0, 1001), Point(1001, 0)] {
+            let recipe = Recipe {
+                steps: vec![action(slot, kind, 1, point)],
+            };
+            assert!(recipe.compile(&cards, &image, false).is_err());
+        }
+    }
     let mut recipe = Recipe {
         steps: vec![
             action(1, UnitKind::Troop, 5, Point(0, 400)),

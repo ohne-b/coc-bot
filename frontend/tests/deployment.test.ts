@@ -18,8 +18,15 @@ describe("battlefield placements", () => {
       [1000, 500],
       [500, 0],
       [500, 1000],
+      [0, 0],
+      [0, 1000],
+      [1000, 0],
+      [1000, 1000],
+      [0, 1],
+      [999, 1000],
     ] as Point[]) {
-      expect(placement(...mapPoint(p), "troop")).toEqual(p);
+      for (const kind of ["troop", "hero", "siege", "spell"] as const)
+        expect(placement(...mapPoint(p), kind)).toEqual(p);
     }
   });
   it("rejects unbound units, invalid timings and abilities before deployment", () => {

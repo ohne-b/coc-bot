@@ -31,8 +31,6 @@ export function placement(
         v = 1000;
         break;
     }
-    if (u === 0 || u === 1000) v = Math.max(120, Math.min(880, v));
-    else u = Math.max(120, Math.min(880, u));
   }
   return [u, v];
 }

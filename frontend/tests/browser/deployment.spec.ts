@@ -1,6 +1,36 @@
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { mock } from "./mock";
+import type { Snapshot } from "../../src/types";
+
+test("troop placements reach and save all four corners", async ({ page }) => {
+  await mock(page, { screen: "home_scout" });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Deployment", exact: true }).click();
+  await page.getByRole("button", { name: "Add first action" }).click();
+  await page
+    .getByRole("button", { name: "Use Troop 1 x15", exact: true })
+    .click();
+  const map = page.locator(".plan-map:visible");
+  const rect = (await map.boundingBox())!;
+  for (const [x, y, point] of [
+    [0.5, 0, [0, 0]],
+    [0, 0.5, [0, 1000]],
+    [0.5, 0.99, [1000, 1000]],
+    [0.99, 0.5, [1000, 0]],
+  ] as const) {
+    await map.click({ position: { x: rect.width * x, y: rect.height * y } });
+    await page.getByRole("button", { name: "Save plan" }).click();
+    await expect(page.getByRole("status")).toHaveText("Saved");
+    expect(
+      await page.evaluate(
+        () =>
+          (window as unknown as { fixtureSnapshot: Snapshot }).fixtureSnapshot
+            .settings.farming.layouts.home_scout?.recipe?.steps[0].point,
+      ),
+    ).toEqual(point);
+  }
+});
 
 test("custom actions split a troop, bind different units, save only their layout and remain accessible", async ({
   page,

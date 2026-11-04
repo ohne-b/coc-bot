@@ -348,11 +348,6 @@ impl Recipe {
                     && ![step.point.0, step.point.1]
                         .iter()
                         .any(|p| *p == 0 || *p == 1000))
-                || (!step.ability
-                    && step.kind != UnitKind::Spell
-                    && ![step.point.0, step.point.1]
-                        .iter()
-                        .any(|p| (120..=880).contains(p)))
                 || (step.ability && !matches!(step.kind, UnitKind::Hero | UnitKind::Troop))
             {
                 return Err(Error::Calibration(
