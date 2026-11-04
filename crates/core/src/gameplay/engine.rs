@@ -131,6 +131,7 @@ pub struct Engine {
     broke_attacks: u8,
     cart_full: bool,
     cart_misses: u8,
+    daily_actions: u8,
 }
 impl Engine {
     pub fn new(options: Options, mode: SessionMode, profile: &Profile) -> Result<Self> {
@@ -181,6 +182,7 @@ impl Engine {
             broke_attacks: 0,
             cart_full: false,
             cart_misses: 0,
+            daily_actions: 0,
         })
     }
     pub fn village(&self) -> Village {
@@ -464,18 +466,49 @@ impl Engine {
             return Ok(outcome);
         };
         self.unknown_since = None;
-        if matches!(screen, Screen::UpdateOffer | Screen::BuildersBusy)
-            && self
-                .wall
-                .as_ref()
-                .is_some_and(WallRun::verification_pending)
+        if matches!(
+            screen,
+            Screen::UpdateOffer | Screen::BuildersBusy | Screen::DailyReward
+        ) && self
+            .wall
+            .as_ref()
+            .is_some_and(WallRun::verification_pending)
         {
             return Err(Error::Gameplay(
                 "Wall spending is unverified; stopped before changing operations".into(),
             ));
         }
+        if screen == Screen::DailyReward {
+            if self.daily_actions >= 3 {
+                return Err(Error::Gameplay(
+                    "Daily Reward did not clear after three actions".into(),
+                ));
+            }
+            let action = if profile
+                .screen(screen)?
+                .targets
+                .get("claim")
+                .map(|target| target.locate(image))
+                .transpose()?
+                .flatten()
+                .is_some()
+            {
+                "claim"
+            } else {
+                "close"
+            };
+            if self
+                .action(vision, adb, screen, action, now, cancel)
+                .await?
+            {
+                self.daily_actions += 1;
+                self.delay(now, 1500);
+            }
+            return Ok(outcome);
+        }
+        self.daily_actions = 0;
         let popup = match screen {
-            Screen::League | Screen::DailyReward => Some("close"),
+            Screen::League => Some("close"),
             Screen::Welcome
             | Screen::LayoutBlocked
             | Screen::StarBonus
@@ -1591,6 +1624,103 @@ mod tests {
     use std::{path::Path, sync::Arc};
 
     #[tokio::test]
+    async fn daily_reward_claims_before_closing_and_bounds_stuck_dialogs() {
+        let profile = Profile::load(&root()).unwrap();
+        let digits = Digits::load(&root(), Path::new("calibration/digits")).unwrap();
+        let detector = Arc::new(
+            Detector::load(
+                &Calibration::load(&root().join("config.json")).unwrap(),
+                &root(),
+            )
+            .unwrap(),
+        );
+        let vision = GameVision {
+            profile: &profile,
+            digits: &digits,
+            detector: detector.clone(),
+        };
+        let temp = tempfile::tempdir().unwrap();
+        let (claim, image) = Fake::new("english-daily_reward_claim.png");
+        assert_eq!(
+            detector.detect(&image).unwrap(),
+            Detection::Known(Screen::DailyReward)
+        );
+        let mut adb = claim.adb(temp.path());
+        let mut engine = Engine::new(Options::default(), SessionMode::Farming, &profile).unwrap();
+        let frame = FrameView {
+            image: &image,
+            detection: &Detection::Known(Screen::DailyReward),
+            elapsed_ms: 3000,
+            captured_at_ms: 3000,
+        };
+        engine
+            .tick(&vision, &mut adb, &frame, &CancellationToken::new())
+            .await
+            .unwrap();
+        assert_eq!(
+            *claim.taps.lock().unwrap(),
+            vec!["-s emulator-5554 shell input tap 661 304"]
+        );
+        let (closed, after) = Fake::new("english-daily_reward.png");
+        let mut adb = closed.adb(temp.path());
+        engine
+            .tick(
+                &vision,
+                &mut adb,
+                &FrameView {
+                    image: &after,
+                    elapsed_ms: 5000,
+                    ..frame
+                },
+                &CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            *closed.taps.lock().unwrap(),
+            vec!["-s emulator-5554 shell input tap 1077 104"]
+        );
+        engine
+            .tick(
+                &vision,
+                &mut adb,
+                &FrameView {
+                    image: &after,
+                    elapsed_ms: 7000,
+                    ..frame
+                },
+                &CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        let result = engine
+            .tick(
+                &vision,
+                &mut adb,
+                &FrameView {
+                    image: &after,
+                    elapsed_ms: 9000,
+                    ..frame
+                },
+                &CancellationToken::new(),
+            )
+            .await;
+        assert!(
+            matches!(result, Err(Error::Gameplay(message)) if message.contains("three actions"))
+        );
+        assert_eq!(closed.taps.lock().unwrap().len(), 2);
+
+        let mut changed = Engine::new(Options::default(), SessionMode::Farming, &profile).unwrap();
+        let fresh = Fake::from_image(&after);
+        let mut adb = fresh.adb(temp.path());
+        let result = changed
+            .tick(&vision, &mut adb, &frame, &CancellationToken::new())
+            .await;
+        assert!(matches!(result, Err(Error::Unreadable)));
+        assert!(fresh.taps.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
     async fn daily_reward_closes_only_with_both_captured_anchors() {
         let profile = Profile::load(&root()).unwrap();
         let digits = Digits::load(&root(), Path::new("calibration/digits")).unwrap();
@@ -1601,55 +1731,63 @@ mod tests {
             digits: &digits,
             detector: detector.clone(),
         };
-        let (_, original) = Fake::new("english-daily_reward.png");
         let temp = tempfile::tempdir().unwrap();
-        for missing in [None, Some(0), Some(1)] {
-            let mut image = original.clone();
-            if let Some(index) = missing {
-                let crate::calibration::Region(x, y, w, h) =
-                    calibration.screens[&Screen::DailyReward].anchors[index]
-                        .region()
-                        .unwrap();
-                Mat::roi_mut(
-                    &mut image,
-                    core::Rect::new(x as i32, y as i32, w as i32, h as i32),
-                )
-                .unwrap()
-                .set_to(&core::Scalar::all(0.0), &core::no_array())
-                .unwrap();
-            }
-            let fake = Fake::from_image(&image);
-            let mut adb = fake.adb(temp.path());
-            let mut engine =
-                Engine::new(Options::default(), SessionMode::Farming, &profile).unwrap();
-            let detection = detector.detect(&image).unwrap();
-            assert_eq!(
-                detection,
-                if missing.is_none() {
-                    Detection::Known(Screen::DailyReward)
-                } else {
-                    Detection::Unknown
+        for (fixture, point) in [
+            ("english-daily_reward.png", "1077 104"),
+            ("english-daily_reward_claim.png", "661 304"),
+        ] {
+            let (_, original) = Fake::new(fixture);
+            for missing in [None, Some(0), Some(1)] {
+                let mut image = original.clone();
+                if let Some(index) = missing {
+                    let crate::calibration::Region(x, y, w, h) =
+                        calibration.screens[&Screen::DailyReward].anchors[index]
+                            .region()
+                            .unwrap();
+                    Mat::roi_mut(
+                        &mut image,
+                        core::Rect::new(x as i32, y as i32, w as i32, h as i32),
+                    )
+                    .unwrap()
+                    .set_to(&core::Scalar::all(0.0), &core::no_array())
+                    .unwrap();
                 }
-            );
-            engine
-                .tick(
-                    &vision,
-                    &mut adb,
-                    &FrameView {
-                        image: &image,
-                        detection: &detection,
-                        elapsed_ms: 3000,
-                        captured_at_ms: 3000,
-                    },
-                    &CancellationToken::new(),
-                )
-                .await
-                .unwrap();
-            let taps = fake.taps.lock().unwrap();
-            if missing.is_none() {
-                assert_eq!(*taps, vec!["-s emulator-5554 shell input tap 1077 104"]);
-            } else {
-                assert!(taps.is_empty());
+                let fake = Fake::from_image(&image);
+                let mut adb = fake.adb(temp.path());
+                let mut engine =
+                    Engine::new(Options::default(), SessionMode::Farming, &profile).unwrap();
+                let detection = detector.detect(&image).unwrap();
+                assert_eq!(
+                    detection,
+                    if missing.is_none() {
+                        Detection::Known(Screen::DailyReward)
+                    } else {
+                        Detection::Unknown
+                    }
+                );
+                engine
+                    .tick(
+                        &vision,
+                        &mut adb,
+                        &FrameView {
+                            image: &image,
+                            detection: &detection,
+                            elapsed_ms: 3000,
+                            captured_at_ms: 3000,
+                        },
+                        &CancellationToken::new(),
+                    )
+                    .await
+                    .unwrap();
+                let taps = fake.taps.lock().unwrap();
+                if missing.is_none() {
+                    assert_eq!(
+                        *taps,
+                        vec![format!("-s emulator-5554 shell input tap {point}")]
+                    );
+                } else {
+                    assert!(taps.is_empty());
+                }
             }
         }
     }
@@ -2293,7 +2431,11 @@ mod tests {
         let mut engine = Engine::new(Options::default(), SessionMode::Walls, &profile).unwrap();
         engine.stage = Stage::Walls;
         engine.wall = Some(WallRun::pending_for_test());
-        for screen in [Screen::UpdateOffer, Screen::BuildersBusy] {
+        for screen in [
+            Screen::UpdateOffer,
+            Screen::BuildersBusy,
+            Screen::DailyReward,
+        ] {
             let frame = FrameView {
                 image: &image,
                 detection: &Detection::Known(screen),

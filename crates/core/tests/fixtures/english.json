@@ -7,6 +7,10 @@
     "file": "english-builder.png",
     "state": "builder"
   },
+  "daily_reward_claim": {
+    "file": "english-daily_reward_claim.png",
+    "state": "daily_reward"
+  },
   "builder_visible_cart": {
     "file": "english-builder-visible-cart.png",
     "state": "builder"
