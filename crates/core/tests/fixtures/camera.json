@@ -12,6 +12,26 @@
   "dpi": 240,
   "fixtures": [
     {
+      "file": "camera-home-large-zoom-003.png",
+      "retained_regions": [[270,0,710,90],[0,90,1280,225],[0,315,660,30],[832,315,448,30],[0,345,1280,375]]
+    },
+    {
+      "file": "camera-home-large-zoom-004.png",
+      "retained_regions": [[270,0,710,90],[0,90,1280,245],[0,335,650,24],[750,335,530,24],[0,359,1280,361]]
+    },
+    {
+      "file": "camera-home-large-zoom-005.png",
+      "retained_regions": [[270,0,710,90],[0,90,1280,245],[0,335,650,24],[750,335,530,24],[0,359,1280,361]]
+    },
+    {
+      "file": "camera-home-large-zoom-006.png",
+      "retained_regions": [[270,0,710,90],[0,90,1280,245],[0,335,650,24],[750,335,530,24],[0,359,1280,361]]
+    },
+    {
+      "file": "camera-home-large-zoom-007.png",
+      "retained_regions": [[270,0,710,90],[0,90,1280,245],[0,335,650,24],[750,335,530,24],[0,359,1280,361]]
+    },
+    {
       "file": "camera-home-start.png",
       "retained_regions": [
         [

@@ -46,6 +46,37 @@ impl Motion {
 }
 
 fn register(before: &Mat, after: &Mat) -> Result<Motion> {
+    let detector = features2d::ORB::create(
+        8000,
+        1.2,
+        8,
+        31,
+        0,
+        2,
+        features2d::ORB_ScoreType::HARRIS_SCORE,
+        31,
+        5,
+    )?;
+    register_features(before, after, detector, core::NORM_HAMMING)
+}
+
+fn register_zoom(before: &Mat, after: &Mat) -> Result<Motion> {
+    match register(before, after) {
+        Err(Error::Gameplay(_)) => {
+            // A large pinch can exceed ORB's scale correspondence; retain the same fit guards.
+            let detector = features2d::SIFT::create(8000, 3, 0.04, 10., 1.6, false)?;
+            register_features(before, after, detector, core::NORM_L2)
+        }
+        result => result,
+    }
+}
+
+fn register_features(
+    before: &Mat,
+    after: &Mat,
+    mut detector: impl features2d::Feature2DTrait,
+    norm: i32,
+) -> Result<Motion> {
     if before.size()? != core::Size::new(1280, 720)
         || after.size()? != before.size()?
         || before.typ() != core::CV_8UC3
@@ -67,22 +98,11 @@ fn register(before: &Mat, after: &Mat) -> Result<Motion> {
     ] {
         Mat::roi_mut(&mut mask, r)?.set_to(&Scalar::all(0.), &core::no_array())?;
     }
-    let mut orb = features2d::ORB::create(
-        8000,
-        1.2,
-        8,
-        31,
-        0,
-        2,
-        features2d::ORB_ScoreType::HARRIS_SCORE,
-        31,
-        5,
-    )?;
     let mut features = |image: &Mat| -> Result<(Vector<KeyPoint>, Mat)> {
         let mut gray = Mat::default();
         imgproc::cvt_color_def(image, &mut gray, imgproc::COLOR_BGR2GRAY)?;
         let mut detected = Vector::<KeyPoint>::new();
-        orb.detect(&gray, &mut detected, &mask)?;
+        detector.detect(&gray, &mut detected, &mask)?;
         let mut detected = detected.to_vec();
         detected.sort_by(|a, b| b.response().total_cmp(&a.response()));
         let mut cells = [0; 128];
@@ -98,7 +118,7 @@ fn register(before: &Mat, after: &Mat) -> Result<Motion> {
             }
         }
         let mut descriptors = Mat::default();
-        orb.compute(&gray, &mut points, &mut descriptors)?;
+        detector.compute(&gray, &mut points, &mut descriptors)?;
         Ok((points, descriptors))
     };
     let (a, da) = features(before)?;
@@ -106,7 +126,7 @@ fn register(before: &Mat, after: &Mat) -> Result<Motion> {
     if a.len() < 24 || b.len() < 24 {
         return Err(error());
     }
-    let matcher = features2d::BFMatcher::new(core::NORM_HAMMING, false)?;
+    let matcher = features2d::BFMatcher::new(norm, false)?;
     let mut forward: Vector<Vector<DMatch>> = Vector::new();
     let mut reverse: Vector<Vector<DMatch>> = Vector::new();
     matcher.knn_train_match_def(&da, &db, &mut forward, 2)?;
@@ -377,7 +397,12 @@ impl Normalization {
         if self.attempts > 0
             && let Some(previous) = &self.previous
         {
-            let movement = match register(previous, image) {
+            let registration = if matches!(self.phase, Phase::Minimum | Phase::Zoom) {
+                register_zoom(previous, image)
+            } else {
+                register(previous, image)
+            };
+            let movement = match registration {
                 Ok(movement) => {
                     self.unreadable = 0;
                     movement
@@ -685,6 +710,90 @@ pub fn visible([x, y]: [i32; 2]) -> Option<Point> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn large_zoom_view(index: u8) -> Mat {
+        crate::vision::read_image(
+            &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(format!(
+                "tests/fixtures/camera-home-large-zoom-{index:03}.png"
+            )),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn captured_large_pinch_uses_scale_features_without_weakening_runtime_pan_checks() {
+        let before = large_zoom_view(3);
+        for index in 4..=7 {
+            let after = large_zoom_view(index);
+            assert!(register(&before, &after).is_err());
+            let movement = register_zoom(&before, &after).unwrap();
+            assert!((movement.scale - 0.5204).abs() < 0.002);
+            assert!(movement.rotation.abs() < 0.001);
+            assert!((movement.offset[0] - 307.).abs() < 2.);
+            assert!((movement.offset[1] - 172.).abs() < 2.);
+            assert!(motion(&before, &after).is_err());
+            let mut routine = Normalization {
+                phase: Phase::Minimum,
+                attempts: 1,
+                previous: Some(before.clone()),
+                ..Default::default()
+            };
+            assert!(matches!(
+                routine.next(&after).unwrap(),
+                Adjustment::Move(Gesture::Pinch { end_gap: 200, .. })
+            ));
+            assert!(routine.responded[0]);
+            assert!(routine.phase == Phase::Minimum);
+            assert_eq!(routine.attempts, 2);
+        }
+    }
+
+    #[test]
+    fn zoom_scale_fallback_still_rejects_unrelated_sparse_and_rotated_views() {
+        let before = large_zoom_view(3);
+        let unrelated = crate::vision::read_image(
+            &std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("tests/fixtures/camera-home-other-start.png"),
+        )
+        .unwrap();
+        let blank =
+            Mat::new_rows_cols_with_default(720, 1280, core::CV_8UC3, Scalar::all(0.)).unwrap();
+        for missing in [&unrelated, &blank] {
+            assert!(register_zoom(&before, missing).is_err());
+            let mut routine = Normalization {
+                phase: Phase::Minimum,
+                attempts: 1,
+                previous: Some(before.clone()),
+                ..Default::default()
+            };
+            for _ in 0..3 {
+                assert!(matches!(routine.next(missing).unwrap(), Adjustment::Wait));
+            }
+            assert!(routine.next(missing).is_err());
+            assert_eq!(routine.attempts, 1);
+            assert!(!routine.responded[0]);
+        }
+        let mut rotated = Mat::default();
+        imgproc::warp_affine(
+            &large_zoom_view(4),
+            &mut rotated,
+            &imgproc::get_rotation_matrix_2d(Point2f::new(640., 360.), 1., 1.).unwrap(),
+            core::Size::new(1280, 720),
+            imgproc::INTER_LINEAR,
+            core::BORDER_CONSTANT,
+            Scalar::all(0.),
+        )
+        .unwrap();
+        let mut routine = Normalization {
+            phase: Phase::Minimum,
+            attempts: 1,
+            previous: Some(before),
+            ..Default::default()
+        };
+        assert!(
+            matches!(routine.next(&rotated), Err(Error::Gameplay(message)) if message.contains("rotated unexpectedly"))
+        );
+    }
 
     #[test]
     fn distant_anchor_cannot_replace_verified_recent_pan_motion() {
