@@ -116,11 +116,17 @@ impl Gesture {
                 from.validate(resolution)?;
                 to.validate(resolution)?;
                 frames.push(down(&[*from], Duration::from_millis(25)));
-                for step in 1..=12 {
+                let steps = if from.0.abs_diff(to.0).max(from.1.abs_diff(to.1)) > 160 {
+                    24
+                } else {
+                    12
+                };
+                for step in 1..=steps {
                     let interpolate = |a: u32, b: u32| {
                         // Slow the final samples so lifting does not fling the army bar.
-                        (i64::from(a) + (i64::from(b) - i64::from(a)) * step * (24 - step) / 144)
-                            as i32
+                        (i64::from(a)
+                            + (i64::from(b) - i64::from(a)) * step * (2 * steps - step)
+                                / (steps * steps)) as i32
                     };
                     frames.push(WriteFrame {
                         bytes: encode(&[
@@ -130,7 +136,7 @@ impl Gesture {
                             (0, 0, 0),
                         ]),
                         // Let scrolling settle under the held finger before lifting it.
-                        wait: Duration::from_millis(if step == 12 { 150 } else { 25 }),
+                        wait: Duration::from_millis(if step == steps { 150 } else { 25 }),
                     });
                 }
                 frames.push(release(1, Duration::ZERO));
@@ -480,6 +486,28 @@ mod tests {
             .frames(Resolution(1280, 720))
             .is_err()
         );
+    }
+
+    #[test]
+    fn long_drags_slow_down_without_extending_their_endpoint() {
+        let (frames, fingers) = Gesture::Drag {
+            from: Point(820, 651),
+            to: Point(540, 651),
+        }
+        .frames(Resolution(1280, 720))
+        .unwrap();
+        assert_eq!(fingers, 1);
+        assert_eq!(frames.len(), 26);
+        assert_eq!(
+            frames.iter().map(|frame| frame.wait).sum::<Duration>(),
+            Duration::from_millis(750)
+        );
+        assert_eq!(
+            frames[24].bytes,
+            encode(&[(3, 47, 0), (3, 53, 540), (3, 54, 651), (0, 0, 0)])
+        );
+        assert_eq!(frames[24].wait, Duration::from_millis(150));
+        assert_eq!(frames[25].bytes, release(1, Duration::ZERO).bytes);
     }
 
     #[test]
