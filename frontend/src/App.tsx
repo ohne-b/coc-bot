@@ -443,18 +443,21 @@ export default function App() {
               <Settings settings={snapshot.settings} running={active} />
             ) : page === "history" ? (
               <History sessionId={snapshot.session?.id} />
-            ) : page === "deployment" ? (
-              <Deployment
-                snapshot={snapshot}
-                offline={Boolean(error) || updating}
-              />
-            ) : (
+            ) : page === "deployment" ? null : (
               <Overview
                 snapshot={snapshot}
                 offline={Boolean(error) || updating}
                 preferences={preferences}
                 onPreferencesChange={setPreferences}
               />
+            )}
+            {snapshot && (
+              <div hidden={page !== "deployment"}>
+                <Deployment
+                  snapshot={snapshot}
+                  offline={Boolean(error) || updating}
+                />
+              </div>
             )}
           </div>
         </div>

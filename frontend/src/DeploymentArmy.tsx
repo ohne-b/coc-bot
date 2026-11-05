@@ -41,8 +41,16 @@ export default function DeploymentArmy({
   const [manualKind, setManualKind] = useState<Kind>("troop");
   const [manualSlot, setManualSlot] = useState(1);
   const [manualLabel, setManualLabel] = useState("");
+  const label = (unit: (typeof army)[number]) =>
+    steps.find(
+      (step) =>
+        step.slot === unit.slot &&
+        step.kind === unit.kind &&
+        !step.ability &&
+        step.label.trim(),
+    )?.label;
   const visibleArmy = army.filter((unit) =>
-    `${names[unit.kind]} slot ${unit.slot}`
+    `${label(unit) ?? ""} ${names[unit.kind]} slot ${unit.slot}`
       .toLowerCase()
       .includes(query.toLowerCase()),
   );
@@ -62,6 +70,8 @@ export default function DeploymentArmy({
           remains when that action runs. A dash means the available count is
           unknown. Read the army again after changing it in the game. Each slot
           is its position in the complete bar, including heroes and spells.
+          Named actions also label their slot here. Defeated Builder units keep
+          their slots and are skipped for that attack.
         </Help>
         <span className="army-count-heading" aria-hidden="true">
           Planned / available
@@ -89,11 +99,13 @@ export default function DeploymentArmy({
               <span className="sr-only">Add </span>
               <Icon path={icons[unit.kind]} aria-hidden="true" />
               <span className="army-unit-name">
-                {names[unit.kind]}
-                <small>Slot {unit.slot}</small>
+                {label(unit) ?? names[unit.kind]}
+                <small>
+                  {label(unit) ? `${names[unit.kind]} ` : ""}Slot {unit.slot}
+                </small>
               </span>
               <span
-                className={`army-unit-count ${assigned.exceeds ? "over-budget" : ""}`}
+                className={`army-unit-count ${assigned.exceeds && (home || unit.count !== 0) ? "over-budget" : ""}`}
                 aria-hidden="true"
               >
                 {assigned.all ? "All" : assigned.assigned} / {unit.count ?? "—"}
@@ -149,6 +161,7 @@ export default function DeploymentArmy({
             <select
               className="field"
               aria-label="Unit type"
+              disabled={locked}
               value={manualKind}
               onChange={(e) => setManualKind(e.target.value as Kind)}
             >
@@ -168,6 +181,7 @@ export default function DeploymentArmy({
               type="number"
               min={1}
               max={64}
+              disabled={locked}
               value={manualSlot}
               onChange={(e) => setManualSlot(Number(e.target.value))}
             />
@@ -177,12 +191,13 @@ export default function DeploymentArmy({
             <input
               className="field"
               maxLength={40}
+              disabled={locked}
               value={manualLabel}
               placeholder="Optional"
               onChange={(e) => setManualLabel(e.target.value)}
             />
           </label>
-          <Button type="submit" className="manual-unit-name">
+          <Button type="submit" className="manual-unit-name" disabled={locked}>
             Add action
           </Button>
         </form>

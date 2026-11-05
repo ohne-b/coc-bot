@@ -97,6 +97,27 @@ async fn stop(state: State<'_, Desktop>) -> Result<(), String> {
     state.core()?.stop().await.map_err(|e| e.to_string())
 }
 #[tauri::command]
+async fn scan_army(
+    state: State<'_, Desktop>,
+    screen: coc_bot_core::calibration::Screen,
+) -> Result<(), String> {
+    state
+        .core()?
+        .scan_army(screen)
+        .await
+        .map_err(|e| e.to_string())
+}
+#[tauri::command]
+fn preview_deployment(
+    state: State<'_, Desktop>,
+    screen: coc_bot_core::calibration::Screen,
+) -> Result<coc_bot_core::vision::army::recipe::Recipe, String> {
+    state
+        .core()?
+        .preview_deployment(screen)
+        .map_err(|e| e.to_string())
+}
+#[tauri::command]
 async fn history(state: State<'_, Desktop>, before: Option<i64>) -> Result<Vec<Session>, String> {
     state
         .core()?
@@ -200,6 +221,8 @@ fn main() {
             discover,
             start,
             stop,
+            scan_army,
+            preview_deployment,
             history,
             session_detail,
             updates::desktop_update,

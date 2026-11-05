@@ -56,6 +56,14 @@ describe("battlefield placements", () => {
     expect(planError([action({ count: 1.5 })])).toContain("units");
     expect(planError([action({ count: 325 })])).toBe("");
     expect(planError([action({ count: 1000 })])).toContain("units");
+    expect(planError([action({ count: 20, interval_ms: 10000 })])).toContain(
+      "three minutes",
+    );
+    expect(planError([action({ count: 18, interval_ms: 10000 })])).toBe("");
+    expect(
+      planError([action({ count: 18, interval_ms: 10000, delay_ms: 1 })]),
+    ).toContain("three minutes");
+    expect(planError([action({ count: 0, interval_ms: 10000 })])).toBe("");
     expect(planError([action({ kind: "spell" })], true)).toContain(
       "Builder plans",
     );
@@ -88,6 +96,9 @@ describe("battlefield placements", () => {
     });
     expect(allocation([action()], 1, null).exceeds).toBe(false);
     expect(allocation([action()], 1, 0).exceeds).toBe(true);
+    expect(allocation([action(), action({ count: 0 })], 1, 5).exceeds).toBe(
+      true,
+    );
   });
   it("keeps ability ordering distinct from placement and checks repeated heroes", () => {
     const hero = action({ kind: "hero", count: 1 });

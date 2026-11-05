@@ -32,8 +32,6 @@
     "icon": ["icons/icon.ico"],
     "resources": {
       "../assets/config.json": "config.json",
-      "../assets/battlefields.json": "battlefields.json",
-      "../assets/calibration/battlefield/": "calibration/battlefield/",
       "../assets/calibration/english/": "calibration/english/",
       "../assets/calibration/digits/": "calibration/digits/",
       "../LICENSE.md": "LICENSE.md",

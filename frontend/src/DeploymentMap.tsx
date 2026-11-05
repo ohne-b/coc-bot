@@ -81,7 +81,7 @@ export default function DeploymentMap({
                   left: `${mapPoint(action.point)[0] / 12.8}%`,
                   top: `${mapPoint(action.point)[1] / 6.4}%`,
                 }}
-                aria-label={`Position for action ${i + 1}: ${name(action)}`}
+                aria-label={`Position for action ${i + 1}: ${name(action)}, ${positionName(action.point)}, ${Math.round(mapPoint(action.point)[0] / 12.8)}% from left, ${Math.round(mapPoint(action.point)[1] / 6.4)}% from top`}
                 disabled={locked}
                 onClick={() => onSelect(i)}
                 onPointerDown={(e) => {

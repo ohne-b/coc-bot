@@ -8,14 +8,6 @@ export type Point = [number, number];
 export type DeployScreen = "home_scout" | "builder_scout" | "builder_stage2";
 export interface Layout {
   recipe?: { steps: DeploymentAction[] } | null;
-  bar: [number, number, number, number];
-  deploy: Point | null;
-  hold: number;
-  points: Point[];
-  spells: Point[];
-  ring: Point[];
-  spell_spread: Point[];
-  quake: Point[];
 }
 export interface DeploymentAction {
   supports_ability?: boolean;
@@ -89,9 +81,7 @@ export interface Snapshot {
   army?: {
     kind: DeploymentAction["kind"];
     slot: number;
-    center: Point;
     count: number | null;
-    portrait: number[];
     supports_ability?: boolean;
   }[];
   revision: number;

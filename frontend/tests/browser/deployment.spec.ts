@@ -24,6 +24,116 @@ async function savedSteps(page: Page, screen = "home_scout") {
   );
 }
 
+test("creating a plan is an editable draft until explicitly saved", async ({
+  page,
+}) => {
+  await mock(page, { screen: "home_scout" });
+  await open(page);
+  await page.getByRole("button", { name: "Create plan", exact: true }).click();
+  await expect(page.locator(".deployment-actions:visible > li")).toHaveCount(3);
+  expect(await savedSteps(page)).toBeUndefined();
+  await page.getByLabel("Name", { exact: true }).fill("First wave");
+  await page.getByRole("button", { name: "Save plan" }).click();
+  await expect(page.getByRole("status")).toHaveText("Saved");
+  expect((await savedSteps(page))?.[0]).toMatchObject({
+    label: "First wave",
+    count: 15,
+  });
+  const calls = await page.evaluate(
+    () => (window as unknown as { calls: string[] }).calls,
+  );
+  expect(calls).toContain("preview_deployment");
+  expect(calls).not.toContain("start");
+  expect(calls).not.toContain("scan_army");
+});
+
+for (const changed of [
+  "device",
+  "session",
+  "army read",
+  "failed army read",
+] as const) {
+  test(`a pending preview cannot replace a draft after changing ${changed}`, async ({
+    page,
+  }) => {
+    await mock(page, { screen: "home_scout", holdPreview: true });
+    await open(page);
+    await page
+      .getByRole("button", { name: "Create plan", exact: true })
+      .click();
+    await expect(
+      page.getByRole("button", { name: "Read army", exact: true }),
+    ).toBeDisabled();
+    await page.getByRole("button", { name: "Settings", exact: true }).click();
+    await page.evaluate((changed) => {
+      const s = (window as unknown as { fixtureSnapshot: Snapshot })
+        .fixtureSnapshot;
+      if (changed === "device") s.settings.device!.index = 2;
+      if (changed === "session") s.session!.id = 2;
+      if (changed.includes("army read"))
+        s.army_observed_at_ms = (s.army_observed_at_ms ?? 0) + 1000;
+      s.army_complete = false;
+      s.revision++;
+    }, changed);
+    await page.getByRole("button", { name: "Deployment", exact: true }).click();
+    await expect(
+      page.getByRole("button", { name: "Create plan", exact: true }),
+    ).toHaveCount(0);
+    await page.evaluate((changed) => {
+      const pending = window as unknown as {
+        resolvePreview: () => void;
+        rejectPreview: (error: string) => void;
+      };
+      if (changed === "failed army read")
+        pending.rejectPreview("Previous army read failed");
+      else pending.resolvePreview();
+    }, changed);
+    await expect(
+      page.getByRole("button", { name: "Read army", exact: true }),
+    ).toBeEnabled();
+    await expect(page.locator(".deployment-actions:visible > li")).toHaveCount(
+      0,
+    );
+    expect(await savedSteps(page)).toBeUndefined();
+    await expect(page.getByRole("alert")).toHaveCount(0);
+  });
+}
+
+test("navigation keeps unsaved actions and cached armies cannot generate the wrong stage", async ({
+  page,
+}) => {
+  await mock(page, { screen: "home_scout" });
+  await open(page);
+  await add(page, "troop", 1);
+  await page.getByLabel("Name", { exact: true }).fill("Unsaved wave");
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "Deployment", exact: true }).click();
+  await expect(page.getByLabel("Name", { exact: true })).toHaveValue(
+    "Unsaved wave",
+  );
+  expect(await savedSteps(page)).toBeUndefined();
+  await page.getByRole("button", { name: "Delete action" }).click();
+  await expect(
+    page.getByRole("button", { name: "Create plan", exact: true }),
+  ).toBeVisible();
+  await page.evaluate(() => {
+    const snapshot = (window as unknown as { fixtureSnapshot: Snapshot })
+      .fixtureSnapshot;
+    snapshot.army_screen = "builder_scout";
+    snapshot.revision++;
+  });
+  await expect(
+    page.getByRole("button", { name: "Create plan", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Add a unit", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect(page.getByLabel("Name", { exact: true })).toHaveValue(
+    "Unsaved wave",
+  );
+});
+
 test("army choice immediately creates a valid action and all four corners can be saved", async ({
   page,
 }) => {
@@ -60,7 +170,7 @@ test("split units, timed spells and explicit remaining quantities save only the 
   await expect(page.getByLabel("Quantity mode")).toHaveValue("number");
   await page.getByLabel("Quantity", { exact: true }).fill("5");
   const marker = page.getByRole("button", {
-    name: "Position for action 1: Dragons, left",
+    name: /^Position for action 1: Dragons, left,/,
   });
   await marker.focus();
   await page.keyboard.press("Shift+ArrowDown");
@@ -261,6 +371,56 @@ test("reads are explicit, cancellable and report failures; active editing is loc
   ).toBeEnabled();
 });
 
+test("an open manual slot form locks during army reads", async ({ page }) => {
+  await mock(page, { screen: "home_scout", holdArmyRead: true });
+  await open(page);
+  await page.getByRole("button", { name: "Add action", exact: true }).click();
+  await page.getByRole("button", { name: "Add by slot", exact: true }).click();
+  const form = page.locator(".manual-unit:visible");
+  await expect(form.getByLabel("Unit type")).toBeEnabled();
+  await page.getByRole("button", { name: "Read army", exact: true }).click();
+  for (const name of ["Unit type", "Army slot", "Name"])
+    await expect(form.getByLabel(name, { exact: true })).toBeDisabled();
+  await expect(form.getByRole("button", { name: "Add action" })).toBeDisabled();
+  await page
+    .getByRole("button", { name: "Cancel army read", exact: true })
+    .click();
+  await expect(form.getByRole("button", { name: "Add action" })).toBeEnabled();
+});
+
+test("quantity warnings and keyboard focus follow reordered actions", async ({
+  page,
+}) => {
+  await mock(page, { screen: "home_scout" });
+  await open(page);
+  await add(page, "troop", 1);
+  await page.getByLabel("Name", { exact: true }).fill("Dragons");
+  await page.getByLabel("Quantity", { exact: true }).fill("15");
+  await page.getByRole("button", { name: "Duplicate action" }).click();
+  await page.getByLabel("Quantity mode").selectOption("all");
+  await expect(page.getByRole("note")).toContainText(
+    "No units left for All remaining",
+  );
+  await page.getByRole("button", { name: "Move action earlier" }).focus();
+  await page.keyboard.press("Enter");
+  await expect(
+    page.locator(".deployment-actions:visible > li.selected > button"),
+  ).toBeFocused();
+  await page.getByRole("button", { name: "Delete action" }).click();
+  await expect(
+    page.locator(".deployment-actions:visible > li.selected > button"),
+  ).toBeFocused();
+  const marker = page.locator(".plan-marker:visible");
+  const previous = await marker.getAttribute("aria-label");
+  await marker.focus();
+  await page.keyboard.press("Shift+ArrowDown");
+  expect(await marker.getAttribute("aria-label")).not.toBe(previous);
+  await page.getByRole("button", { name: "Add action", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: /Add Dragons.*Troop Slot 1/ }),
+  ).toBeVisible();
+});
+
 test("a failed read keeps the manual editing path available", async ({
   page,
 }) => {
@@ -287,4 +447,110 @@ test("a failed read keeps the manual editing path available", async ({
     kind: "spell",
     label: "Freeze",
   });
+});
+
+test("an action can follow another slot without rebuilding its placement or timing", async ({
+  page,
+}) => {
+  await mock(page, { screen: "home_scout" });
+  await open(page);
+  await add(page, "troop", 1);
+  await page.getByLabel("Name", { exact: true }).fill("Left wave");
+  await page.getByLabel("Quantity", { exact: true }).fill("3");
+  await page.getByLabel("Wait before (s)", { exact: true }).fill("4");
+  await page.getByText("More options", { exact: true }).click();
+  await page.getByLabel("Action army slot", { exact: true }).fill("12");
+  await page.getByRole("button", { name: "Save plan" }).click();
+  await expect(page.getByRole("status")).toHaveText("Saved");
+  expect((await savedSteps(page))?.[0]).toMatchObject({
+    slot: 12,
+    kind: "troop",
+    label: "Left wave",
+    count: 3,
+    delay_ms: 4000,
+  });
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect(
+    page.getByLabel("Action army slot", { exact: true }),
+  ).toHaveValue("1");
+});
+
+test("Home and both Builder stages keep separate plans and defeated camps remain editable", async ({
+  page,
+}) => {
+  await mock(page, { screen: "home_scout" });
+  await open(page);
+  await add(page, "troop", 1);
+  await page.getByLabel("Name", { exact: true }).fill("Home wave");
+  await page.evaluate(() => {
+    const s = (window as unknown as { fixtureSnapshot: Snapshot })
+      .fixtureSnapshot;
+    s.army_screen = "builder_scout";
+    s.army![0].count = 0;
+    s.revision++;
+  });
+  await page.getByRole("button", { name: "Builder", exact: true }).click();
+  await add(page, "troop", 1);
+  await page
+    .getByRole("textbox", { name: "Name", exact: true })
+    .fill("First stage");
+  await expect(page.locator(".allocation-warning:visible")).toHaveCount(0);
+  await page.getByRole("button", { name: "Save plan" }).click();
+  await expect(page.getByRole("status")).toHaveText("Saved");
+  await page.evaluate(() => {
+    const s = (window as unknown as { fixtureSnapshot: Snapshot })
+      .fixtureSnapshot;
+    s.army_screen = "builder_stage2";
+    s.army![0].count = 4;
+    s.revision++;
+  });
+  await page.getByRole("button", { name: "Stage 2", exact: true }).click();
+  await add(page, "troop", 1);
+  await page
+    .getByRole("textbox", { name: "Name", exact: true })
+    .fill("Second stage");
+  await page.getByRole("button", { name: "Save plan" }).click();
+  await expect(page.getByRole("status")).toHaveText("Saved");
+  expect((await savedSteps(page, "builder_scout"))?.[0].label).toBe(
+    "First stage",
+  );
+  expect((await savedSteps(page, "builder_stage2"))?.[0].label).toBe(
+    "Second stage",
+  );
+  expect(await savedSteps(page)).toBeUndefined();
+  await page.getByRole("button", { name: "Home", exact: true }).click();
+  await expect(
+    page.getByRole("textbox", { name: "Name", exact: true }),
+  ).toHaveValue("Home wave");
+});
+
+test("changing instances clears the army cache without losing a draft", async ({
+  page,
+}) => {
+  await mock(page, { screen: "home_scout" });
+  await open(page);
+  await add(page, "troop", 1);
+  await page.getByLabel("Name", { exact: true }).fill("Keep this wave");
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.evaluate(() => {
+    const snapshot = (window as unknown as { fixtureSnapshot: Snapshot })
+      .fixtureSnapshot;
+    snapshot.settings.device!.index = 1;
+    snapshot.army = [];
+    snapshot.army_complete = false;
+    snapshot.army_screen = null;
+    snapshot.army_observed_at_ms = null;
+    snapshot.revision++;
+  });
+  await page.getByRole("button", { name: "Deployment", exact: true }).click();
+  await expect(page.getByLabel("Name", { exact: true })).toHaveValue(
+    "Keep this wave",
+  );
+  await page.getByRole("button", { name: "Add action", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: /Add Troop.*Slot 1/ }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Add by slot", exact: true }),
+  ).toBeVisible();
 });

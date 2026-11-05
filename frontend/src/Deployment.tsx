@@ -68,18 +68,35 @@ function Editor({
   const [armyComplete, setArmyComplete] = useState(false);
   const [armyAt, setArmyAt] = useState<number | null>(null);
   const armySession = useRef(snapshot.session?.id);
+  const deviceIdentity = JSON.stringify(snapshot.settings.device);
+  const armyDevice = useRef(deviceIdentity);
+  const previewOwner = JSON.stringify([
+    deviceIdentity,
+    snapshot.session?.id,
+    snapshot.army_screen,
+    snapshot.army_observed_at_ms,
+  ]);
+  const currentPreviewOwner = useRef(previewOwner);
+  currentPreviewOwner.current = previewOwner;
   const edited = useRef(false);
   const pickerButton = useRef<HTMLButtonElement>(null);
   const list = useRef<HTMLOListElement>(null);
+  const restoreFocus = useRef(false);
   const home = screen === "home_scout";
   const scanning = scanPending || snapshot.army_scanning === true;
   const locked = disabled || busy || scanning;
   const steps = draft.recipe?.steps ?? [];
   const active = steps[selected];
   const dirty = !equal(draft, baseline);
+  const canCreatePlan =
+    snapshot.army_screen === screen && snapshot.army_complete;
   useEffect(() => {
-    if (armySession.current !== snapshot.session?.id) {
+    if (
+      armySession.current !== snapshot.session?.id ||
+      armyDevice.current !== deviceIdentity
+    ) {
       armySession.current = snapshot.session?.id;
+      armyDevice.current = deviceIdentity;
       setArmy([]);
       setArmyComplete(false);
       setArmyAt(null);
@@ -102,6 +119,7 @@ function Editor({
     snapshot.detection,
     snapshot.captured_at_ms,
     snapshot.session?.id,
+    deviceIdentity,
     screen,
   ]);
   useEffect(() => {
@@ -112,6 +130,12 @@ function Editor({
   }, [current]);
   useEffect(() => {
     const row = list.current?.children[selected] as HTMLElement | undefined;
+    if (restoreFocus.current) {
+      (
+        row?.querySelector<HTMLButtonElement>("button") ?? pickerButton.current
+      )?.focus();
+      restoreFocus.current = false;
+    }
     if (row && list.current) {
       const top = row.offsetTop - list.current.offsetTop;
       if (
@@ -161,6 +185,7 @@ function Editor({
     if (index < 0 || index >= steps.length) return;
     const next = [...steps];
     [next[index], next[selected]] = [next[selected], next[index]];
+    restoreFocus.current = true;
     replace(next);
     setSelected(index);
   }
@@ -193,6 +218,23 @@ function Editor({
       setError(String(e));
     } finally {
       setScanPending(false);
+    }
+  }
+  async function createPlan() {
+    setBusy(true);
+    setError("");
+    try {
+      const recipe = await invoke<NonNullable<Layout["recipe"]>>(
+        "preview_deployment",
+        { screen },
+      );
+      if (currentPreviewOwner.current !== previewOwner) return;
+      replace(recipe.steps);
+      setSelected(0);
+    } catch (e) {
+      if (currentPreviewOwner.current === previewOwner) setError(String(e));
+    } finally {
+      setBusy(false);
     }
   }
   const canAbility =
@@ -290,7 +332,8 @@ function Editor({
         <Help label="Deployment mode">
           Automatic uses your farming strategy. A custom plan runs only its
           listed actions, including spells and abilities. Adding an action
-          starts a custom plan; saving makes it active.
+          starts a custom plan; saving makes it active. Create plan turns the
+          last complete army read into an editable starting sequence.
         </Help>
         {!home && (
           <div
@@ -348,7 +391,9 @@ function Editor({
               split its units between positions. Waits begin after the previous
               action finishes. The bot checks the current army before starting;
               a missing slot or category mismatch stops the plan. Ability
-              actions wait up to 30 seconds for readiness before stopping.
+              actions wait up to 30 seconds for readiness. Spent Home abilities
+              and defeated Builder units are skipped; unreadable states stop the
+              plan.
             </Help>
             <IconButton
               ref={pickerButton}
@@ -376,9 +421,14 @@ function Editor({
           {!steps.length && !picker && (
             <div className="sequence-empty">
               <p>{draft.recipe ? "No actions yet" : "Automatic deployment"}</p>
-              <Button disabled={locked} onClick={() => setPicker(true)}>
+              <Button
+                disabled={locked}
+                onClick={() =>
+                  canCreatePlan ? void createPlan() : setPicker(true)
+                }
+              >
                 <Icon path={mdiPlus} aria-hidden="true" />
-                Add a unit
+                {canCreatePlan ? "Create plan" : "Add a unit"}
               </Button>
             </div>
           )}
@@ -446,6 +496,7 @@ function Editor({
                         path={mdiDeleteOutline}
                         label="Delete action"
                         onClick={() => {
+                          restoreFocus.current = true;
                           replace(steps.filter((_, n) => n !== i));
                           setSelected(Math.max(0, i - 1));
                         }}
@@ -497,10 +548,11 @@ function Editor({
                           )}
                         </div>
                       )}
-                    {budget?.exceeds && (
+                    {budget?.exceeds && (home || currentUnit?.count !== 0) && (
                       <p className="allocation-warning" role="note">
-                        {budget.assigned} planned, {currentUnit?.count}{" "}
-                        available in the last read.
+                        {budget.all && budget.assigned === currentUnit?.count
+                          ? "No units left for All remaining in the last read."
+                          : `${budget.assigned} planned, ${currentUnit?.count} available in the last read.`}
                       </p>
                     )}
                     <label className="field-label">
@@ -519,47 +571,66 @@ function Editor({
                         }
                       />
                     </label>
-                    {!action.ability && (
-                      <details className="deployment-details">
-                        <summary>More options</summary>
-                        <label className="field-label">
-                          Between drops (s)
-                          <input
-                            className="field"
-                            type="number"
-                            min={0.1}
-                            max={10}
-                            step={0.1}
-                            value={action.interval_ms / 1000}
-                            onChange={(e) =>
-                              patch({
-                                interval_ms: Math.round(
-                                  Number(e.target.value) * 1000,
-                                ),
-                              })
-                            }
-                          />
-                        </label>
-                        <Help label="Action timing">
-                          Waits begin after the previous action is confirmed.
-                          Between drops is the minimum spacing; camera movement
-                          and confirmation can take longer. These are not exact
-                          battle timestamps.
-                        </Help>
-                        {!home && action.kind === "troop" && (
-                          <label className="check-field">
+                    <details className="deployment-details">
+                      <summary>More options</summary>
+                      <label className="field-label">
+                        Army slot
+                        <QuantityInput
+                          aria-label="Action army slot"
+                          className="field"
+                          type="number"
+                          min={1}
+                          max={64}
+                          value={action.slot}
+                          onQuantity={(slot) => patch({ slot })}
+                        />
+                      </label>
+                      <Help label="Following army slots">
+                        This action follows the slot in the complete army bar.
+                        The unit can change between attacks, but its type must
+                        remain {names[action.kind].toLowerCase()}.
+                      </Help>
+                      {!action.ability && (
+                        <>
+                          <label className="field-label">
+                            Between drops (s)
                             <input
-                              type="checkbox"
-                              checked={action.supports_ability ?? false}
+                              className="field"
+                              type="number"
+                              min={0.1}
+                              max={10}
+                              step={0.1}
+                              value={action.interval_ms / 1000}
                               onChange={(e) =>
-                                patch({ supports_ability: e.target.checked })
+                                patch({
+                                  interval_ms: Math.round(
+                                    Number(e.target.value) * 1000,
+                                  ),
+                                })
                               }
                             />
-                            Has an active ability
                           </label>
-                        )}
-                      </details>
-                    )}
+                          <Help label="Action timing">
+                            Waits begin after the previous action is confirmed.
+                            Between drops is the minimum spacing; camera
+                            movement and confirmation can take longer. These are
+                            not exact battle timestamps.
+                          </Help>
+                          {!home && action.kind === "troop" && (
+                            <label className="check-field">
+                              <input
+                                type="checkbox"
+                                checked={action.supports_ability ?? false}
+                                onChange={(e) =>
+                                  patch({ supports_ability: e.target.checked })
+                                }
+                              />
+                              Has an active ability
+                            </label>
+                          )}
+                        </>
+                      )}
+                    </details>
                     {canAbility && (
                       <Button
                         className="add-ability"

@@ -59,7 +59,13 @@ export function allocation(
   const drops = steps.filter((step) => step.slot === slot && !step.ability);
   const assigned = drops.reduce((total, step) => total + step.count, 0);
   const all = drops.some((step) => step.count === 0);
-  return { assigned, all, exceeds: available !== null && assigned > available };
+  return {
+    assigned,
+    all,
+    exceeds:
+      available !== null &&
+      (assigned > available || (all && assigned >= available)),
+  };
 }
 
 export function planError(steps: DeploymentAction[], builder = false): string {
@@ -110,9 +116,9 @@ export function planError(steps: DeploymentAction[], builder = false): string {
       step.interval_ms > 10000
     )
       return fail("drop interval must be 0.1 to 10 seconds.");
-    delay += step.delay_ms;
+    delay += step.delay_ms + (step.ability ? 0 : step.count * step.interval_ms);
     if (delay > 180000)
-      return fail("combined waits cannot exceed three minutes.");
+      return fail("planned waits and drops cannot exceed three minutes.");
     if (step.ability) {
       if (!deployed.has(step.slot))
         return fail("deploy this unit before using its ability.");

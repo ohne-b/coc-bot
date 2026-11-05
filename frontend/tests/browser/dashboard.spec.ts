@@ -141,7 +141,9 @@ for (const width of [360, 800, 1200]) {
           fullPage: true,
         });
       if (name === "Farming") {
-        const header = await page.locator(".overview-header").boundingBox();
+        const header = await page
+          .locator(".overview-header:visible")
+          .boundingBox();
         const village = await page
           .getByRole("group", { name: "Resource village" })
           .boundingBox();
@@ -159,7 +161,7 @@ for (const width of [360, 800, 1200]) {
         await settings.focus();
         await page.keyboard.press("Enter");
         await expect(page.getByRole("dialog")).toHaveCount(0);
-        await expect(page.locator(".overview-header")).not.toBeVisible();
+        await expect(page.locator(".overview-header:visible")).toHaveCount(0);
         await expect(
           page.getByRole("heading", {
             name: "Farming settings",

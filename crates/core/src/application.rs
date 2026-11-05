@@ -31,6 +31,10 @@ use crate::{
 #[derive(Clone, Debug, Serialize)]
 pub struct Snapshot {
     pub army: Vec<crate::vision::army::recipe::Unit>,
+    pub army_complete: bool,
+    pub army_screen: Option<Screen>,
+    pub army_observed_at_ms: Option<i64>,
+    pub army_scanning: bool,
     pub revision: u64,
     pub settings: Settings,
     pub session: Option<Session>,
@@ -42,6 +46,19 @@ pub struct Snapshot {
     pub progress: Option<Progress>,
     pub statistics: Vec<Statistics>,
     pub default_layouts: BTreeMap<Screen, Layout>,
+}
+
+impl Snapshot {
+    fn set_settings(&mut self, settings: Settings) {
+        if self.settings.device != settings.device {
+            self.army.clear();
+            self.army_complete = false;
+            self.army_screen = None;
+            self.army_observed_at_ms = None;
+        }
+        self.settings = settings;
+        self.revision += 1;
+    }
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -72,6 +89,7 @@ enum Command {
     Update(SettingsUpdate, oneshot::Sender<Result<()>>),
     Discover(Option<PathBuf>, oneshot::Sender<Result<Vec<Installation>>>),
     Start(SessionMode, CancellationToken, oneshot::Sender<Result<()>>),
+    ScanArmy(Screen, CancellationToken, oneshot::Sender<Result<()>>),
     Pause(bool, oneshot::Sender<Result<()>>),
     Stop(oneshot::Sender<Result<()>>),
     History(Option<i64>, oneshot::Sender<Result<Vec<Session>>>),
@@ -84,8 +102,13 @@ pub struct Application {
     snapshot: watch::Receiver<Snapshot>,
     frame: Arc<Mutex<Option<Frame>>>,
     shutdown: CancellationToken,
-    control: tokio::sync::Mutex<CancellationToken>,
+    control: tokio::sync::Mutex<Control>,
     worker: tokio::sync::Mutex<Option<JoinHandle<Result<()>>>>,
+}
+
+struct Control {
+    token: CancellationToken,
+    scanning: bool,
 }
 
 impl Application {
@@ -105,6 +128,10 @@ impl Application {
         let (commands, receiver) = mpsc::channel(16);
         let (snapshots, snapshot) = watch::channel(Snapshot {
             army: vec![],
+            army_complete: false,
+            army_screen: None,
+            army_observed_at_ms: None,
+            army_scanning: false,
             revision: 0,
             settings: Settings::default(),
             session: None,
@@ -143,7 +170,10 @@ impl Application {
             commands,
             snapshot,
             frame,
-            control: tokio::sync::Mutex::new(shutdown.child_token()),
+            control: tokio::sync::Mutex::new(Control {
+                token: shutdown.child_token(),
+                scanning: false,
+            }),
             shutdown,
             worker: tokio::sync::Mutex::new(Some(worker)),
         })
@@ -195,16 +225,18 @@ impl Application {
 
     pub async fn start(&self, mode: SessionMode) -> Result<()> {
         let mut token = self.control.lock().await;
-        if self
-            .snapshot()
-            .session
-            .is_some_and(|session| session.state.is_active())
+        if (token.scanning && !token.token.is_cancelled())
+            || self
+                .snapshot()
+                .session
+                .is_some_and(|session| session.state.is_active())
         {
             return Err(Error::Device("A session is already running".into()));
         }
         let next = self.shutdown.child_token();
         let (reply, response) = oneshot::channel();
-        *token = next.clone();
+        token.token = next.clone();
+        token.scanning = false;
         self.send(Command::Start(mode, next.clone(), reply))?;
         response.await.map_err(|_| closed())??;
         Ok(())
@@ -212,10 +244,60 @@ impl Application {
 
     pub async fn stop(&self) -> Result<()> {
         let token = self.control.lock().await;
-        token.cancel();
+        token.token.cancel();
         let (reply, response) = oneshot::channel();
         self.send(Command::Stop(reply))?;
         response.await.map_err(|_| closed())?
+    }
+
+    pub async fn scan_army(&self, screen: Screen) -> Result<()> {
+        if !matches!(
+            screen,
+            Screen::HomeScout | Screen::BuilderScout | Screen::BuilderStage2
+        ) {
+            return Err(Error::InputGuard);
+        }
+        let mut control = self.control.lock().await;
+        if (control.scanning && !control.token.is_cancelled())
+            || self.snapshot().session.is_some_and(|s| s.state.is_active())
+        {
+            return Err(Error::Device(
+                "Stop the session before reading the army".into(),
+            ));
+        }
+        let token = self.shutdown.child_token();
+        let (reply, response) = oneshot::channel();
+        self.send(Command::ScanArmy(screen, token.clone(), reply))?;
+        control.token = token;
+        control.scanning = true;
+        drop(control);
+        response.await.map_err(|_| closed())?
+    }
+
+    pub fn preview_deployment(
+        &self,
+        screen: Screen,
+    ) -> Result<crate::vision::army::recipe::Recipe> {
+        let snapshot = self.snapshot();
+        if !matches!(
+            screen,
+            Screen::HomeScout | Screen::BuilderScout | Screen::BuilderStage2
+        ) || snapshot.army_screen != Some(screen)
+            || !snapshot.army_complete
+            || snapshot.army_scanning
+        {
+            return Err(Error::Gameplay(
+                "Read this stage's army before creating a plan".into(),
+            ));
+        }
+        let options = &snapshot.settings.farming;
+        crate::vision::army::automatic::generate(
+            &snapshot.army,
+            options.strategy == crate::gameplay::Strategy::Ring,
+            screen != Screen::HomeScout,
+            options.builder_stack,
+            options.earthquake,
+        )
     }
 
     pub async fn pause(&self, paused: bool) -> Result<()> {
@@ -311,7 +393,7 @@ impl<T: Transport + Clone> Worker<T> {
             s.default_layouts = profile
                 .screens
                 .iter()
-                .filter_map(|(screen, spec)| spec.auto.clone().map(|layout| (*screen, layout)))
+                .filter_map(|(screen, spec)| spec.army_bar.map(|_| (*screen, Layout::default())))
                 .collect();
             s.revision += 1;
         });
@@ -392,8 +474,7 @@ impl<T: Transport + Clone> Worker<T> {
                     settings.apply(update)?;
                     self.store.save_settings(&settings)?;
                     self.snapshot.send_modify(|s| {
-                        s.settings = settings;
-                        s.revision += 1;
+                        s.set_settings(settings);
                     });
                     Ok(())
                 })();
@@ -407,8 +488,7 @@ impl<T: Transport + Clone> Worker<T> {
                 } else {
                     self.store.save_settings(&settings).map(|()| {
                         self.snapshot.send_modify(|s| {
-                            s.settings = settings;
-                            s.revision += 1;
+                            s.set_settings(settings);
                         })
                     })
                 };
@@ -420,6 +500,19 @@ impl<T: Transport + Clone> Worker<T> {
             }
             Command::Start(mode, token, reply) => {
                 let result = self.start(mode, token);
+                let _ = reply.send(result);
+            }
+            Command::ScanArmy(screen, token, reply) => {
+                self.snapshot.send_modify(|s| {
+                    s.army_scanning = true;
+                    s.revision += 1;
+                });
+                let result = self.scan_army(screen, &token).await;
+                token.cancel();
+                self.snapshot.send_modify(|s| {
+                    s.army_scanning = false;
+                    s.revision += 1;
+                });
                 let _ = reply.send(result);
             }
             Command::Pause(paused, reply) => {
@@ -491,6 +584,10 @@ impl<T: Transport + Clone> Worker<T> {
         *self.frame.lock().map_err(|_| closed())? = None;
         self.snapshot.send_modify(|s| {
             s.revision += 1;
+            s.army.clear();
+            s.army_complete = false;
+            s.army_screen = None;
+            s.army_observed_at_ms = None;
             s.session = Some(session.clone());
             s.detection = Detection::Unknown;
             s.captured_at_ms = None;
@@ -515,6 +612,109 @@ impl<T: Transport + Clone> Worker<T> {
             next_memory_check: Instant::now() + Duration::from_secs(1800),
         });
         Ok(())
+    }
+
+    async fn scan_army(&mut self, screen: Screen, token: &CancellationToken) -> Result<()> {
+        use crate::vision::army::roster::{ScanStep, Scanner};
+        if self.running.is_some() {
+            return Err(Error::Device(
+                "Stop the session before reading the army".into(),
+            ));
+        }
+        let selected = self
+            .store
+            .settings()?
+            .device
+            .ok_or_else(|| Error::Device("Select an LDPlayer instance in Settings".into()))?;
+        let mut adb = Adb::new(
+            selected.config(self.calibration.resolution),
+            InputMode::Live,
+            self.transport.clone(),
+        )?;
+        let bar = self
+            .profile
+            .screen(screen)?
+            .army_bar
+            .ok_or(Error::InputGuard)?;
+        let mut scanner = Scanner::new(bar, screen != Screen::HomeScout)?;
+        let allowed = crate::gameplay::deploy_screens(screen);
+        let mut started = false;
+        let completed = std::cell::Cell::new(false);
+        let guard = |image: &Mat| -> Result<()> {
+            if self.detector.detect(image)? == Detection::Known(Screen::BuilderBattle)
+                && !crate::gameplay::builder_stage_ready(
+                    &self.profile,
+                    &self.digits,
+                    Some(screen),
+                    image,
+                    &completed,
+                )?
+            {
+                return Err(Error::InputGuard);
+            }
+            Ok(())
+        };
+        adb.verify(token).await?;
+        let deadline = Instant::now() + Duration::from_secs(90);
+        loop {
+            if token.is_cancelled() {
+                return Err(Error::Cancelled);
+            }
+            if Instant::now() >= deadline {
+                return Err(Error::Timeout);
+            }
+            let frame = adb.capture(token).await?;
+            let detection = self.detector.detect(&frame.image)?;
+            if !matches!(detection, Detection::Known(s) if if started {allowed.contains(&s)} else {s==screen})
+            {
+                return Err(Error::Gameplay(
+                    "Open the matching opponent scout screen to read its army".into(),
+                ));
+            }
+            guard(&frame.image)?;
+            started = true;
+            match scanner.observe(&frame.image, &self.digits)? {
+                ScanStep::Wait => {
+                    tokio::select! {_=token.cancelled()=>return Err(Error::Cancelled),_=tokio::time::sleep(Duration::from_millis(250))=>{}}
+                }
+                ScanStep::Pan(pan) => {
+                    adb.gesture_checked(
+                        self.detector.clone(),
+                        &allowed,
+                        |frame| {
+                            guard(frame)?;
+                            Ok((
+                                crate::device::Gesture::Drag {
+                                    from: pan.from,
+                                    to: pan.to,
+                                },
+                                (),
+                            ))
+                        },
+                        token,
+                    )
+                    .await?;
+                    tokio::select! {_=token.cancelled()=>return Err(Error::Cancelled),_=tokio::time::sleep(Duration::from_millis(350))=>{}}
+                }
+                ScanStep::Complete(roster) => {
+                    let current = adb.capture(token).await?;
+                    if !matches!(self.detector.detect(&current.image)?, Detection::Known(s) if allowed.contains(&s))
+                    {
+                        return Err(Error::InputGuard);
+                    }
+                    guard(&current.image)?;
+                    let at = now()?;
+                    self.snapshot.send_modify(|s| {
+                        s.army = roster.inventory();
+                        s.army_complete = true;
+                        s.army_screen = Some(screen);
+                        s.army_observed_at_ms = Some(at);
+                        s.revision += 1;
+                    });
+                    return Ok(());
+                }
+            }
+        }
     }
 
     fn pause(&mut self, paused: bool) -> Result<()> {
@@ -870,35 +1070,6 @@ impl<T: Transport + Clone> Worker<T> {
             self.store.statistics(run.session.id, Village::Builder)?,
         ];
         let sequence = self.snapshot.borrow().revision + 1;
-        let army = if let Detection::Known(
-            screen @ (Screen::HomeScout | Screen::BuilderScout | Screen::BuilderStage2),
-        ) = detection
-        {
-            self.profile
-                .screen(screen)?
-                .auto
-                .as_ref()
-                .and_then(|layout| {
-                    crate::vision::army::cards(
-                        &capture.image,
-                        layout.bar,
-                        screen != Screen::HomeScout,
-                        &self.digits,
-                    )
-                    .ok()
-                })
-                .and_then(|cards| {
-                    crate::vision::army::recipe::inventory(
-                        &cards,
-                        &capture.image,
-                        screen != Screen::HomeScout,
-                    )
-                    .ok()
-                })
-                .unwrap_or_default()
-        } else {
-            vec![]
-        };
         *self.frame.lock().map_err(|_| closed())? = Some(Frame {
             session_id: run.session.id,
             sequence,
@@ -906,7 +1077,12 @@ impl<T: Transport + Clone> Worker<T> {
         });
         self.snapshot.send_modify(|s| {
             s.revision = sequence;
-            s.army = army;
+            if let Some((screen, units)) = outcome.army {
+                s.army = units;
+                s.army_complete = true;
+                s.army_screen = Some(screen);
+                s.army_observed_at_ms = Some(at);
+            }
             s.session = Some(session);
             s.detection = detection;
             s.captured_at_ms = Some(at);
@@ -959,9 +1135,236 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     #[derive(Clone)]
+    struct WaitingCapture {
+        base: Fake,
+        entered: Arc<tokio::sync::Notify>,
+    }
+    impl Transport for WaitingCapture {
+        async fn run(&self, command: Invocation, cancel: &CancellationToken) -> Result<Vec<u8>> {
+            if command.args.last().is_some_and(|s| s == "screencap") {
+                self.entered.notify_one();
+                cancel.cancelled().await;
+                return Err(Error::Cancelled);
+            }
+            self.base.run(command, cancel).await
+        }
+    }
+
+    #[tokio::test]
+    async fn army_read_is_owned_cancellable_and_creates_no_farming_session() {
+        let (base, _) = Fake::new("english-home.png");
+        let transport = WaitingCapture {
+            base,
+            entered: Arc::default(),
+        };
+        let data = tempfile::tempdir().unwrap();
+        for file in ["adb.exe", "ldconsole.exe"] {
+            std::fs::write(data.path().join(file), []).unwrap();
+        }
+        let app = Arc::new(
+            Application::with_transport(data.path().to_owned(), root(), transport.clone())
+                .await
+                .unwrap(),
+        );
+        app.save_settings(Settings {
+            device: Some(SelectedDevice {
+                folder: data.path().to_owned(),
+                index: 0,
+            }),
+            ..Default::default()
+        })
+        .await
+        .unwrap();
+        for abandon in [false, true] {
+            let task = {
+                let app = app.clone();
+                tokio::spawn(async move { app.scan_army(Screen::HomeScout).await })
+            };
+            tokio::time::timeout(Duration::from_secs(3), transport.entered.notified())
+                .await
+                .unwrap();
+            assert!(app.snapshot().army_scanning);
+            assert!(app.start(SessionMode::Observe).await.is_err());
+            assert!(app.scan_army(Screen::BuilderScout).await.is_err());
+            if abandon {
+                task.abort();
+            }
+            tokio::time::timeout(Duration::from_secs(3), app.stop())
+                .await
+                .unwrap()
+                .unwrap();
+            if !abandon {
+                assert!(matches!(task.await.unwrap(), Err(Error::Cancelled)));
+            }
+            assert!(!app.snapshot().army_scanning);
+            assert!(app.snapshot().army.is_empty());
+            assert!(app.history(None).await.unwrap().is_empty());
+        }
+        assert!(transport.base.taps.lock().unwrap().is_empty());
+        app.shutdown().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn manual_builder_army_scan_never_publishes_across_a_stage_transition() {
+        #[derive(Clone)]
+        struct ChangingCapture {
+            before: Fake,
+            after: Fake,
+            captures: Arc<AtomicUsize>,
+        }
+        impl Transport for ChangingCapture {
+            async fn run(
+                &self,
+                command: Invocation,
+                cancel: &CancellationToken,
+            ) -> Result<Vec<u8>> {
+                if command.args.last().is_some_and(|s| s == "screencap")
+                    && self.captures.fetch_add(1, Ordering::SeqCst) > 0
+                {
+                    return self.after.run(command, cancel).await;
+                }
+                self.before.run(command, cancel).await
+            }
+        }
+        let (_, mut scout) = Fake::new("english-builder_current.png");
+        let (_, army) = Fake::new("deployment-builder-before.png");
+        let rect = opencv::core::Rect::new(0, 588, 1280, 120);
+        Mat::roi(&army, rect)
+            .unwrap()
+            .copy_to(&mut Mat::roi_mut(&mut scout, rect).unwrap())
+            .unwrap();
+        for (source, before) in [
+            (Screen::BuilderScout, scout.clone()),
+            (
+                Screen::BuilderStage2,
+                Fake::new("battlefield-builder-second-active.png").1,
+            ),
+        ] {
+            let transport = ChangingCapture {
+                before: Fake::from_image(&before),
+                after: Fake::new("battlefield-builder-second-active.png").0,
+                captures: Arc::default(),
+            };
+            let data = tempfile::tempdir().unwrap();
+            for name in ["adb.exe", "ldconsole.exe"] {
+                std::fs::write(data.path().join(name), []).unwrap();
+            }
+            let app =
+                Application::with_transport(data.path().to_owned(), root(), transport.clone())
+                    .await
+                    .unwrap();
+            app.save_settings(Settings {
+                device: Some(SelectedDevice {
+                    folder: data.path().to_owned(),
+                    index: 0,
+                }),
+                ..Default::default()
+            })
+            .await
+            .unwrap();
+            assert!(app.scan_army(source).await.is_err());
+            assert!(!app.snapshot().army_complete);
+            assert!(app.snapshot().army.is_empty());
+            assert!(transport.before.taps.lock().unwrap().is_empty());
+            assert!(transport.after.taps.lock().unwrap().is_empty());
+            assert_eq!(
+                transport.captures.load(Ordering::SeqCst),
+                if source == Screen::BuilderScout { 2 } else { 1 }
+            );
+            app.shutdown().await.unwrap();
+        }
+    }
+
+    #[derive(Clone)]
     struct LowMemoryDevice {
         base: Fake,
         probes: Arc<AtomicUsize>,
+    }
+
+    #[tokio::test]
+    async fn plan_preview_requires_this_stages_complete_army_and_never_saves_or_taps() {
+        use crate::vision::army::recipe::{Unit, UnitKind};
+        let (base, _) = Fake::new("english-home.png");
+        let data = tempfile::tempdir().unwrap();
+        let mut app = Application::with_transport(data.path().to_owned(), root(), base.clone())
+            .await
+            .unwrap();
+        let original = app.snapshot();
+        let (observed, receiver) = watch::channel(original.clone());
+        app.snapshot = receiver;
+        assert!(app.preview_deployment(Screen::HomeScout).is_err());
+        observed.send_modify(|s| {
+            s.army_complete = true;
+            s.army_screen = Some(Screen::HomeScout);
+            s.army = vec![Unit {
+                supports_ability: false,
+                kind: UnitKind::Troop,
+                slot: 1,
+                count: Some(15),
+            }];
+        });
+        let recipe = app.preview_deployment(Screen::HomeScout).unwrap();
+        assert_eq!(recipe.steps.iter().map(|s| s.count).sum::<u32>(), 15);
+        for screen in [Screen::Home, Screen::BuilderScout, Screen::BuilderStage2] {
+            assert!(app.preview_deployment(screen).is_err());
+        }
+        observed.send_modify(|s| s.army_scanning = true);
+        assert!(app.preview_deployment(Screen::HomeScout).is_err());
+        observed.send_modify(|s| {
+            s.army_scanning = false;
+            s.army_complete = false;
+        });
+        assert!(app.preview_deployment(Screen::HomeScout).is_err());
+        assert_eq!(app.snapshot().settings, original.settings);
+        assert!(app.history(None).await.unwrap().is_empty());
+        assert!(base.taps.lock().unwrap().is_empty());
+        app.shutdown().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn army_observations_belong_to_the_selected_device() {
+        let (base, _) = Fake::new("english-home.png");
+        let data = tempfile::tempdir().unwrap();
+        let app = Application::with_transport(data.path().to_owned(), root(), base.clone())
+            .await
+            .unwrap();
+        let mut snapshot = app.snapshot();
+        snapshot.settings.device = Some(SelectedDevice {
+            folder: data.path().to_owned(),
+            index: 0,
+        });
+        snapshot.army = vec![crate::vision::army::recipe::Unit {
+            supports_ability: false,
+            kind: crate::vision::army::recipe::UnitKind::Troop,
+            slot: 1,
+            count: Some(15),
+        }];
+        snapshot.army_complete = true;
+        snapshot.army_screen = Some(Screen::HomeScout);
+        snapshot.army_observed_at_ms = Some(1000);
+        let mut settings = snapshot.settings.clone();
+        settings.farming.attacks = 10;
+        snapshot.set_settings(settings.clone());
+        assert!(snapshot.army_complete);
+        assert_eq!(snapshot.army.len(), 1);
+        for folder_changed in [false, true] {
+            let mut changed = snapshot.clone();
+            let mut settings = changed.settings.clone();
+            let device = settings.device.as_mut().unwrap();
+            if folder_changed {
+                device.folder = data.path().join("another-installation");
+            } else {
+                device.index = 1;
+            }
+            changed.set_settings(settings);
+            assert!(changed.army.is_empty());
+            assert!(!changed.army_complete);
+            assert_eq!(changed.army_screen, None);
+            assert_eq!(changed.army_observed_at_ms, None);
+            assert_eq!(changed.settings.farming, snapshot.settings.farming);
+        }
+        assert!(base.taps.lock().unwrap().is_empty());
+        app.shutdown().await.unwrap();
     }
     impl Transport for LowMemoryDevice {
         async fn run(&self, command: Invocation, cancel: &CancellationToken) -> Result<Vec<u8>> {
@@ -992,6 +1395,10 @@ mod tests {
             }
             let (snapshot, _) = watch::channel(Snapshot {
                 army: vec![],
+                army_complete: false,
+                army_screen: None,
+                army_observed_at_ms: None,
+                army_scanning: false,
                 revision: 0,
                 settings: Settings::default(),
                 session: None,

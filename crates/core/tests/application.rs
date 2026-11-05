@@ -70,7 +70,7 @@ impl Transport for Fake {
             .join(" ");
         assert!(
             !args.contains("input ")
-                && !args.contains("toybox base64 -d")
+                && !args.contains("/dev/input/event")
                 && !args.contains("launch")
                 && !args.contains("force-stop"),
             "Observation must never send input: {args}"
@@ -535,7 +535,7 @@ async fn a_connected_device_with_broken_capture_is_restarted_and_recovery_is_bou
         assert!(
             calls
                 .iter()
-                .all(|args| !args.contains("input ") && !args.contains("toybox base64 -d"))
+                .all(|args| !args.contains("input ") && !args.contains("/dev/input/event"))
         );
         app.shutdown().await.unwrap();
     }
@@ -657,16 +657,23 @@ async fn settings_patches_preserve_other_editors_and_failed_updates_are_atomic()
     app.update_settings(SettingsUpdate::Device(settings.device.clone()))
         .await
         .unwrap();
-    layout.deploy = Some(coc_bot_core::device::Point(123, 456));
+    layout.recipe = Some(
+        serde_json::from_value(serde_json::json!({"steps": [{
+            "slot": 1, "label": "Troop", "kind": "troop", "point": [0, 500], "count": 4,
+            "delay_ms": 0, "interval_ms": 100, "ability": false
+        }]}))
+        .unwrap(),
+    );
     app.update_settings(SettingsUpdate::Layout {
         screen: Screen::HomeScout,
         layout: Some(layout.clone()),
-        spread: None,
     })
     .await
     .unwrap();
     app.update_settings(SettingsUpdate::Farming(Options {
         attacks: 7,
+        strategy: coc_bot_core::gameplay::Strategy::Ring,
+        builder_stack: true,
         ..Options::default()
     }))
     .await
@@ -678,7 +685,6 @@ async fn settings_patches_preserve_other_editors_and_failed_updates_are_atomic()
     app.update_settings(SettingsUpdate::Layout {
         screen: Screen::HomeScout,
         layout: Some(layout.clone()),
-        spread: Some(true),
     })
     .await
     .unwrap();
@@ -691,7 +697,6 @@ async fn settings_patches_preserve_other_editors_and_failed_updates_are_atomic()
     app.update_settings(SettingsUpdate::Layout {
         screen: Screen::BuilderScout,
         layout: Some(builder),
-        spread: Some(false),
     })
     .await
     .unwrap();
@@ -714,6 +719,97 @@ async fn settings_patches_preserve_other_editors_and_failed_updates_are_atomic()
     app.shutdown().await.unwrap();
     let store = Store::open(&folder.path().join("data/history.sqlite3")).unwrap();
     assert_eq!(store.settings().unwrap(), saved);
+}
+
+#[test]
+fn legacy_pixel_layouts_preserve_custom_recipes_preferences_and_history() {
+    let folder = tempfile::tempdir().unwrap();
+    let path = folder.path().join("history.sqlite3");
+    let mut store = Store::open(&path).unwrap();
+    let session = store.begin_session(SessionMode::Observe, 100).unwrap();
+    let mut expected = preferences(folder.path());
+    expected.farming.attacks = 17;
+    expected.farming.gold_reserve = 3_000_000;
+    expected.farming.strategy = coc_bot_core::gameplay::Strategy::Ring;
+    expected.farming.earthquake = true;
+    expected.farming.builder_stack = true;
+    let recipe = serde_json::json!({"steps": [{
+        "slot": 1, "label": "Troop", "kind": "troop", "point": [0, 500], "count": 4,
+        "delay_ms": 0, "interval_ms": 100, "ability": false
+    }]});
+    expected.farming.layouts.insert(
+        Screen::HomeScout,
+        coc_bot_core::vision::army::Layout {
+            recipe: Some(serde_json::from_value(recipe.clone()).unwrap()),
+        },
+    );
+    expected
+        .farming
+        .layouts
+        .insert(Screen::BuilderScout, Default::default());
+    let mut legacy = serde_json::to_value(&expected).unwrap();
+    for screen in ["home_scout", "builder_scout"] {
+        let layout = legacy["farming"]["layouts"][screen]
+            .as_object_mut()
+            .unwrap();
+        for (key, value) in serde_json::json!({
+            "bar": [0, 598, 1280, 106], "deploy": [60, 300], "hold": 10,
+            "points": [[345, 120]], "spells": [[600, 300]], "ring": [[70, 400]],
+            "spell_spread": [[500, 300]], "quake": [[500, 300]]
+        })
+        .as_object()
+        .unwrap()
+        {
+            layout.insert(key.clone(), value.clone());
+        }
+    }
+    let connection = rusqlite::Connection::open(&path).unwrap();
+    let raw = serde_json::to_string(&legacy).unwrap();
+    connection
+        .execute("INSERT INTO settings (id, data) VALUES (1, ?1)", [&raw])
+        .unwrap();
+    assert_eq!(store.settings().unwrap(), expected);
+    assert_eq!(
+        connection
+            .query_row("SELECT data FROM settings", [], |row| row
+                .get::<_, String>(0))
+            .unwrap(),
+        raw,
+        "Reading old settings must not rewrite personal data"
+    );
+    store.save_settings(&expected).unwrap();
+    assert_eq!(store.settings().unwrap(), expected);
+    let saved: serde_json::Value = serde_json::from_str(
+        &connection
+            .query_row("SELECT data FROM settings", [], |row| {
+                row.get::<_, String>(0)
+            })
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        saved["farming"]["layouts"]["home_scout"]
+            .as_object()
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(store.sessions(None, 10).unwrap()[0].id, session.id);
+    legacy["farming"]["layouts"]["home_scout"]["recipe"]["steps"][0]["point"] =
+        serde_json::json!([1001, 500]);
+    let malformed = serde_json::to_string(&legacy).unwrap();
+    connection
+        .execute("UPDATE settings SET data = ?1", [&malformed])
+        .unwrap();
+    assert!(store.settings().is_err());
+    assert_eq!(
+        connection
+            .query_row("SELECT data FROM settings", [], |row| row
+                .get::<_, String>(0))
+            .unwrap(),
+        malformed
+    );
+    assert_eq!(store.sessions(None, 10).unwrap()[0].id, session.id);
 }
 
 #[tokio::test]

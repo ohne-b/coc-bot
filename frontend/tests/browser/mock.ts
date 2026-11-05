@@ -21,6 +21,7 @@ export async function mock(
     rejectDeviceSave?: boolean;
     armyCount?: number;
     holdArmyRead?: boolean;
+    holdPreview?: boolean;
     armyReadError?: boolean;
   } = {},
 ) {
@@ -50,23 +51,17 @@ export async function mock(
           {
             slot: 1,
             kind: "troop",
-            center: [130, 650],
             count: 15,
-            portrait: Array(768).fill(90),
           },
           {
             slot: 2,
             kind: "hero",
-            center: [230, 650],
             count: null,
-            portrait: Array(768).fill(150),
           },
           {
             slot: 3,
             kind: "spell",
-            center: [330, 650],
             count: 3,
-            portrait: Array(768).fill(210),
           },
         ],
         revision: 1,
@@ -138,48 +133,16 @@ export async function mock(
         progress: null,
         statistics: [],
         default_layouts: {
-          home_scout: {
-            bar: [0, 598, 1280, 106],
-            deploy: [100, 300],
-            hold: 10,
-            points: [],
-            spells: [[400, 300]],
-            ring: [
-              [100, 100],
-              [1100, 100],
-            ],
-            spell_spread: [[600, 300]],
-            quake: [[600, 400]],
-          },
-          builder_scout: {
-            bar: [0, 588, 1280, 120],
-            deploy: [100, 300],
-            hold: 0,
-            points: [[200, 200]],
-            spells: [],
-            ring: [],
-            spell_spread: [],
-            quake: [],
-          },
-          builder_stage2: {
-            bar: [0, 588, 1280, 120],
-            deploy: [100, 300],
-            hold: 0,
-            points: [[300, 300]],
-            spells: [],
-            ring: [],
-            spell_spread: [],
-            quake: [],
-          },
+          home_scout: { recipe: null },
+          builder_scout: { recipe: null },
+          builder_stage2: { recipe: null },
         },
       };
       if (options.armyCount)
         snapshot.army = Array.from({ length: options.armyCount }, (_, i) => ({
           slot: i + 1,
           kind: i === options.armyCount! - 1 ? "spell" : "troop",
-          center: [130, 650],
           count: i === options.armyCount! - 1 ? 3 : 15,
-          portrait: Array(768).fill(90),
         }));
       const total = {
         amount: null,
@@ -300,6 +263,35 @@ export async function mock(
             }
             if (options.error) throw "Unable to read the history database";
             if (command === "snapshot") return structuredClone(snapshot);
+            if (command === "preview_deployment") {
+              if (
+                snapshot.army_screen !== args.screen ||
+                !snapshot.army_complete
+              )
+                throw "Read this stage's army before creating a plan";
+              const recipe = {
+                steps: snapshot.army.map((unit) => ({
+                  slot: unit.slot,
+                  kind: unit.kind,
+                  label: `${unit.kind} ${unit.slot}`,
+                  portrait: [],
+                  count: unit.count ?? 1,
+                  point: [1000, 500],
+                  delay_ms: 0,
+                  interval_ms: 500,
+                  ability: false,
+                  supports_ability: unit.kind === "hero",
+                })),
+              };
+              if (options.holdPreview)
+                await new Promise<void>((resolve, reject) =>
+                  Object.assign(window, {
+                    resolvePreview: resolve,
+                    rejectPreview: reject,
+                  }),
+                );
+              return recipe;
+            }
             if (command === "scan_army") {
               if (options.armyReadError)
                 throw "Open an attack's scout screen before reading the army";
@@ -377,20 +369,11 @@ export async function mock(
                   const value = update.value as {
                     screen: string;
                     layout: unknown;
-                    spread?: boolean;
                   };
                   if (value.layout)
                     snapshot.settings.farming.layouts[value.screen] =
                       value.layout;
                   else delete snapshot.settings.farming.layouts[value.screen];
-                  if (value.spread !== undefined) {
-                    if (value.screen === "home_scout")
-                      snapshot.settings.farming.strategy = value.spread
-                        ? "ring"
-                        : "stack";
-                    else
-                      snapshot.settings.farming.builder_stack = !value.spread;
-                  }
                 }
                 snapshot.revision++;
               };

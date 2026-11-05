@@ -8,10 +8,10 @@ captures/
 !/.github/assets/updater.png
 !/.github/assets/farming-settings.png
 !/.github/assets/emulator-settings.png
+!/.github/assets/deployment.png
 *.log
 !/assets/calibration/english/**/*.png
 !/assets/calibration/digits/*.png
-!/assets/calibration/battlefield/*.png
 !/crates/core/tests/fixtures/*.png
 config.json.bak
 config.json.tmp
