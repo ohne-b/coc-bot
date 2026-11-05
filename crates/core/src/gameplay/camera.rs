@@ -45,8 +45,8 @@ impl Motion {
     }
 }
 
-fn register(before: &Mat, after: &Mat) -> Result<Motion> {
-    let detector = features2d::ORB::create(
+fn orb() -> Result<core::Ptr<features2d::ORB>> {
+    Ok(features2d::ORB::create(
         8000,
         1.2,
         8,
@@ -56,8 +56,11 @@ fn register(before: &Mat, after: &Mat) -> Result<Motion> {
         features2d::ORB_ScoreType::HARRIS_SCORE,
         31,
         5,
-    )?;
-    register_features(before, after, detector, core::NORM_HAMMING)
+    )?)
+}
+
+fn register(before: &Mat, after: &Mat) -> Result<Motion> {
+    register_features(before, after, orb()?, core::NORM_HAMMING)
 }
 
 fn register_zoom(before: &Mat, after: &Mat) -> Result<Motion> {
@@ -77,28 +80,33 @@ fn register_features(
     mut detector: impl features2d::Feature2DTrait,
     norm: i32,
 ) -> Result<Motion> {
-    if before.size()? != core::Size::new(1280, 720)
-        || after.size()? != before.size()?
-        || before.typ() != core::CV_8UC3
-        || after.typ() != core::CV_8UC3
-    {
-        return Err(Error::InputGuard);
-    }
-    let error = || {
-        Error::Gameplay("Camera movement could not be verified; no deployment input sent".into())
-    };
-    let mut mask = Mat::new_rows_cols_with_default(720, 1280, core::CV_8UC1, Scalar::all(0.))?;
-    Mat::roi_mut(&mut mask, Rect::new(40, 90, 1200, 485))?
-        .set_to(&Scalar::all(255.), &core::no_array())?;
-    for r in [
-        Rect::new(0, 0, 270, 210),
-        Rect::new(980, 0, 300, 180),
-        Rect::new(0, 470, 610, 110),
-        Rect::new(1050, 465, 230, 115),
-    ] {
-        Mat::roi_mut(&mut mask, r)?.set_to(&Scalar::all(0.), &core::no_array())?;
-    }
-    let mut features = |image: &Mat| -> Result<(Vector<KeyPoint>, Mat)> {
+    let before = Features::extract(before, &mut detector)?;
+    let after = Features::extract(after, &mut detector)?;
+    register_cached(&before, &after, norm)
+}
+
+#[derive(Clone)]
+struct Features {
+    gray: Mat,
+    points: Vector<KeyPoint>,
+    descriptors: Mat,
+}
+impl Features {
+    fn extract(image: &Mat, detector: &mut impl features2d::Feature2DTrait) -> Result<Self> {
+        if image.size()? != core::Size::new(1280, 720) || image.typ() != core::CV_8UC3 {
+            return Err(Error::InputGuard);
+        }
+        let mut mask = Mat::new_rows_cols_with_default(720, 1280, core::CV_8UC1, Scalar::all(0.))?;
+        Mat::roi_mut(&mut mask, Rect::new(40, 90, 1200, 485))?
+            .set_to(&Scalar::all(255.), &core::no_array())?;
+        for r in [
+            Rect::new(0, 0, 270, 210),
+            Rect::new(980, 0, 300, 180),
+            Rect::new(0, 470, 610, 110),
+            Rect::new(1050, 465, 230, 115),
+        ] {
+            Mat::roi_mut(&mut mask, r)?.set_to(&Scalar::all(0.), &core::no_array())?;
+        }
         let mut gray = Mat::default();
         imgproc::cvt_color_def(image, &mut gray, imgproc::COLOR_BGR2GRAY)?;
         let mut detected = Vector::<KeyPoint>::new();
@@ -119,18 +127,28 @@ fn register_features(
         }
         let mut descriptors = Mat::default();
         detector.compute(&gray, &mut points, &mut descriptors)?;
-        Ok((points, descriptors))
+        Ok(Self {
+            gray,
+            points,
+            descriptors,
+        })
+    }
+}
+
+fn register_cached(before: &Features, after: &Features, norm: i32) -> Result<Motion> {
+    let error = || {
+        Error::Gameplay("Camera movement could not be verified; no deployment input sent".into())
     };
-    let (a, da) = features(before)?;
-    let (b, db) = features(after)?;
+    let (a, da) = (&before.points, &before.descriptors);
+    let (b, db) = (&after.points, &after.descriptors);
     if a.len() < 24 || b.len() < 24 {
         return Err(error());
     }
     let matcher = features2d::BFMatcher::new(norm, false)?;
     let mut forward: Vector<Vector<DMatch>> = Vector::new();
     let mut reverse: Vector<Vector<DMatch>> = Vector::new();
-    matcher.knn_train_match_def(&da, &db, &mut forward, 2)?;
-    matcher.knn_train_match_def(&db, &da, &mut reverse, 2)?;
+    matcher.knn_train_match_def(da, db, &mut forward, 2)?;
+    matcher.knn_train_match_def(db, da, &mut reverse, 2)?;
     let mut from: Vector<Point2f> = Vector::new();
     let mut to: Vector<Point2f> = Vector::new();
     for pair in forward {
@@ -156,11 +174,9 @@ fn register_features(
     }
     let original = (from.clone(), to.clone());
     // ORB pyramid coordinates are quantized; refine matched corners before composing pan fits.
-    for (image, points) in [(before, &mut from), (after, &mut to)] {
-        let mut gray = Mat::default();
-        imgproc::cvt_color_def(image, &mut gray, imgproc::COLOR_BGR2GRAY)?;
+    for (gray, points) in [(&before.gray, &mut from), (&after.gray, &mut to)] {
         imgproc::corner_sub_pix(
-            &gray,
+            gray,
             points,
             core::Size::new(3, 3),
             core::Size::new(-1, -1),
@@ -613,18 +629,19 @@ impl Normalization {
 
 pub struct Camera {
     geometry: Geometry,
-    origin: Mat,
-    reference: Mat,
+    origin: Features,
+    reference: Features,
     transform: Motion,
 }
 impl Camera {
     pub fn new(geometry: Geometry, image: &Mat) -> Result<Self> {
         geometry.validate()?;
-        motion(image, image)?;
+        let origin = Features::extract(image, &mut orb()?)?;
+        register_cached(&origin, &origin, core::NORM_HAMMING)?.at_execution_zoom()?;
         Ok(Self {
             geometry,
-            origin: image.clone(),
-            reference: image.clone(),
+            reference: origin.clone(),
+            origin,
             transform: Motion {
                 scale: 1.,
                 rotation: 0.,
@@ -652,21 +669,29 @@ impl Camera {
             .map(|n| n.round() as i32))
     }
     pub fn track(&mut self, image: &Mat) -> Result<()> {
-        self.transform = self.transform(image)?;
-        self.reference = image.clone();
+        let reference = Features::extract(image, &mut orb()?)?;
+        self.transform = self.transform_features(&reference)?;
+        self.reference = reference;
         Ok(())
     }
     fn transform(&self, image: &Mat) -> Result<Motion> {
-        let tracked = match register(&self.reference, image) {
+        self.transform_features(&Features::extract(image, &mut orb()?)?)
+    }
+    fn transform_features(&self, features: &Features) -> Result<Motion> {
+        let tracked = match register_cached(&self.reference, features, core::NORM_HAMMING) {
             Ok(movement) => self
                 .transform
                 .then(movement.at_execution_zoom()?)
                 .at_execution_zoom()?,
-            Err(Error::Gameplay(_)) => return register(&self.origin, image)?.at_execution_zoom(),
+            Err(Error::Gameplay(_)) => {
+                return register_cached(&self.origin, features, core::NORM_HAMMING)?
+                    .at_execution_zoom();
+            }
             Err(error) => return Err(error),
         };
         // A distant original view can fit animated scenery; reattach only when both poses agree.
-        if let Ok(anchor) = register(&self.origin, image).and_then(Motion::at_execution_zoom)
+        if let Ok(anchor) = register_cached(&self.origin, features, core::NORM_HAMMING)
+            .and_then(Motion::at_execution_zoom)
             && [[0., 0.], [1., 0.], [0., 1.], [1., 1.]]
                 .into_iter()
                 .all(|[u, v]| {
@@ -710,6 +735,44 @@ pub fn visible([x, y]: [i32; 2]) -> Option<Point> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cached_camera_reference_survives_rejected_or_mutated_frames() {
+        let mut original = captured_view();
+        let retained = original.clone();
+        let mut camera = Camera::new(
+            Geometry {
+                origin: [640., 360.],
+                u: [400., 200.],
+                v: [-400., 200.],
+                pan_range: [1000., 1000.],
+            },
+            &original,
+        )
+        .unwrap();
+        let expected = camera.position(&retained, Point(500, 500)).unwrap();
+        original
+            .set_to(&Scalar::all(0.), &core::no_array())
+            .unwrap();
+        let mut zoomed = Mat::default();
+        imgproc::warp_affine(
+            &retained,
+            &mut zoomed,
+            &Mat::from_slice_2d(&[[1.02, 0., -12.8], [0., 1.02, -7.2]]).unwrap(),
+            core::Size::new(1280, 720),
+            imgproc::INTER_LINEAR,
+            core::BORDER_CONSTANT,
+            Scalar::all(0.),
+        )
+        .unwrap();
+        for changed in [original, zoomed] {
+            assert!(camera.track(&changed).is_err());
+            assert_eq!(
+                camera.position(&retained, Point(500, 500)).unwrap(),
+                expected
+            );
+        }
+    }
 
     fn large_zoom_view(index: u8) -> Mat {
         crate::vision::read_image(
