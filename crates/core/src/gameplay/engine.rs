@@ -1071,6 +1071,7 @@ impl Engine {
                     let resource = resources[index];
                     let required = (self.options.until_full || self.mode == SessionMode::Walls)
                         && targets.contains(&resource);
+                    let read_timeout = if required { 15_000 } else { 3000 };
                     let key = resource_name(resource);
                     let spec = profile
                         .capacity
@@ -1084,10 +1085,10 @@ impl Engine {
                         .ok()
                         .and_then(|value| u32::try_from(value).ok());
                     let Some(amount) = amount else {
+                        if now.saturating_sub(self.since) <= read_timeout {
+                            return Ok(outcome);
+                        }
                         if required {
-                            if now.saturating_sub(self.since) <= 15_000 {
-                                return Ok(outcome);
-                            }
                             return Err(Error::Unreadable);
                         }
                         if opened && spec.label.locate(image)?.is_some() {
@@ -1146,8 +1147,7 @@ impl Engine {
                         };
                         self.since = now;
                         self.delay(now, 500);
-                    } else if now.saturating_sub(self.since) > if required { 15_000 } else { 3000 }
-                    {
+                    } else if now.saturating_sub(self.since) > read_timeout {
                         if required {
                             return Err(Error::Unreadable);
                         }
@@ -3953,109 +3953,122 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn required_balance_retries_captured_unreadable_frame_with_a_deadline() {
-        let profile = Profile::load(&root()).unwrap();
-        let digits = Digits::load(&root(), Path::new("calibration/digits")).unwrap();
-        let detector = Arc::new(
-            Detector::load(
-                &Calibration::load(&root().join("config.json")).unwrap(),
-                &root(),
-            )
-            .unwrap(),
-        );
-        let vision = GameVision {
-            profile: &profile,
-            digits: &digits,
-            detector: detector.clone(),
-        };
-        let (fake, unreadable) = Fake::new("english-home-elixir-unreadable.png");
-        let (readable_fake, readable) = Fake::new("english-home-elixir-readable.png");
-        for image in [&unreadable, &readable] {
-            assert_eq!(
-                detector.detect(image).unwrap(),
-                Detection::Known(Screen::Home)
+    async fn balance_retries_captured_unreadable_frame_with_a_deadline() {
+        for required in [false, true] {
+            let profile = Profile::load(&root()).unwrap();
+            let digits = Digits::load(&root(), Path::new("calibration/digits")).unwrap();
+            let detector = Arc::new(
+                Detector::load(
+                    &Calibration::load(&root().join("config.json")).unwrap(),
+                    &root(),
+                )
+                .unwrap(),
             );
-        }
-        let spec = &profile.capacity["home"]["elixir"];
-        assert!(
-            digits
-                .trailing(&crop(&unreadable, spec.bar).unwrap(), 0.65, 110)
-                .is_err()
-        );
-        let temp = tempfile::tempdir().unwrap();
-        let mut adb = fake.adb(temp.path());
-        let mut engine = Engine::new(Options::default(), SessionMode::Walls, &profile).unwrap();
-        engine.stage = Stage::Check {
-            index: 1,
-            opened: true,
-        };
-        engine.since = 1000;
-        let frame = FrameView {
-            image: &unreadable,
-            detection: &Detection::Known(Screen::Home),
-            elapsed_ms: 2000,
-            captured_at_ms: 2000,
-        };
-        for elapsed_ms in [2000, 16000] {
+            let vision = GameVision {
+                profile: &profile,
+                digits: &digits,
+                detector: detector.clone(),
+            };
+            let (fake, unreadable) = Fake::new("english-home-elixir-unreadable.png");
+            let (readable_fake, readable) = Fake::new("english-home-elixir-readable.png");
+            for image in [&unreadable, &readable] {
+                assert_eq!(
+                    detector.detect(image).unwrap(),
+                    Detection::Known(Screen::Home)
+                );
+            }
+            let spec = &profile.capacity["home"]["elixir"];
+            assert!(
+                digits
+                    .trailing(&crop(&unreadable, spec.bar).unwrap(), 0.65, 110)
+                    .is_err()
+            );
+            let temp = tempfile::tempdir().unwrap();
+            let mut adb = fake.adb(temp.path());
+            let mut engine = Engine::new(
+                Options::default(),
+                if required {
+                    SessionMode::Walls
+                } else {
+                    SessionMode::Farming
+                },
+                &profile,
+            )
+            .unwrap();
+            engine.stage = Stage::Check {
+                index: 1,
+                opened: true,
+            };
+            engine.since = 1000;
+            let frame = FrameView {
+                image: &unreadable,
+                detection: &Detection::Known(Screen::Home),
+                elapsed_ms: 2000,
+                captured_at_ms: 2000,
+            };
+            for elapsed_ms in [2000, if required { 16000 } else { 3000 }] {
+                let outcome = engine
+                    .tick(
+                        &vision,
+                        &mut adb,
+                        &FrameView {
+                            elapsed_ms,
+                            ..frame
+                        },
+                        &CancellationToken::new(),
+                    )
+                    .await
+                    .unwrap();
+                assert!(outcome.resources.is_empty());
+                assert!(matches!(
+                    engine.stage,
+                    Stage::Check {
+                        index: 1,
+                        opened: true
+                    }
+                ));
+            }
+            assert!(fake.taps.lock().unwrap().is_empty());
+            if required {
+                assert!(matches!(
+                    engine
+                        .tick(
+                            &vision,
+                            &mut adb,
+                            &FrameView {
+                                elapsed_ms: 16001,
+                                ..frame
+                            },
+                            &CancellationToken::new()
+                        )
+                        .await,
+                    Err(Error::Unreadable)
+                ));
+            }
+            let mut adb = readable_fake.adb(temp.path());
             let outcome = engine
                 .tick(
                     &vision,
                     &mut adb,
                     &FrameView {
-                        elapsed_ms,
+                        image: &readable,
+                        elapsed_ms: if required { 17000 } else { 3500 },
                         ..frame
                     },
                     &CancellationToken::new(),
                 )
                 .await
                 .unwrap();
-            assert!(outcome.resources.is_empty());
             assert!(matches!(
-                engine.stage,
-                Stage::Check {
-                    index: 1,
-                    opened: true
-                }
+                outcome.resources[0].reading,
+                Reading::Known(Balance {
+                    amount: 3_500_219,
+                    capacity: Some(26_000_000)
+                })
             ));
+            assert_eq!(engine.recovery_count, 0);
+            assert_eq!(readable_fake.taps.lock().unwrap().len(), 1);
         }
-        assert!(fake.taps.lock().unwrap().is_empty());
-        assert!(matches!(
-            engine
-                .tick(
-                    &vision,
-                    &mut adb,
-                    &FrameView {
-                        elapsed_ms: 16001,
-                        ..frame
-                    },
-                    &CancellationToken::new()
-                )
-                .await,
-            Err(Error::Unreadable)
-        ));
-        let mut adb = readable_fake.adb(temp.path());
-        let outcome = engine
-            .tick(
-                &vision,
-                &mut adb,
-                &FrameView {
-                    image: &readable,
-                    elapsed_ms: 17000,
-                    ..frame
-                },
-                &CancellationToken::new(),
-            )
-            .await
-            .unwrap();
-        assert!(matches!(
-            outcome.resources[0].reading,
-            Reading::Known(Balance {
-                amount: 3_500_219,
-                capacity: Some(26_000_000)
-            })
-        ));
-        assert_eq!(engine.recovery_count, 0);
-        assert_eq!(readable_fake.taps.lock().unwrap().len(), 1);
     }
 
     #[tokio::test]
@@ -4109,8 +4122,8 @@ mod tests {
         let frame = FrameView {
             image: &image,
             detection: &Detection::Known(Screen::Home),
-            elapsed_ms: 1000,
-            captured_at_ms: 1000,
+            elapsed_ms: 4000,
+            captured_at_ms: 4000,
         };
         let outcome = engine
             .tick(&vision, &mut adb, &frame, &CancellationToken::new())
@@ -4133,7 +4146,7 @@ mod tests {
                 &vision,
                 &mut adb,
                 &FrameView {
-                    elapsed_ms: 1500,
+                    elapsed_ms: 4500,
                     ..frame
                 },
                 &CancellationToken::new(),
