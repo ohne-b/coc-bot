@@ -1884,6 +1884,50 @@
           140
         ]
       ]
+    },
+    {
+      "file": "army-home-spring-before.png",
+      "retained_regions": [
+        [
+          0,
+          590,
+          1280,
+          130
+        ]
+      ]
+    },
+    {
+      "file": "army-home-spring-compressed.png",
+      "retained_regions": [
+        [
+          0,
+          590,
+          1280,
+          130
+        ]
+      ]
+    },
+    {
+      "file": "army-home-spring-returning.png",
+      "retained_regions": [
+        [
+          0,
+          590,
+          1280,
+          130
+        ]
+      ]
+    },
+    {
+      "file": "army-home-spring-settled.png",
+      "retained_regions": [
+        [
+          0,
+          590,
+          1280,
+          130
+        ]
+      ]
     }
   ],
   "resolution": [

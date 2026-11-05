@@ -19,6 +19,8 @@ const MAX_SETTLE_CAPTURES: u8 = 8;
 const EDGE: i32 = 8;
 const SHORT_SCROLL: i32 = 48;
 const RETURN_SCROLL: i32 = 64;
+// Captured endpoint spring-back spans 47px, just under half a Home card.
+const MAX_EDGE_REBOUND: i32 = 48;
 
 fn unreadable(message: &str) -> Error {
     Error::Gameplay(format!("Army bar {message}"))
@@ -68,6 +70,7 @@ struct Settling {
     captures: u8,
     distance: u32,
     rebound: u32,
+    moved_forward: bool,
     total: i32,
 }
 
@@ -80,6 +83,7 @@ impl Settling {
             captures: 0,
             distance: 0,
             rebound: 0,
+            moved_forward: false,
             total: 0,
         };
         state.movement(dx, at_edge)?;
@@ -89,9 +93,15 @@ impl Settling {
     fn movement(&mut self, dx: i32, at_edge: bool) -> Result<()> {
         self.distance += dx.unsigned_abs();
         self.total += dx;
+        self.moved_forward |= dx.abs() > 2 && dx.signum() == self.pan.dx().signum();
         if dx.abs() > 2 && dx.signum() != self.pan.dx().signum() {
             self.rebound += dx.unsigned_abs();
-            if self.rebound > 12 || !at_edge {
+            let limit = if self.moved_forward {
+                MAX_EDGE_REBOUND as u32
+            } else {
+                12
+            };
+            if self.rebound > limit || !at_edge {
                 return Err(unreadable("reversed direction away from its settling edge"));
             }
         }
@@ -245,7 +255,7 @@ impl Roster {
         if outside_range {
             let excess = (-self.offset).max(self.offset - self.max_offset);
             if (pending.is_none() && settling.is_none())
-                || excess > 12
+                || excess > MAX_EDGE_REBOUND
                 || !self.endpoint_visible(image, digits, self.offset < 0, self.offset)?
             {
                 return Err(unreadable("moved outside the scanned range"));
@@ -1122,6 +1132,104 @@ mod tests {
         .unwrap()
     }
     const BAR: Region = Region(0, 598, 1280, 106);
+
+    #[test]
+    fn captured_long_scroll_waits_for_endpoint_spring_back() {
+        let digits = digits();
+        let load = |name| {
+            crate::vision::read_image(
+                &Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join("tests/fixtures")
+                    .join(format!("army-home-spring-{name}.png")),
+            )
+            .unwrap()
+        };
+        let pan = Pan {
+            from: Point(680, 651),
+            to: Point(400, 651),
+        };
+        let mut previous = load("before");
+        let mut state = Settling::new(None, pan, 0, false).unwrap();
+        for (name, expected) in [
+            ("compressed", -210),
+            ("returning", 44),
+            ("settled", 3),
+            ("settled", 0),
+            ("settled", 0),
+        ] {
+            let next = load(name);
+            let regions = full_cards(&previous, BAR, false, &digits)
+                .unwrap()
+                .cards
+                .iter()
+                .map(|c| c.region)
+                .collect::<Vec<_>>();
+            let dx = translation(&previous, &next, BAR, &regions, pan.measurement_limit()).unwrap();
+            assert_eq!(dx, expected);
+            let view = full_cards(&next, BAR, false, &digits).unwrap();
+            assert!(right_end(&view, BAR));
+            assert_eq!(view.cards.last().unwrap().count, Some(1));
+            state.observe(dx, right_end(&view, BAR)).unwrap();
+            previous = next;
+        }
+        assert_eq!(state.rebound, 47);
+        assert_eq!(state.total, -163);
+        assert_eq!(state.distance, 257);
+        assert_eq!(state.stable, 2);
+    }
+
+    #[test]
+    fn endpoint_rebound_retains_direction_distance_and_capture_limits() {
+        let pan = Pan {
+            from: Point(680, 651),
+            to: Point(400, 651),
+        };
+        assert!(Settling::new(None, pan, 44, true).is_err());
+        assert!(
+            Settling::new(None, pan, 0, true)
+                .unwrap()
+                .observe(44, true)
+                .is_err()
+        );
+        assert!(
+            Settling::new(None, pan, 4, true)
+                .unwrap()
+                .observe(9, true)
+                .is_err()
+        );
+        assert!(
+            Settling::new(None, pan, -210, true)
+                .unwrap()
+                .observe(44, false)
+                .is_err()
+        );
+        assert!(
+            Settling::new(None, pan, -210, true)
+                .unwrap()
+                .observe(49, true)
+                .is_err()
+        );
+        assert!(
+            Settling::new(None, pan, -320, true)
+                .unwrap()
+                .observe(44, true)
+                .is_err()
+        );
+        let mut bouncing = Settling::new(None, pan, -210, true).unwrap();
+        let mut rejected = false;
+        for dx in [4, -4]
+            .into_iter()
+            .cycle()
+            .take(MAX_SETTLE_CAPTURES as usize)
+        {
+            if bouncing.observe(dx, true).is_err() {
+                rejected = true;
+                break;
+            }
+            assert_eq!(bouncing.stable, 0);
+        }
+        assert!(rejected);
+    }
 
     #[test]
     fn captured_ignored_runtime_scroll_retries_boundedly_without_claiming_motion() {
