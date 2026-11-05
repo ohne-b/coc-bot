@@ -73,7 +73,10 @@ impl Transport for Fake {
             .map(|v| v.to_string_lossy())
             .collect::<Vec<_>>()
             .join(" ");
-        if args.contains("shell input tap") || args.contains("shell input swipe") {
+        if args.contains("shell input tap")
+            || args.contains("shell input swipe")
+            || args.contains("/dev/input/event")
+        {
             self.taps.lock().unwrap().push(args);
             return if self.fail_after_tap {
                 Err(Error::Timeout)
@@ -86,6 +89,8 @@ impl Transport for Fake {
             "-s emulator-5554 shell getprop sys.boot_completed" => b"1".to_vec(),
             "-s emulator-5554 shell wm size" => b"Physical size: 1280x720".to_vec(),
             "-s emulator-5554 shell wm density" => b"Physical density: 240".to_vec(),
+            "-s emulator-5554 shell uname -m" => b"x86_64".to_vec(),
+            "-s emulator-5554 shell getevent -pl" => b"add device 1: /dev/input/event4\n name: ldtouch\n ABS (0003): ABS_MT_SLOT : value 0, min 0, max 9\n ABS_MT_POSITION_X : value 0, min 0, max 1279\n ABS_MT_POSITION_Y : value 0, min 0, max 719\n".to_vec(),
             "-s emulator-5554 exec-out screencap" => self.frame.as_ref().clone(),
             _ => panic!("Unexpected device command {args}"),
         })

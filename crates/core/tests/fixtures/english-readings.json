@@ -1720,6 +1720,287 @@
         ],
         "verified": "Closed with X; purchase button was never pressed."
       }
+    },
+    {
+      "id": "builder-200-gold",
+      "file": "english-numeric-builder-200-gold.png",
+      "screen": "builder_result",
+      "kind": "battle_result",
+      "source_sha256": "23cfdf068a8716b99eab49139420e3e4df8d08722ffb3f5734370282b8e82b76",
+      "retained_regions": [
+        [
+          420,
+          75,
+          440,
+          280
+        ],
+        [
+          294,
+          372,
+          692,
+          172
+        ],
+        [
+          550,
+          575,
+          180,
+          72
+        ]
+      ],
+      "readings": {
+        "loot.gold": {
+          "status": "observed",
+          "value": 170000,
+          "roi": [
+            769,
+            435,
+            81,
+            27
+          ],
+          "reader": "number"
+        },
+        "loot.elixir": {
+          "status": "unavailable",
+          "value": null,
+          "roi": null,
+          "reason": "No earned Elixir on the result; Elixir Cart is a different observation."
+        },
+        "loot.dark": {
+          "status": "unavailable",
+          "value": null,
+          "roi": null,
+          "reason": "Dark Elixir is not a Builder Base resource."
+        },
+        "damage_percent": {
+          "status": "observed",
+          "value": 200,
+          "roi": [
+            550,
+            290,
+            180,
+            54
+          ],
+          "reader": "percent"
+        },
+        "stars": {
+          "status": "observed",
+          "value": 3,
+          "roi": [
+            420,
+            75,
+            440,
+            205
+          ],
+          "reader": "builder_result_stars",
+          "slots": [
+            [
+              435,
+              172,
+              100,
+              80
+            ],
+            [
+              592,
+              125,
+              100,
+              80
+            ],
+            [
+              746,
+              172,
+              100,
+              80
+            ]
+          ]
+        }
+      },
+      "layout": "builder_gold_rewards",
+      "labels": {
+        "earned_loot": [
+          778,
+          386,
+          77,
+          20
+        ],
+        "damage": [
+          555,
+          264,
+          173,
+          24
+        ]
+      },
+      "bonus_policy": "Rewards Gold only; trophy delta below it is not a resource. No cart or storage inference.",
+      "star_semantics": "Three visible stars; gold and silver result animation states are not converted into six."
+    },
+    {
+      "id": "builder-200-silver",
+      "file": "english-numeric-builder-200-silver.png",
+      "screen": "builder_result",
+      "kind": "battle_result",
+      "source_sha256": "fdf1536e7e209636145f61575be83f2d9b6eb0ba1e1e3e70b783114004ea21fb",
+      "retained_regions": [
+        [
+          420,
+          75,
+          440,
+          280
+        ],
+        [
+          294,
+          372,
+          692,
+          172
+        ],
+        [
+          550,
+          575,
+          180,
+          72
+        ]
+      ],
+      "readings": {
+        "loot.gold": {
+          "status": "observed",
+          "value": 170000,
+          "roi": [
+            769,
+            435,
+            81,
+            27
+          ],
+          "reader": "number"
+        },
+        "loot.elixir": {
+          "status": "unavailable",
+          "value": null,
+          "roi": null,
+          "reason": "No earned Elixir on the result; Elixir Cart is a different observation."
+        },
+        "loot.dark": {
+          "status": "unavailable",
+          "value": null,
+          "roi": null,
+          "reason": "Dark Elixir is not a Builder Base resource."
+        },
+        "damage_percent": {
+          "status": "observed",
+          "value": 200,
+          "roi": [
+            550,
+            290,
+            180,
+            54
+          ],
+          "reader": "percent"
+        },
+        "stars": {
+          "status": "observed",
+          "value": 3,
+          "roi": [
+            420,
+            75,
+            440,
+            205
+          ],
+          "reader": "builder_result_stars",
+          "slots": [
+            [
+              435,
+              172,
+              100,
+              80
+            ],
+            [
+              592,
+              125,
+              100,
+              80
+            ],
+            [
+              746,
+              172,
+              100,
+              80
+            ]
+          ]
+        }
+      },
+      "layout": "builder_gold_rewards",
+      "labels": {
+        "earned_loot": [
+          778,
+          386,
+          77,
+          20
+        ],
+        "damage": [
+          555,
+          264,
+          173,
+          24
+        ]
+      },
+      "bonus_policy": "Rewards Gold only; trophy delta below it is not a resource. No cart or storage inference.",
+      "star_semantics": "Three visible stars; gold and silver result animation states are not converted into six."
+    },
+    {
+      "id": "home-gold-tooltip-flame",
+      "file": "english-home-gold-tooltip-flame.png",
+      "screen": "home",
+      "kind": "storage_tooltip",
+      "source_sha256": "28578fa3c6ff105f2314f1a61248cc072d7e175abea5665c6bdfc6bf43e4924f",
+      "retained_regions": [
+        [
+          15,
+          575,
+          140,
+          135
+        ],
+        [
+          900,
+          0,
+          380,
+          270
+        ],
+        [
+          17,
+          155,
+          100,
+          76
+        ]
+      ],
+      "readings": {
+        "balance.gold": {
+          "status": "observed",
+          "value": 8775717,
+          "roi": [
+            1040,
+            26,
+            178,
+            26
+          ],
+          "reader": "trailing_number"
+        },
+        "capacity.gold": {
+          "status": "observed",
+          "value": 26000000,
+          "roi": [
+            1112,
+            78,
+            138,
+            26
+          ],
+          "reader": "number"
+        }
+      },
+      "labels": {
+        "maximum": [
+          1063,
+          80,
+          42,
+          17
+        ]
+      }
     }
   ]
 }

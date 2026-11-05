@@ -2,7 +2,7 @@ use crate::{
     Error, Result,
     calibration::{Region, Resolution, Screen},
     device::Point,
-    vision::{army::Layout, target::Template},
+    vision::target::Template,
 };
 use opencv::{core::Mat, prelude::*};
 use serde::Deserialize;
@@ -13,8 +13,6 @@ use std::{
 
 #[derive(Deserialize)]
 pub struct Profile {
-    #[serde(skip)]
-    pub battlefields: Vec<super::battlefield::Field>,
     pub digits: PathBuf,
     pub resolution: Resolution,
     pub screens: BTreeMap<Screen, ScreenSpec>,
@@ -26,6 +24,7 @@ pub struct Profile {
 }
 #[derive(Deserialize)]
 pub struct ScreenSpec {
+    pub camera: Option<super::camera::Geometry>,
     #[serde(default)]
     pub result_readings: Vec<super::results::ResultLayout>,
     #[serde(default)]
@@ -38,21 +37,13 @@ pub struct ScreenSpec {
     pub trophies: Option<Region>,
     #[serde(default)]
     pub stars: Vec<Region>,
-    pub deploy: Option<Point>,
-    pub auto: Option<Layout>,
-    pub sweep: Option<Sweep>,
-}
-#[derive(Deserialize)]
-pub struct Sweep {
-    pub slots: Vec<Point>,
-    pub deploy: Point,
+    pub army_bar: Option<Region>,
 }
 #[derive(Deserialize)]
 pub struct Zoom {
     pub center: Point,
     pub gap: [u32; 2],
     pub pinches: u8,
-    pub battle_pinches: Option<u8>,
     pub selection: Option<Target>,
 }
 #[derive(Deserialize)]
@@ -138,22 +129,6 @@ impl Target {
     pub fn locate(&self, image: &Mat) -> Result<Option<Point>> {
         self.locate_with_hint(image, None)
     }
-    pub fn locate_unique(&self, image: &Mat) -> Result<Option<Point>> {
-        let resolution = Resolution(image.cols() as u32, image.rows() as u32);
-        let region = self
-            .region
-            .unwrap_or(Region(0, 0, resolution.0, resolution.1));
-        let mut found = None;
-        for (template, offset) in &self.looks {
-            for hit in template.find_all(image, region)? {
-                if found.is_some() {
-                    return Ok(None);
-                }
-                found = Some(hit.point(*offset, resolution)?);
-            }
-        }
-        Ok(found)
-    }
     pub fn locate_near(&self, image: &Mat, point: Point) -> Result<Option<Point>> {
         self.locate_with_hint(image, Some(point))
     }
@@ -187,17 +162,19 @@ impl Target {
 impl Profile {
     pub fn load(root: &Path) -> Result<Self> {
         let mut profile: Self = serde_json::from_slice(&std::fs::read(root.join("config.json"))?)?;
-        profile.battlefields = super::battlefield::load(root)?;
         let res = profile.resolution;
         res.validate()?;
         for spec in profile.screens.values_mut() {
+            if let Some(camera) = &spec.camera {
+                camera.validate()?;
+            }
             if spec.result_readings.len() > 8 {
                 return Err(Error::Calibration("Too many result layouts".into()));
             }
             for layout in &mut spec.result_readings {
                 layout.load(root, res)?;
             }
-            for point in spec.actions.values().chain(spec.deploy.iter()) {
+            for point in spec.actions.values() {
                 point.validate(res)?;
             }
             for region in spec
@@ -212,17 +189,10 @@ impl Profile {
             for target in spec.targets.values_mut() {
                 target.load(root, res)?;
             }
-            if let Some(layout) = &mut spec.auto {
-                layout.deploy = layout.deploy.or(spec.deploy);
-                layout.validate(res)?;
-            }
-            if let Some(sweep) = &spec.sweep {
-                sweep.deploy.validate(res)?;
-                if sweep.slots.len() > 20 {
-                    return Err(Error::Calibration("Too many sweep slots".into()));
-                }
-                for slot in &sweep.slots {
-                    slot.validate(res)?;
+            if let Some(bar) = spec.army_bar {
+                bar.validate(res)?;
+                if bar.3 < 20 {
+                    return Err(Error::Calibration("Invalid army bar".into()));
                 }
             }
         }
@@ -237,7 +207,6 @@ impl Profile {
         if let Some(zoom) = &mut profile.zoom_out {
             zoom.center.validate(res)?;
             if zoom.pinches > 10
-                || zoom.battle_pinches.is_some_and(|n| n > 10)
                 || zoom.gap[0] <= zoom.gap[1]
                 || zoom.gap[0] > res.0
                 || zoom.gap[1] == 0

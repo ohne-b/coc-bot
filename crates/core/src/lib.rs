@@ -37,7 +37,7 @@ pub enum Error {
     OutputLimit,
     #[error("Input is disabled in observation mode")]
     InputDisabled,
-    #[error("The expected screen was not freshly recognized; no input was sent")]
+    #[error("Could not verify the current game state; no input was sent")]
     InputGuard,
     #[error("Background work failed: {0}")]
     Worker(#[from] tokio::task::JoinError),

@@ -137,6 +137,12 @@ fn captured_numeric_ground_truth_matches_native_readers() {
                     .unwrap();
                     digits.trailing(&scaled, 0.65, 160)
                 }
+                "builder_result_stars" => results::builder_stars(
+                    &image,
+                    &serde_json::from_value::<Vec<Region>>(spec["slots"].clone()).unwrap(),
+                    &[],
+                )
+                .map(u64::from),
                 "gold_stars" => army::stars(
                     &image,
                     &serde_json::from_value::<Vec<Region>>(spec["slots"].clone()).unwrap(),

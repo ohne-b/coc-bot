@@ -1,4 +1,4 @@
-pub mod battlefield;
+pub mod camera;
 mod engine;
 mod options;
 pub mod profile;
@@ -8,6 +8,7 @@ pub(crate) mod test_device;
 mod wall_run;
 pub mod walls;
 pub use engine::{Engine, Outcome, Progress};
+pub(crate) use engine::{builder_stage_ready, deploy_screens};
 pub use options::{Options, Strategy};
 
 pub struct GameVision<'a> {

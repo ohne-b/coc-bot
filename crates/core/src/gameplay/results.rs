@@ -5,7 +5,11 @@ use crate::{
     telemetry::{Loot, Village},
     vision::{Digits, army, crop},
 };
-use opencv::core::Mat;
+use opencv::{
+    core::{Mat, Vec3b},
+    imgproc,
+    prelude::*,
+};
 use serde::Deserialize;
 use std::{collections::BTreeMap, path::Path};
 
@@ -19,6 +23,8 @@ pub struct ResultLayout {
     pub damage_color: Option<DamageColor>,
     #[serde(default)]
     pub stars: Vec<Region>,
+    #[serde(default)]
+    pub empty_stars: Vec<Target>,
     #[serde(default)]
     pub bonus: BTreeMap<String, Region>,
     pub bonus_included: Option<bool>,
@@ -74,6 +80,19 @@ impl ResultLayout {
                 .any(|key| !matches!(key.as_str(), "gold" | "elixir" | "dark"))
         {
             return Err(Error::Calibration("Invalid result fields".into()));
+        }
+        if !self.empty_stars.is_empty() && self.empty_stars.len() != self.stars.len() {
+            return Err(Error::Calibration(
+                "Empty-star proofs must match the configured star slots".into(),
+            ));
+        }
+        for (proof, region) in self.empty_stars.iter_mut().zip(&self.stars) {
+            if proof.region != Some(*region) || proof.max_score != 0.02 || proof.scales != [1.0] {
+                return Err(Error::Calibration(
+                    "Empty-star proofs require exact slot regions and strict matching".into(),
+                ));
+            }
+            proof.load(root, resolution)?;
         }
         for region in self
             .loot
@@ -159,8 +178,49 @@ pub fn read(
             }),
         stars: if layout.stars.is_empty() {
             None
+        } else if village == Village::Builder {
+            builder_stars(image, &layout.stars, &layout.empty_stars).ok()
         } else {
             army::stars(image, &layout.stars).ok()
         },
     })
+}
+
+/// Count the visible result stars, including their silver animation state; never infer six.
+pub fn builder_stars(image: &Mat, regions: &[Region], empty: &[Target]) -> Result<u8> {
+    if regions.len() != 3 {
+        return Err(Error::Unreadable);
+    }
+    let mut hsv = Mat::default();
+    imgproc::cvt_color_def(image, &mut hsv, imgproc::COLOR_BGR2HSV)?;
+    let mut count = 0;
+    for (index, &region) in regions.iter().enumerate() {
+        let patch = crop(&hsv, region)?;
+        let mut visible = 0;
+        let mut gold = 0;
+        let mut silver = 0;
+        for p in patch.data_typed::<Vec3b>()? {
+            visible += usize::from(p[2] > 0);
+            gold += usize::from((8..=30).contains(&p[0]) && p[1] >= 120 && p[2] >= 150);
+            silver += usize::from(
+                (p[1] <= 50 || (85..=120).contains(&p[0]) && p[1] <= 140) && p[2] >= 180,
+            );
+        }
+        let total = patch.total();
+        if visible * 5 < total * 4 {
+            return Err(Error::Unreadable);
+        }
+        if gold * 4 >= total || silver * 4 >= total {
+            count += 1;
+        } else if empty
+            .get(index)
+            .map(|proof| proof.locate(image))
+            .transpose()?
+            .flatten()
+            .is_none()
+        {
+            return Err(Error::Unreadable);
+        }
+    }
+    Ok(count)
 }
