@@ -1,4 +1,3 @@
-use base64::{Engine as _, prelude::BASE64_STANDARD};
 use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
@@ -23,6 +22,22 @@ const EVENTS: &str = "add device 1: /dev/input/event4\n name: ldtouch\n ABS (000
 const INSTANCES: &str =
     "0,LDPlayer,0,0,1,1234,5678,1280,720,240\n1,Farm 2,0,0,0,-1,-1,1280,720,240\n";
 
+fn decode_touch(bytes: &[u8]) -> Vec<u8> {
+    std::str::from_utf8(bytes)
+        .unwrap()
+        .trim()
+        .trim_matches('\'')
+        .split_whitespace()
+        .flat_map(|event| {
+            assert_eq!(event.len(), 24 * 5);
+            event.as_bytes().chunks_exact(5).map(|byte| {
+                assert_eq!(&byte[..2], b"\\0");
+                u8::from_str_radix(std::str::from_utf8(&byte[2..]).unwrap(), 8).unwrap()
+            })
+        })
+        .collect()
+}
+
 #[derive(Default)]
 struct State {
     calls: Vec<Invocation>,
@@ -33,6 +48,9 @@ struct State {
     cancel_touch: bool,
     cancel_capture: bool,
     cancel_discovery: bool,
+    connect_devices: Option<Vec<u8>>,
+    cancel_connect: bool,
+    fail_connect: bool,
     capture_delay: Duration,
 }
 
@@ -60,6 +78,18 @@ impl Transport for Fake {
             cancel.cancel();
             return Ok(vec![]);
         }
+        if args.starts_with("connect ") {
+            if state.cancel_connect {
+                cancel.cancel();
+                return Ok(vec![]);
+            }
+            if state.fail_connect {
+                return Err(Error::Timeout);
+            }
+            if let Some(devices) = state.connect_devices.take() {
+                state.overrides.insert("devices".into(), devices);
+            }
+        }
         if let Some(value) = state.overrides.get(&args) {
             return Ok(value.clone());
         }
@@ -69,17 +99,17 @@ impl Transport for Fake {
             }
             return Ok(state.frame.clone());
         }
-        if (args.contains("shell input tap") || args.contains("toybox base64 -d"))
+        if (args.contains("shell input tap") || args.contains("/dev/input/event"))
             && state.guard_after_input
         {
             state.guard_after_input = false;
             return Err(Error::InputGuard);
         }
-        if args.contains("toybox base64 -d") && state.fail_touch {
+        if args.contains("/dev/input/event") && state.fail_touch {
             state.fail_touch = false;
             return Err(Error::Timeout);
         }
-        if args.contains("toybox base64 -d") && state.cancel_touch {
+        if args.contains("/dev/input/event") && state.cancel_touch {
             state.cancel_touch = false;
             cancel.cancel();
             return Err(Error::Cancelled);
@@ -317,6 +347,167 @@ async fn rejects_bad_settings_points_display_and_disconnected_devices() {
     );
 }
 
+fn alias_display(fake: &Fake, serial: &str) {
+    let mut state = fake.0.lock().unwrap();
+    for (command, response) in [
+        ("getprop sys.boot_completed", "1\n"),
+        ("wm size", "Physical size: 1280x720\n"),
+        ("wm density", "Physical density: 240\n"),
+    ] {
+        state.overrides.insert(
+            format!("-s {serial} shell {command}"),
+            response.as_bytes().to_vec(),
+        );
+    }
+}
+
+#[tokio::test]
+async fn verification_selects_only_the_selected_instances_connected_alias() {
+    for (saved, connected, extra) in [
+        ("emulator-5554", "127.0.0.1:5555", "emulator-5554 offline\n"),
+        ("127.0.0.1:5555", "emulator-5554", ""),
+        ("emulator-5554", "emulator-5554", "127.0.0.1:5555 device\n"),
+    ] {
+        let (_folder, mut config, fake) = setup();
+        config.serial = saved.into();
+        alias_display(&fake, connected);
+        fake.0.lock().unwrap().overrides.insert(
+            "devices".into(),
+            format!("List of devices attached\nemulator-5556 device\n{extra}{connected} device\n")
+                .into_bytes(),
+        );
+        let mut adb = Adb::new(config, InputMode::Observe, fake.clone()).unwrap();
+        adb.verify(&CancellationToken::new()).await.unwrap();
+        assert_eq!(adb.config().serial, connected);
+        let state = fake.0.lock().unwrap();
+        assert_eq!(state.calls.len(), 4);
+        assert_eq!(state.calls[0].args, ["devices"]);
+        assert!(state.calls[1..].iter().all(|call| {
+            call.args[0] == "-s" && call.args[1] == connected && call.args[2] == "shell"
+        }));
+    }
+}
+
+#[tokio::test]
+async fn verification_reconnects_only_the_selected_endpoint_and_checks_its_device_listing() {
+    let (_folder, mut config, fake) = setup();
+    config.instance_index = 1;
+    config.serial = "emulator-5556".into();
+    alias_display(&fake, "127.0.0.1:5557");
+    fake.0.lock().unwrap().connect_devices =
+        Some(b"List of devices attached\nemulator-5554 device\n127.0.0.1:5557 device\n".to_vec());
+    let mut adb = Adb::new(config, InputMode::Observe, fake.clone()).unwrap();
+    adb.verify(&CancellationToken::new()).await.unwrap();
+    assert_eq!(adb.config().serial, "127.0.0.1:5557");
+    let state = fake.0.lock().unwrap();
+    assert_eq!(state.calls.len(), 6);
+    assert_eq!(state.calls[0].args, ["devices"]);
+    assert_eq!(state.calls[1].args, ["connect", "127.0.0.1:5557"]);
+    assert_eq!(state.calls[1].timeout, Duration::from_secs(5));
+    assert_eq!(state.calls[1].output_limit, 4096);
+    assert_eq!(state.calls[2].args, ["devices"]);
+    assert!(
+        state.calls[3..]
+            .iter()
+            .all(|call| call.args[1] == "127.0.0.1:5557")
+    );
+}
+
+#[tokio::test]
+async fn verification_never_treats_a_connect_message_or_another_instance_as_a_connection() {
+    for status in [
+        "",
+        "emulator-5554 offline\n",
+        "127.0.0.1:5555 unauthorized\n",
+    ] {
+        let (_folder, config, fake) = setup();
+        let unauthorized = status.contains("unauthorized");
+        {
+            let mut state = fake.0.lock().unwrap();
+            state.overrides.insert(
+                "devices".into(),
+                format!("List of devices attached\nemulator-5556 device\n{status}").into_bytes(),
+            );
+            state.overrides.insert(
+                "connect 127.0.0.1:5555".into(),
+                b"connected to 127.0.0.1:5555".to_vec(),
+            );
+        }
+        let mut adb = Adb::new(config, InputMode::Live, fake.clone()).unwrap();
+        assert!(matches!(
+            adb.verify(&CancellationToken::new()).await,
+            Err(Error::Device(_))
+        ));
+        assert_eq!(adb.config().serial, "emulator-5554");
+        let state = fake.0.lock().unwrap();
+        assert_eq!(state.calls.len(), if unauthorized { 1 } else { 3 });
+        assert!(state.calls.iter().all(|call| {
+            call.args == ["devices"] || call.args == ["connect", "127.0.0.1:5555"]
+        }));
+    }
+}
+
+#[tokio::test]
+async fn cancelled_or_failed_reconnect_never_proceeds_to_device_commands() {
+    for cancelled in [false, true] {
+        let (_folder, config, fake) = setup();
+        {
+            let mut state = fake.0.lock().unwrap();
+            state.overrides.insert("devices".into(), vec![]);
+            state.cancel_connect = cancelled;
+            state.fail_connect = !cancelled;
+        }
+        let token = CancellationToken::new();
+        let mut adb = Adb::new(config, InputMode::Live, fake.clone()).unwrap();
+        let error = adb.verify(&token).await.unwrap_err();
+        assert!(if cancelled {
+            matches!(error, Error::Cancelled)
+        } else {
+            matches!(error, Error::Timeout)
+        });
+        assert_eq!(fake.0.lock().unwrap().calls.len(), 2);
+        assert_eq!(adb.config().serial, "emulator-5554");
+    }
+}
+
+#[tokio::test]
+async fn connected_alias_still_requires_boot_and_calibrated_display_before_input() {
+    for (command, response) in [
+        ("getprop sys.boot_completed", "0"),
+        ("wm density", "Physical density: 320"),
+    ] {
+        let (_folder, config, fake) = setup();
+        alias_display(&fake, "127.0.0.1:5555");
+        {
+            let mut state = fake.0.lock().unwrap();
+            state
+                .overrides
+                .insert("devices".into(), b"127.0.0.1:5555 device\n".to_vec());
+            state.overrides.insert(
+                format!("-s 127.0.0.1:5555 shell {command}"),
+                response.as_bytes().to_vec(),
+            );
+        }
+        let mut adb = Adb::new(config, InputMode::Live, fake.clone()).unwrap();
+        assert!(
+            adb.tap(
+                detector(),
+                &[Screen::Home],
+                Point(1, 1),
+                &CancellationToken::new()
+            )
+            .await
+            .is_err()
+        );
+        assert!(fake.0.lock().unwrap().calls.iter().all(|call| {
+            !call
+                .args
+                .iter()
+                .any(|arg| arg == "input" || arg == "exec-out")
+        }));
+    }
+}
+
 #[tokio::test]
 async fn cancelled_capture_never_advances_to_input_and_bad_captures_are_bounded() {
     let (_folder, config, fake) = setup();
@@ -379,32 +570,29 @@ async fn failed_multitouch_releases_every_finger_with_a_separate_deadline() {
         .collect();
     assert_eq!(commands.len(), 2);
     for command in &commands {
+        assert!(command.acknowledge_input);
         assert!(command.args.iter().any(|arg| arg == "-T"));
         assert!(!command.args.iter().any(|arg| arg == "exec-in"));
         let replay = command.args[6].to_string_lossy();
-        assert!(replay.contains("set -o pipefail || exit"));
-        assert!(replay.contains("toybox dd ibs=4096 obs=24"));
+        assert!(replay.contains("exec 3>\"$device\" || exit 1"));
+        assert!(replay.contains("print -n -- \"$event\" >&3 || return 1"));
+        assert!(!replay.contains("toybox") && !replay.contains("printf"));
+        assert!(replay.contains("print -nr -- A || exit 1"));
+        assert!(replay.contains("trap release EXIT"));
+        assert!(replay.contains("trap \"exit 1\" HUP INT TERM PIPE"));
+        assert_eq!(
+            decode_touch(command.args.last().unwrap().to_string_lossy().as_bytes()),
+            decode_touch(&commands[1].input[0].bytes),
+            "the Android exit handler releases the same owned fingers as independent cleanup"
+        );
         for frame in &command.input {
             assert!(frame.bytes.is_ascii());
             assert_eq!(frame.bytes.last(), Some(&b'\n'));
-            assert_eq!(
-                BASE64_STANDARD
-                    .decode(frame.bytes.trim_ascii())
-                    .unwrap()
-                    .len()
-                    % 24,
-                0
-            );
+            assert_eq!(decode_touch(&frame.bytes).len() % 24, 0);
         }
     }
     assert_eq!(commands[1].timeout, Duration::from_secs(2));
-    assert_eq!(
-        BASE64_STANDARD
-            .decode(commands[1].input[0].bytes.trim_ascii())
-            .unwrap()
-            .len(),
-        6 * 24
-    );
+    assert_eq!(decode_touch(&commands[1].input[0].bytes).len(), 6 * 24);
     assert!(
         commands[1]
             .args
@@ -473,7 +661,7 @@ async fn touch_frames_preserve_windows_control_bytes_and_press_timing() {
         let line = String::from_utf8(frame.bytes.clone())
             .unwrap()
             .replace('\n', "\r\n");
-        let decoded = BASE64_STANDARD.decode(line.trim()).unwrap();
+        let decoded = decode_touch(line.as_bytes());
         if index % 2 == 0 {
             assert_eq!(decoded.len(), 7 * 24);
             let point = if index == 0 {
@@ -630,9 +818,7 @@ async fn checked_tap_bursts_release_after_uncertain_transport_or_cancellation() 
         assert_eq!(commands[0].input.len(), 10);
         assert_eq!(commands[1].timeout, Duration::from_secs(2));
         assert_eq!(commands[1].input.len(), 1);
-        let release = BASE64_STANDARD
-            .decode(commands[1].input[0].bytes.trim_ascii())
-            .unwrap();
+        let release = decode_touch(&commands[1].input[0].bytes);
         assert_eq!(release.len(), 4 * 24);
         assert_eq!(&release[24 + 20..2 * 24], &(-1_i32).to_le_bytes());
     }

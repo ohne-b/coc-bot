@@ -19,6 +19,8 @@ pub struct Invocation {
     pub program: PathBuf,
     pub args: Vec<OsString>,
     pub input: Vec<WriteFrame>,
+    /// Each frame must receive the fixed `A` acknowledgement before its hold starts.
+    pub acknowledge_input: bool,
     pub output_limit: usize,
     pub timeout: Duration,
 }
@@ -68,25 +70,47 @@ impl Transport for Process {
         command.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
         let mut child = command.spawn()?;
         let mut stdin = child.stdin.take().expect("piped stdin");
-        let stdout = child.stdout.take().expect("piped stdout");
+        let mut stdout = child.stdout.take().expect("piped stdout");
         let stderr = child.stderr.take().expect("piped stderr");
         let work = async {
-            let write = async {
-                for frame in invocation.input {
-                    stdin.write_all(&frame.bytes).await?;
-                    stdin.flush().await?;
-                    tokio::time::sleep(frame.wait).await;
+            let exchange = async {
+                if invocation.acknowledge_input {
+                    let mut remaining = invocation.output_limit;
+                    for frame in invocation.input {
+                        remaining = remaining.checked_sub(1).ok_or(Error::OutputLimit)?;
+                        stdin.write_all(&frame.bytes).await?;
+                        stdin.flush().await?;
+                        let mut ack = [0_u8; 1];
+                        if stdout.read(&mut ack).await? != 1 || ack[0] != b'A' {
+                            return Err(Error::Device(
+                                "Missing or invalid input acknowledgement".into(),
+                            ));
+                        }
+                        tokio::time::sleep(frame.wait).await;
+                    }
+                    stdin.shutdown().await?;
+                    drop(stdin);
+                    read_bounded(stdout, remaining).await
+                } else {
+                    let write = async {
+                        for frame in invocation.input {
+                            stdin.write_all(&frame.bytes).await?;
+                            stdin.flush().await?;
+                            tokio::time::sleep(frame.wait).await;
+                        }
+                        stdin.shutdown().await?;
+                        drop(stdin);
+                        Ok::<_, Error>(())
+                    };
+                    let (_, output) =
+                        tokio::try_join!(write, read_bounded(stdout, invocation.output_limit))?;
+                    Ok(output)
                 }
-                stdin.shutdown().await?;
-                drop(stdin);
-                Ok::<_, Error>(())
             };
-            let (_, output, _, status) = tokio::try_join!(
-                write,
-                read_bounded(stdout, invocation.output_limit),
-                read_bounded(stderr, 64 * 1024),
-                async { Ok::<_, Error>(child.wait().await?) },
-            )?;
+            let (output, _, status) =
+                tokio::try_join!(exchange, read_bounded(stderr, 64 * 1024), async {
+                    Ok::<_, Error>(child.wait().await?)
+                },)?;
             if !status.success() {
                 return Err(Error::Device(format!(
                     "Device command exited with {status}"

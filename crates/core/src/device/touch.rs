@@ -1,7 +1,5 @@
-use std::{sync::Arc, time::Duration};
-
-use base64::{Engine as _, prelude::BASE64_STANDARD};
 use opencv::core::Mat;
+use std::{fmt::Write as _, sync::Arc, time::Duration};
 use tokio_util::sync::CancellationToken;
 
 use super::{
@@ -286,6 +284,19 @@ fn encode(events: &[(u16, u16, i32)]) -> Vec<u8> {
     bytes
 }
 
+fn shell_events(bytes: &[u8]) -> String {
+    let mut encoded = String::with_capacity(bytes.len() * 5 + bytes.len() / 24);
+    for (index, event) in bytes.chunks(24).enumerate() {
+        if index != 0 {
+            encoded.push(' ');
+        }
+        for byte in event {
+            write!(encoded, "\\0{byte:03o}").expect("writing to a String cannot fail");
+        }
+    }
+    encoded
+}
+
 fn down(points: &[Point], wait: Duration) -> WriteFrame {
     let mut events = Vec::new();
     for (slot, point) in points.iter().enumerate() {
@@ -369,9 +380,18 @@ impl<T: Transport> Adb<T> {
             return Err(Error::InputGuard);
         }
         self.require_live(cancel)?;
+        let release_frame = format!(
+            "'{}'",
+            shell_events(&release(fingers, Duration::ZERO).bytes)
+        );
         let replay = concat!(
-            "'set -o pipefail || exit; while IFS= read -r frame; do printf %s \"$frame\" | ",
-            "toybox base64 -d | toybox dd ibs=4096 obs=24 of=\"$1\" status=none || exit; done'"
+            "'device=$1; cleanup=$2; exec 3>\"$device\" || exit 1; cr=$(print -n \"\\0015\"); ",
+            "write_events() { for event in $1; do ",
+            "print -n -- \"$event\" >&3 || return 1; done; }; ",
+            "release() { write_events \"$cleanup\" || exit 1; }; ",
+            "trap release EXIT; trap \"exit 1\" HUP INT TERM PIPE; ",
+            "while IFS= read -r frame; do frame=${frame%\"$cr\"}; ",
+            "write_events \"$frame\" || exit 1; print -nr -- A || exit 1; done'"
         );
         let invocation = |input: Vec<WriteFrame>, timeout| {
             Invocation {
@@ -386,17 +406,19 @@ impl<T: Transport> Adb<T> {
                     replay,
                     "touch",
                     &touch.node,
+                    &release_frame,
                 ]
                 .map(Into::into)
                 .to_vec(),
-                // Windows adb shell translates binary stdin; send each complete frame as ASCII.
+                // ASCII avoids Windows ADB control-byte translation; builtin print emits one event per write.
                 input: input
                     .into_iter()
                     .map(|frame| WriteFrame {
-                        bytes: format!("{}\n", BASE64_STANDARD.encode(frame.bytes)).into_bytes(),
+                        bytes: format!("{}\n", shell_events(&frame.bytes)).into_bytes(),
                         wait: frame.wait,
                     })
                     .collect(),
+                acknowledge_input: true,
                 output_limit: 4096,
                 timeout,
             }
@@ -433,6 +455,28 @@ impl<T: Transport> Adb<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn shell_encoding_preserves_all_byte_values_and_event_boundaries() {
+        let bytes: Vec<_> = (0..3).flat_map(|_| 0_u8..=255).collect();
+        let encoded = shell_events(&bytes);
+        let events: Vec<_> = encoded.split(' ').collect();
+        assert_eq!(events.len(), bytes.len() / 24);
+        let decoded: Vec<_> = events
+            .into_iter()
+            .flat_map(|event| {
+                assert_eq!(event.len(), 120);
+                event.as_bytes().chunks_exact(5).map(|escaped| {
+                    assert_eq!(&escaped[..2], b"\\0");
+                    assert!(escaped[2..].iter().all(|c| (b'0'..=b'7').contains(c)));
+                    u8::from_str_radix(std::str::from_utf8(&escaped[2..]).unwrap(), 8).unwrap()
+                })
+            })
+            .collect();
+        assert_eq!(decoded, bytes);
+        assert!(encoded.starts_with("\\0000\\0001\\0002"));
+        assert!(encoded.ends_with("\\0375\\0376\\0377"));
+    }
 
     #[test]
     fn drag_holds_its_exact_endpoint_before_releasing_one_finger() {

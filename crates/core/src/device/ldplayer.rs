@@ -148,6 +148,7 @@ impl<T: Transport> LdPlayer<T> {
                     program: self.console.clone(),
                     args: vec!["list2".into()],
                     input: vec![],
+                    acknowledge_input: false,
                     output_limit: 64 * 1024,
                     timeout: Duration::from_secs(15),
                 },
@@ -189,6 +190,7 @@ impl<T: Transport> LdPlayer<T> {
                         self.index.to_string().into(),
                     ],
                     input: vec![],
+                    acknowledge_input: false,
                     output_limit: 64 * 1024,
                     timeout: Duration::from_secs(60),
                 },
@@ -226,6 +228,7 @@ pub async fn installed_folders<T: Transport>(
                     program,
                     args: args.map(Into::into).to_vec(),
                     input: vec![],
+                    acknowledge_input: false,
                     output_limit: 64 * 1024,
                     timeout: Duration::from_secs(15),
                 },
@@ -309,7 +312,7 @@ pub async fn available_memory_mb<T: Transport>(
     let output = transport.run(Invocation {
         program: PathBuf::from(system_root).join("System32/WindowsPowerShell/v1.0/powershell.exe"),
         args: ["-NoProfile", "-NonInteractive", "-Command", "(Get-CimInstance Win32_OperatingSystem -Property FreeVirtualMemory -ErrorAction Stop).FreeVirtualMemory"].map(Into::into).to_vec(),
-        input: vec![], output_limit: 4096, timeout: Duration::from_secs(10),
+        input: vec![], acknowledge_input: false, output_limit: 4096, timeout: Duration::from_secs(10),
     }, cancel).await;
     match output {
         Ok(bytes) => Ok(std::str::from_utf8(&bytes)
@@ -324,13 +327,57 @@ pub async fn available_memory_mb<T: Transport>(
 impl<T: Transport> super::Adb<T> {
     pub async fn verify(&mut self, cancel: &CancellationToken) -> Result<Display> {
         self.ready = false;
-        if !self.devices(cancel).await?.iter().any(|device| {
-            device.serial == self.config.serial && device.connection == Connection::Connected
-        }) {
-            return Err(Error::Device(
-                "The selected emulator is disconnected or unauthorized".into(),
-            ));
+        if cancel.is_cancelled() {
+            return Err(Error::Cancelled);
         }
+        let emulator = format!(
+            "emulator-{}",
+            5554 + 2 * u16::from(self.config.instance_index)
+        );
+        let endpoint = format!(
+            "127.0.0.1:{}",
+            5555 + 2 * u16::from(self.config.instance_index)
+        );
+        let selected = |device: &Device| device.serial == emulator || device.serial == endpoint;
+        let connected = |devices: &[Device]| {
+            devices
+                .iter()
+                .filter(|device| selected(device) && device.connection == Connection::Connected)
+                .min_by_key(|device| device.serial != self.config.serial)
+                .map(|device| device.serial.clone())
+        };
+        let disconnected =
+            || Error::Device("The selected emulator is disconnected or unauthorized".into());
+        let devices = self.devices(cancel).await?;
+        let serial = if let Some(serial) = connected(&devices) {
+            serial
+        } else {
+            if devices
+                .iter()
+                .any(|device| selected(device) && device.connection == Connection::Unauthorized)
+            {
+                return Err(disconnected());
+            }
+            // LDPlayer can restart with only its instance-specific TCP endpoint available.
+            self.transport
+                .run(
+                    Invocation {
+                        program: self.config.adb.clone(),
+                        args: vec!["connect".into(), endpoint.clone().into()],
+                        input: vec![],
+                        acknowledge_input: false,
+                        output_limit: 4096,
+                        timeout: Duration::from_secs(5),
+                    },
+                    cancel,
+                )
+                .await?;
+            if cancel.is_cancelled() {
+                return Err(Error::Cancelled);
+            }
+            connected(&self.devices(cancel).await?).ok_or_else(disconnected)?
+        };
+        self.config.serial = serial;
         if !self.booted(cancel).await? {
             return Err(Error::Device(
                 "The selected emulator is still starting".into(),
@@ -352,6 +399,7 @@ impl<T: Transport> super::Adb<T> {
                     program: self.config.adb.clone(),
                     args: vec!["devices".into()],
                     input: vec![],
+                    acknowledge_input: false,
                     output_limit: 64 * 1024,
                     timeout: Duration::from_secs(15),
                 },

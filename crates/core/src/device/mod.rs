@@ -113,6 +113,7 @@ impl<T: Transport> Adb<T> {
                     program: self.config.adb.clone(),
                     args: arguments,
                     input: vec![],
+                    acknowledge_input: false,
                     output_limit: limit,
                     timeout: COMMAND_TIMEOUT,
                 },
