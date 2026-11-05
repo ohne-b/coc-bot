@@ -29,6 +29,7 @@ struct State {
     overrides: BTreeMap<String, Vec<u8>>,
     frame: Vec<u8>,
     fail_touch: bool,
+    guard_after_input: bool,
     cancel_touch: bool,
     cancel_capture: bool,
     cancel_discovery: bool,
@@ -67,6 +68,12 @@ impl Transport for Fake {
                 cancel.cancel();
             }
             return Ok(state.frame.clone());
+        }
+        if (args.contains("shell input tap") || args.contains("toybox base64 -d"))
+            && state.guard_after_input
+        {
+            state.guard_after_input = false;
+            return Err(Error::InputGuard);
         }
         if args.contains("toybox base64 -d") && state.fail_touch {
             state.fail_touch = false;
@@ -404,6 +411,42 @@ async fn failed_multitouch_releases_every_finger_with_a_separate_deadline() {
             .iter()
             .any(|arg| arg == "/dev/input/event4")
     );
+}
+
+#[tokio::test]
+async fn a_dispatched_transport_failure_cannot_claim_that_input_was_withheld() {
+    for gesture in [false, true] {
+        let (_folder, config, fake) = setup();
+        fake.0.lock().unwrap().guard_after_input = true;
+        let mut adb = Adb::new(config, InputMode::Live, fake.clone()).unwrap();
+        let cancel = CancellationToken::new();
+        let result = if gesture {
+            adb.gesture(
+                detector(),
+                &[Screen::Home],
+                Gesture::Taps(vec![Point(400, 300)]),
+                &cancel,
+            )
+            .await
+        } else {
+            adb.tap(detector(), &[Screen::Home], Point(400, 300), &cancel)
+                .await
+        };
+        assert!(
+            matches!(result, Err(Error::Device(message)) if message.contains("after dispatch"))
+        );
+        let state = fake.0.lock().unwrap();
+        let inputs = state
+            .calls
+            .iter()
+            .filter(|call| {
+                call.args
+                    .iter()
+                    .any(|arg| arg == "tap" || arg == "/dev/input/event4")
+            })
+            .count();
+        assert_eq!(inputs, if gesture { 2 } else { 1 });
+    }
 }
 
 #[tokio::test]

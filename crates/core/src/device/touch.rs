@@ -118,7 +118,9 @@ impl Gesture {
                 frames.push(down(&[*from], Duration::from_millis(25)));
                 for step in 1..=12 {
                     let interpolate = |a: u32, b: u32| {
-                        (i64::from(a) + (i64::from(b) - i64::from(a)) * step / 12) as i32
+                        // Slow the final samples so lifting does not fling the army bar.
+                        (i64::from(a) + (i64::from(b) - i64::from(a)) * step * (24 - step) / 144)
+                            as i32
                     };
                     frames.push(WriteFrame {
                         bytes: encode(&[
@@ -149,7 +151,8 @@ impl Gesture {
                 frames.push(down(&pair(*from)?, Duration::from_millis(30)));
                 for step in 1..=12 {
                     let interpolate = |a: u32, b: u32| {
-                        (i64::from(a) + (i64::from(b) - i64::from(a)) * step / 12) as u32
+                        (i64::from(a) + (i64::from(b) - i64::from(a)) * step * (24 - step) / 144)
+                            as u32
                     };
                     let center = Point(interpolate(from.0, to.0), interpolate(from.1, to.1));
                     let mut events = Vec::new();
@@ -163,7 +166,8 @@ impl Gesture {
                     events.push((0, 0, 0));
                     frames.push(WriteFrame {
                         bytes: encode(&events),
-                        wait: Duration::from_millis(25),
+                        // Let the camera settle with both fingers held before releasing.
+                        wait: Duration::from_millis(if step == 12 { 150 } else { 25 }),
                     });
                 }
                 frames.push(release(2, Duration::ZERO));
@@ -416,7 +420,7 @@ impl<T: Transport> Adb<T> {
                 ));
             }
         }
-        result.map(|_| value)
+        result.map_err(super::dispatched_error).map(|_| value)
     }
 }
 
@@ -438,18 +442,14 @@ mod tests {
             frames[0].bytes,
             down(&[Point(640, 650)], Duration::ZERO).bytes
         );
-        for (index, x) in [638, 635, 632, 630, 627, 624, 622, 619, 616, 614, 611, 608]
+        for (index, (x, y)) in [635, 631, 626, 623, 619, 616, 614, 612, 610, 609, 609, 608]
             .into_iter()
+            .zip([649, 647, 645, 644, 643, 641, 641, 640, 639, 639, 639, 638])
             .enumerate()
         {
             assert_eq!(
                 frames[index + 1].bytes,
-                encode(&[
-                    (3, 47, 0),
-                    (3, 53, x),
-                    (3, 54, 649 - index as i32),
-                    (0, 0, 0),
-                ])
+                encode(&[(3, 47, 0), (3, 53, x), (3, 54, y), (0, 0, 0),])
             );
         }
         assert!(
@@ -539,7 +539,7 @@ mod tests {
     }
 
     #[test]
-    fn camera_pan_keeps_two_fingers_down_and_releases_both() {
+    fn camera_pan_holds_both_fingers_at_the_endpoint_before_releasing() {
         let (frames, fingers) = Gesture::Pan {
             from: Point(640, 320),
             to: Point(440, 160),
@@ -562,9 +562,17 @@ mod tests {
                 .collect::<Vec<_>>()
         };
         assert!(events(&frames[0]).contains(&(3, 57, 2)));
+        assert_eq!(frames[0].wait, Duration::from_millis(30));
+        for frame in &frames[1..12] {
+            assert_eq!(frame.wait, Duration::from_millis(25));
+            assert!(!events(frame).contains(&(3, 57, -1)));
+        }
         let final_move = events(&frames[12]);
         assert!(final_move.contains(&(3, 53, 390)) && final_move.contains(&(3, 53, 490)));
         assert_eq!(final_move.iter().filter(|e| **e == (3, 54, 160)).count(), 2);
+        assert!(!final_move.contains(&(3, 57, -1)));
+        assert_eq!(frames[12].wait, Duration::from_millis(150));
+        assert_eq!(frames[13].wait, Duration::ZERO);
         assert_eq!(
             events(&frames[13])
                 .iter()
