@@ -51,6 +51,7 @@ struct State {
     connect_devices: Option<Vec<u8>>,
     cancel_connect: bool,
     fail_connect: bool,
+    fail_disconnect: bool,
     capture_delay: Duration,
 }
 
@@ -77,6 +78,9 @@ impl Transport for Fake {
         if args.contains("Get-Process") && state.cancel_discovery {
             cancel.cancel();
             return Ok(vec![]);
+        }
+        if args.starts_with("disconnect ") && state.fail_disconnect {
+            return Err(Error::Timeout);
         }
         if args.starts_with("connect ") {
             if state.cancel_connect {
@@ -411,6 +415,46 @@ async fn verification_reconnects_only_the_selected_endpoint_and_checks_its_devic
             .iter()
             .all(|call| call.args[1] == "127.0.0.1:5557")
     );
+}
+
+#[tokio::test]
+async fn stale_tcp_connection_is_reset_only_for_the_selected_instance() {
+    for fail_disconnect in [false, true] {
+        let (_folder, mut config, fake) = setup();
+        config.instance_index = 1;
+        config.serial = "emulator-5556".into();
+        alias_display(&fake, "127.0.0.1:5557");
+        {
+            let mut state = fake.0.lock().unwrap();
+            state.fail_disconnect = fail_disconnect;
+            state.overrides.insert(
+                "devices".into(),
+                b"emulator-5554 device\n127.0.0.1:5557 offline\n".to_vec(),
+            );
+            state.connect_devices = Some(b"emulator-5554 device\n127.0.0.1:5557 device\n".to_vec());
+        }
+        let mut adb = Adb::new(config, InputMode::Observe, fake.clone()).unwrap();
+        let result = adb.verify(&CancellationToken::new()).await;
+        let state = fake.0.lock().unwrap();
+        assert_eq!(state.calls[1].args, ["disconnect", "127.0.0.1:5557"]);
+        assert_eq!(state.calls[1].timeout, Duration::from_secs(5));
+        if fail_disconnect {
+            assert!(matches!(result, Err(Error::Timeout)));
+            assert_eq!(state.calls.len(), 2);
+            assert_eq!(adb.config().serial, "emulator-5556");
+        } else {
+            result.unwrap();
+            assert_eq!(state.calls.len(), 7);
+            assert_eq!(state.calls[2].args, ["connect", "127.0.0.1:5557"]);
+            assert_eq!(state.calls[3].args, ["devices"]);
+            assert_eq!(adb.config().serial, "127.0.0.1:5557");
+            assert!(
+                state.calls[4..]
+                    .iter()
+                    .all(|call| call.args[1] == "127.0.0.1:5557")
+            );
+        }
+    }
 }
 
 #[tokio::test]

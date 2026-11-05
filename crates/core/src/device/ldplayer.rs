@@ -359,19 +359,23 @@ impl<T: Transport> super::Adb<T> {
                 return Err(disconnected());
             }
             // LDPlayer can restart with only its instance-specific TCP endpoint available.
-            self.transport
-                .run(
-                    Invocation {
-                        program: self.config.adb.clone(),
-                        args: vec!["connect".into(), endpoint.clone().into()],
-                        input: vec![],
-                        acknowledge_input: false,
-                        output_limit: 4096,
-                        timeout: Duration::from_secs(5),
-                    },
-                    cancel,
-                )
-                .await?;
+            let connect = Invocation {
+                program: self.config.adb.clone(),
+                args: vec!["connect".into(), endpoint.clone().into()],
+                input: vec![],
+                acknowledge_input: false,
+                output_limit: 4096,
+                timeout: Duration::from_secs(5),
+            };
+            if devices
+                .iter()
+                .any(|device| device.serial == endpoint && device.connection == Connection::Offline)
+            {
+                let mut disconnect = connect.clone();
+                disconnect.args[0] = "disconnect".into();
+                self.transport.run(disconnect, cancel).await?;
+            }
+            self.transport.run(connect, cancel).await?;
             if cancel.is_cancelled() {
                 return Err(Error::Cancelled);
             }
