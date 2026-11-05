@@ -1829,6 +1829,39 @@
           190
         ]
       ]
+    },
+    {
+      "file": "army-home-runtime-return-origin.png",
+      "retained_regions": [
+        [
+          0,
+          590,
+          1280,
+          130
+        ]
+      ]
+    },
+    {
+      "file": "army-home-runtime-return-before.png",
+      "retained_regions": [
+        [
+          0,
+          590,
+          1280,
+          130
+        ]
+      ]
+    },
+    {
+      "file": "army-home-runtime-return-stalled.png",
+      "retained_regions": [
+        [
+          0,
+          590,
+          1280,
+          130
+        ]
+      ]
     }
   ],
   "resolution": [

@@ -131,6 +131,7 @@ pub struct Roster {
     pending: Option<Pan>,
     pending_refused: bool,
     settling: Option<Settling>,
+    stalled_scrolls: u8,
     unreadable: Option<(usize, u8)>,
     captures: u16,
     failed: bool,
@@ -225,7 +226,7 @@ impl Roster {
             pending.is_none() && settling.is_none() && !refused,
         )?;
         if let Some(pan) = pending {
-            if dx.abs() < 3 || dx.signum() != pan.dx().signum() {
+            if dx.abs() > 2 && dx.signum() != pan.dx().signum() {
                 return Err(unreadable("did not move toward the requested slot"));
             }
             settling = Some(Settling::new(Some(slot), pan, dx, false)?);
@@ -278,6 +279,11 @@ impl Roster {
             if outside_range {
                 return Err(unreadable("did not return to the scanned range"));
             }
+            self.stalled_scrolls = if state.total.abs() <= 2 {
+                self.stalled_scrolls + 1
+            } else {
+                0
+            };
         }
         if left >= clear_left && right <= clear_right {
             let mut bound = reposition(&entry.bound, entry.x - self.offset)?;
@@ -309,11 +315,15 @@ impl Roster {
             };
             bound.card.count = Some(count);
             self.captures = 0;
+            self.stalled_scrolls = 0;
             self.unreadable = None;
             return Ok(Locate::Ready(bound));
         }
         if outside_range {
             return Err(unreadable("requested slot is missing at the scanned edge"));
+        }
+        if self.stalled_scrolls > 2 {
+            return Err(unreadable("did not move toward the requested slot"));
         }
         let direction = if left < clear_left { 1 } else { -1 };
         let current_regions = visible_regions(&self.entries, self.offset, self.bar);
@@ -322,13 +332,24 @@ impl Roster {
         } else {
             self.max_offset - self.offset
         };
+        // A short drag can be ignored; retry only after measured stillness, within the same motion budget.
+        let short_step = if self.stalled_scrolls > 0 {
+            RETURN_SCROLL
+        } else {
+            SHORT_SCROLL
+        };
+        let maximum = if self.stalled_scrolls > 0 {
+            short_step
+        } else {
+            remaining.clamp(short_step, 280)
+        };
         let pan = pan(
             image,
             self.bar,
             &current_regions,
             direction,
-            remaining.clamp(SHORT_SCROLL, 280),
-            SHORT_SCROLL,
+            maximum,
+            short_step,
         )?;
         self.pending = Some(pan);
         Ok(Locate::Pan(pan))
@@ -750,6 +771,7 @@ impl Scanner {
             pending: None,
             pending_refused: false,
             settling: None,
+            stalled_scrolls: 0,
             unreadable: None,
             captures: 0,
             failed: false,
@@ -1100,6 +1122,126 @@ mod tests {
         .unwrap()
     }
     const BAR: Region = Region(0, 598, 1280, 106);
+
+    #[test]
+    fn captured_ignored_runtime_scroll_retries_boundedly_without_claiming_motion() {
+        let load = |name| {
+            crate::vision::read_image(
+                &Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join("tests/fixtures")
+                    .join(format!("army-home-runtime-return-{name}.png")),
+            )
+            .unwrap()
+        };
+        let origin = load("origin");
+        let before = load("before");
+        let stalled = load("stalled");
+        let digits = digits();
+        let cards = super::super::cards(&origin, BAR, false, &digits).unwrap();
+        let regions: Vec<_> = cards.iter().map(|card| card.region).collect();
+        assert_eq!(
+            translation(&origin, &before, BAR, &regions, 48).unwrap(),
+            -20
+        );
+        assert_eq!(
+            translation(&before, &stalled, BAR, &regions, 48).unwrap(),
+            0
+        );
+        let setup = || {
+            let (mut scanner, last) = stitched_home(&digits);
+            let ScanStep::Complete(mut roster) = scanner.complete(&last).unwrap() else {
+                panic!()
+            };
+            let shift = cards[0].slot.0 as i32 - roster.entries[0].x;
+            for entry in &mut roster.entries {
+                entry.x += shift;
+                entry.left += shift;
+            }
+            roster.max_offset += shift;
+            for (i, card) in cards.iter().enumerate() {
+                let entry = &mut roster.entries[i];
+                entry.bound = BoundCard::new(card, &origin, false).unwrap();
+                entry.bound.logical_slot = i + 1;
+                entry.x = card.slot.0 as i32;
+                entry.left = card.region.0 as i32;
+                entry.width = card.region.2;
+            }
+            roster.offset = 20;
+            roster.previous = before.clone();
+            assert!(
+                matches!(roster.locate(1,&before,&digits).unwrap(),Locate::Pan(pan) if pan.dx()==48)
+            );
+            roster
+        };
+        let settle = |roster: &mut Roster| {
+            for _ in 0..2 {
+                assert!(matches!(
+                    roster.locate(1, &stalled, &digits).unwrap(),
+                    Locate::Wait
+                ));
+                assert_eq!(roster.offset, 20);
+            }
+            roster.locate(1, &stalled, &digits)
+        };
+        let mut roster = setup();
+        for attempt in 1..=2 {
+            let Locate::Pan(pan) = settle(&mut roster).unwrap() else {
+                panic!("retry stays a scroll")
+            };
+            assert_eq!(pan.dx(), 64);
+            assert_eq!(pan.limit(), 44);
+            assert_eq!(roster.stalled_scrolls, attempt);
+            assert_eq!(roster.offset, 20);
+        }
+        assert!(settle(&mut roster).is_err());
+        assert!(roster.failed);
+
+        let mut roster = setup();
+        assert!(matches!(settle(&mut roster).unwrap(), Locate::Pan(_)));
+        // This separately captured left viewport proves arrival only when its actual movement is measured.
+        for _ in 0..2 {
+            assert!(matches!(
+                roster.locate(1, &origin, &digits).unwrap(),
+                Locate::Wait
+            ));
+        }
+        let Locate::Ready(card) = roster.locate(1, &origin, &digits).unwrap() else {
+            panic!()
+        };
+        assert_eq!(card.logical_slot, 1);
+        assert_eq!(card.card.slot.0, 59);
+        assert_eq!(card.card.count, Some(1));
+        assert_eq!(roster.offset, 0);
+        assert_eq!(roster.stalled_scrolls, 0);
+
+        let mut roster = setup();
+        assert!(matches!(
+            roster.locate(1, &stalled, &digits).unwrap(),
+            Locate::Wait
+        ));
+        assert!(roster.locate(2, &stalled, &digits).is_err());
+        for ambiguous in [false, true] {
+            let mut wrong =
+                Mat::new_rows_cols_with_default(720, 1280, core::CV_8UC3, Scalar::all(0.)).unwrap();
+            if !ambiguous {
+                Mat::roi(&before, Rect::new(8, 590, 1272, 130))
+                    .unwrap()
+                    .copy_to(&mut Mat::roi_mut(&mut wrong, Rect::new(0, 590, 1272, 130)).unwrap())
+                    .unwrap();
+            }
+            assert!(setup().locate(1, &wrong, &digits).is_err());
+        }
+        let mut roster = setup();
+        roster.entries[0].bound.portrait = roster.entries[1].bound.portrait.clone();
+        assert!(matches!(settle(&mut roster).unwrap(), Locate::Pan(_)));
+        for _ in 0..5 {
+            assert!(matches!(
+                roster.locate(1, &origin, &digits).unwrap(),
+                Locate::Wait
+            ));
+        }
+        assert!(roster.locate(1, &origin, &digits).is_err());
+    }
 
     #[test]
     fn stationary_tracking_uses_unchanged_cards_when_spent_artwork_changes() {
