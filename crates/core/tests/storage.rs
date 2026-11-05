@@ -6,6 +6,7 @@ fn attack(ordinal: u32) -> Attack {
         ordinal,
         village: Village::Home,
         completed_at_ms: 1000 + i64::from(ordinal),
+        displayed_loot: Loot::default(),
         loot: Loot {
             gold: Some(1_000_000),
             elixir: Some(500_000),
@@ -281,6 +282,43 @@ fn statistics_use_confirmed_results_with_partial_coverage_and_separate_wall_spen
             .is_err()
     );
     assert_eq!(store.statistics(id, Village::Home).unwrap(), stats);
+}
+
+#[test]
+fn readable_result_loot_is_a_lower_bound_when_bonus_is_unknown() {
+    let folder = tempfile::tempdir().unwrap();
+    let mut store = Store::open(&folder.path().join("history.sqlite3")).unwrap();
+    let id = store.begin_session(SessionMode::Farming, 100).unwrap().id;
+    let observed = Attack {
+        loot: Loot::default(),
+        displayed_loot: Loot {
+            gold: Some(669488),
+            elixir: Some(533819),
+            dark: Some(15688),
+        },
+        ..attack(1)
+    };
+    store.record_attack(id, &observed).unwrap();
+    store
+        .update_session(id, SessionState::Running, 3600000, 3600100)
+        .unwrap();
+    let stats = store.statistics(id, Village::Home).unwrap();
+    assert_eq!(stats.gold.amount, Some(669488));
+    assert_eq!(stats.gold.per_hour, Some(669488.0));
+    assert!(stats.gold.is_lower_bound);
+    assert_eq!(stats.gold.measured_attacks, 1);
+    let exact = Attack {
+        displayed_loot: Loot {
+            gold: Some(200),
+            ..Loot::default()
+        },
+        ..attack(2)
+    };
+    store.record_attack(id, &exact).unwrap();
+    let stats = store.statistics(id, Village::Home).unwrap();
+    assert_eq!(stats.gold.amount, Some(1669488));
+    assert!(stats.gold.is_lower_bound);
+    assert_eq!(store.attacks(id, None, 10).unwrap()[1].loot.gold, None);
 }
 
 #[test]

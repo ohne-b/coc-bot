@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- Replace coordinate-only deployment editing with ordered, slot-based actions, split
+  quantities, separate hero/siege positions and timed spells on a fixed planning map,
+  including all four corners.
+- Use one confirmed-input executor for automatic and custom plans, read scrolling army bars,
+  retain surviving and defeated Builder camps, and generate editable plans without screenshot portraits.
+- Normalize and track the attack camera without scenery-specific templates, pan placements
+  clear of game controls and stop rather than replay uncertain inputs.
+- Reconnect the selected LDPlayer instance after restarts and close its captured Top-Up
+  offer without interacting with purchase controls.
+- Read Builder results through 200% damage and both gold/silver star animations; unknown
+  star regions remain unavailable instead of being reported as zero.
+- Include the separately displayed league bonus in attack earnings and keep readable
+  loot when a bonus is unavailable. Group wall upgrades and spending together.
 - Add TDM-style desktop update controls, cancellable verified downloads and guarded
   installer handoff, with release signature/version checks.
 - Retire Python, the old web dashboard and relay; keep English calibration in `assets/`
@@ -45,5 +58,5 @@
 - Record PolyForm Noncommercial terms for original contributions and the unresolved
   upstream license scope.
 
-No desktop release is available. Uncaptured English dialogs remain pending, and live
-gameplay compatibility has not been verified.
+No desktop release is available. Uncaptured English dialogs remain pending, and full
+live gameplay parity has not been verified.

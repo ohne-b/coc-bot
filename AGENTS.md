@@ -69,6 +69,21 @@ reset data. Keep personal app data separate from shared calibration and source.
   scale, language and device coordinates are calibration inputs, not universal constants.
 - Gate input on a recognized screen. Unknown or unreadable state must not trigger blind
   taps. Keep dry-run input guards, cancellation, timeouts and bounded recovery attempts.
+- Automatic and custom deployment use the same ordered-action executor. Plans follow army
+  slots and categories across the complete bar; capture fresh portraits and quantities for
+  each attack without requiring a saved unit's appearance. Read overflow by measured,
+  overlapping scrolls; never infer movement from the requested swipe distance.
+- Normalize zoom, certify pan limits and measure the camera range before mapping the outer
+  border. Track motion within the current battle using spatially distributed OpenCV features,
+  without scenery template packs. Keep gestures bounded and exclude game controls.
+  Unverified movement or an unconfirmed drop/ability stops the plan; recovery must not replay
+  uncertain input. Results, stage transitions and surrender limits interrupt preparation.
+- A custom plan schedules its own spells and abilities. Known spent Home abilities and
+  defeated Builder units can be skipped without tapping; unreadable states are not spent
+  abilities. Automatic recurring Builder hero activation requires a fresh full-charge check.
+- Builder stages share active-battle recognition. Establish stage two from its observed
+  countdown; damage alone cannot start a new plan. Fresh inputs and manual army reads must
+  respect that stage, and completed-stage damage remains latched until a verified transition.
 - Preserve resource reserves, price/icon checks and gem protections. Never spend gems,
   buy items or upgrade non-wall buildings. Do not remove safety checks to improve speed.
 - Preserve loot, resource and capacity observations with their timestamps and

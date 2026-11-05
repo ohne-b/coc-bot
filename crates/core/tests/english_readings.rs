@@ -137,6 +137,12 @@ fn captured_numeric_ground_truth_matches_native_readers() {
                     .unwrap();
                     digits.trailing(&scaled, 0.65, 160)
                 }
+                "builder_result_stars" => results::builder_stars(
+                    &image,
+                    &serde_json::from_value::<Vec<Region>>(spec["slots"].clone()).unwrap(),
+                    &[],
+                )
+                .map(u64::from),
                 "gold_stars" => army::stars(
                     &image,
                     &serde_json::from_value::<Vec<Region>>(spec["slots"].clone()).unwrap(),
@@ -187,33 +193,30 @@ fn real_results_select_one_layout_and_keep_unavailable_earnings_unknown() {
                     None
                 }
             };
-            let uncertain_bonus = case["id"] == "home-victory";
+            let with_bonus = |key: &str| {
+                field(&format!("loot.{key}"))
+                    .map(|base| base + field(&format!("bonus.{key}")).unwrap_or(0))
+            };
+            assert_eq!(
+                result.displayed_loot.gold.map(u64::from),
+                field("loot.gold")
+            );
+            assert_eq!(
+                result.displayed_loot.elixir.map(u64::from),
+                field("loot.elixir")
+            );
+            assert_eq!(
+                result.displayed_loot.dark.map(u64::from),
+                field("loot.dark")
+            );
             assert_eq!(
                 result.loot.gold.map(u64::from),
-                if uncertain_bonus {
-                    None
-                } else {
-                    field("loot.gold")
-                },
+                with_bonus("gold"),
                 "{} {screen:?}",
                 case["id"]
             );
-            assert_eq!(
-                result.loot.elixir.map(u64::from),
-                if uncertain_bonus {
-                    None
-                } else {
-                    field("loot.elixir")
-                }
-            );
-            assert_eq!(
-                result.loot.dark.map(u64::from),
-                if uncertain_bonus {
-                    None
-                } else {
-                    field("loot.dark")
-                }
-            );
+            assert_eq!(result.loot.elixir.map(u64::from), with_bonus("elixir"));
+            assert_eq!(result.loot.dark.map(u64::from), with_bonus("dark"));
             assert_eq!(
                 result.damage.map(u64::from),
                 field("damage_percent"),

@@ -3,7 +3,7 @@
   "identifier": "main",
   "description": "Local desktop session, settings and history controls.",
   "windows": ["main"],
-  "permissions": ["allow-snapshot", "allow-screenshot", "allow-save-settings", "allow-discover", "allow-start", "allow-stop", "allow-pause", "allow-history", "allow-session-detail", "allow-desktop-update", "allow-restart-app", "core:event:allow-listen", "core:event:allow-unlisten", {
+  "permissions": ["allow-snapshot", "allow-screenshot", "allow-save-settings", "allow-discover", "allow-start", "allow-stop", "allow-scan-army", "allow-preview-deployment", "allow-pause", "allow-history", "allow-session-detail", "allow-desktop-update", "allow-restart-app", "core:event:allow-listen", "core:event:allow-unlisten", {
     "identifier": "opener:allow-open-url",
     "allow": [{ "url": "https://github.com/ohne-b/coc-bot" }, { "url": "https://github.com/ohne-b/coc-bot/releases/tag/v*" }]
   }]

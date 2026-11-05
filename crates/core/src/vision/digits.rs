@@ -66,7 +66,7 @@ impl Digits {
     }
 
     pub fn number(&self, image: &Mat, minimum_score: f64) -> Result<u64> {
-        let glyphs = glyphs(image)?;
+        let glyphs = glyphs(image, false)?;
         if !(1..=10).contains(&glyphs.len()) {
             return Err(Error::Unreadable);
         }
@@ -81,7 +81,7 @@ impl Digits {
     }
 
     pub fn card_count(&self, image: &Mat, suffix: bool) -> Result<u32> {
-        let mut digits = glyphs(image)?
+        let mut digits = glyphs(image, false)?
             .iter()
             .map(|glyph| self.classify(glyph, 0.75))
             .collect::<Result<Vec<_>>>()?;
@@ -102,7 +102,7 @@ impl Digits {
                 .collect::<Option<Vec<_>>>()
                 .ok_or(Error::Unreadable)?,
         );
-        if !(1..=300).contains(&number) {
+        if !(1..=999).contains(&number) {
             return Err(Error::Unreadable);
         }
         Ok(number as u32)
@@ -116,7 +116,7 @@ impl Digits {
         if maximum > 200 {
             return Err(Error::Unreadable);
         }
-        let digits = glyphs(image)?
+        let digits = glyphs(image, true)?
             .iter()
             .map(|glyph| self.classify(glyph, 0.75))
             .collect::<Result<Vec<_>>>()?;
@@ -137,7 +137,7 @@ impl Digits {
     }
 
     pub fn fraction(&self, image: &Mat) -> Result<(u64, u64)> {
-        let digits = glyphs(image)?
+        let digits = glyphs(image, false)?
             .iter()
             .map(|glyph| self.classify(glyph, 0.65))
             .collect::<Result<Vec<_>>>()?;
@@ -346,7 +346,7 @@ impl Components {
     }
 }
 
-fn glyphs(image: &Mat) -> Result<Vec<Mat>> {
+fn glyphs(image: &Mat, reject_clipped: bool) -> Result<Vec<Mat>> {
     let components = Components::new(image, 70)?;
     let mut found = (1..components.stats.rows())
         .map(|id| Ok((id, components.rect(id)?)))
@@ -357,6 +357,13 @@ fn glyphs(image: &Mat) -> Result<Vec<Mat>> {
         .max()
         .ok_or(Error::Unreadable)?;
     found.retain(|(_, r)| r.height as f64 >= 0.6 * tallest as f64);
+    if reject_clipped
+        && found
+            .iter()
+            .any(|(_, r)| r.x == 0 || r.x + r.width == image.cols())
+    {
+        return Err(Error::Unreadable);
+    }
     let top = median(found.iter().map(|(_, r)| r.y).collect());
     let bottom = median(found.iter().map(|(_, r)| r.y + r.height).collect());
     let slack = 0.2 * (bottom - top);
@@ -479,7 +486,12 @@ mod tests {
     fn digits() -> Digits {
         Digits {
             templates: (0..=9)
-                .map(|d| (d, glyphs(&rendered(&d.to_string())).unwrap().remove(0)))
+                .map(|d| {
+                    (
+                        d,
+                        glyphs(&rendered(&d.to_string()), false).unwrap().remove(0),
+                    )
+                })
                 .collect(),
         }
     }
@@ -534,7 +546,7 @@ mod tests {
         assert!(digits.fraction(&fraction("1600", "120")).is_err());
         assert!(digits.fraction(&fraction("120", "0")).is_err());
         assert!(digits.trailing(&rendered("0012"), 0.75, 70).is_err());
-        let seven = glyphs(&rendered("7")).unwrap().remove(0);
+        let seven = glyphs(&rendered("7"), false).unwrap().remove(0);
         digits.templates.push((9, seven));
         assert!(digits.number(&rendered("7"), 0.75).is_err());
     }

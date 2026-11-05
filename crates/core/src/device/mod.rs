@@ -113,6 +113,7 @@ impl<T: Transport> Adb<T> {
                     program: self.config.adb.clone(),
                     args: arguments,
                     input: vec![],
+                    acknowledge_input: false,
                     output_limit: limit,
                     timeout: COMMAND_TIMEOUT,
                 },
@@ -242,7 +243,7 @@ impl<T: Transport> Adb<T> {
         if result.is_err() {
             self.ready = false;
         }
-        result.map(|_| value)
+        result.map_err(dispatched_error).map(|_| value)
     }
 
     pub async fn swipe(
@@ -319,6 +320,14 @@ impl<T: Transport> Adb<T> {
         self.command(&["shell", "am", "force-stop", GAME], 4096, cancel)
             .await?;
         Ok(())
+    }
+}
+
+fn dispatched_error(error: Error) -> Error {
+    // Only checks before dispatch can prove that input was withheld.
+    match error {
+        Error::InputGuard => Error::Device("Input transport failed after dispatch".into()),
+        other => other,
     }
 }
 

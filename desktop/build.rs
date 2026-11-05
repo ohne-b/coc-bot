@@ -7,6 +7,8 @@ fn main() {
             "discover",
             "start",
             "stop",
+            "scan_army",
+            "preview_deployment",
             "pause",
             "history",
             "session_detail",

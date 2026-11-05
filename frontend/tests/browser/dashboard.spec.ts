@@ -141,7 +141,9 @@ for (const width of [360, 800, 1200]) {
           fullPage: true,
         });
       if (name === "Farming") {
-        const header = await page.locator(".overview-header").boundingBox();
+        const header = await page
+          .locator(".overview-header:visible")
+          .boundingBox();
         const village = await page
           .getByRole("group", { name: "Resource village" })
           .boundingBox();
@@ -159,7 +161,7 @@ for (const width of [360, 800, 1200]) {
         await settings.focus();
         await page.keyboard.press("Enter");
         await expect(page.getByRole("dialog")).toHaveCount(0);
-        await expect(page.locator(".overview-header")).not.toBeVisible();
+        await expect(page.locator(".overview-header:visible")).toHaveCount(0);
         await expect(
           page.getByRole("heading", {
             name: "Farming settings",
@@ -620,8 +622,15 @@ test("one farming page starts the saved wall option and keeps earnings separate"
     page.getByRole("heading", { name: "Loot", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Wall spending", exact: true }),
+    page.getByRole("region", { name: "Wall spending", exact: true }),
   ).toBeVisible();
+  const walls = page.getByRole("region", {
+    name: "Wall spending",
+    exact: true,
+  });
+  await expect(walls.getByText("Upgraded", { exact: true })).toBeVisible();
+  await expect(walls.getByText("Gold spent", { exact: true })).toBeVisible();
+  await expect(walls.getByText("Elixir spent", { exact: true })).toBeVisible();
   await open();
   await expect(
     page.getByLabel("Upgrade walls", { exact: true }),
@@ -644,54 +653,6 @@ test("one farming page starts the saved wall option and keeps earnings separate"
   await expect.poll(sessionMode).toBe("farming");
 });
 
-test("deployment points support keyboard, bounds, save and reset without replacing farming settings", async ({
-  page,
-}) => {
-  await mock(page);
-  await page.goto("/");
-  await page.getByRole("button", { name: "Deployment", exact: true }).click();
-  await expect(page.getByText("No matching scout screenshot")).toBeVisible();
-  const point = page.getByRole("button", {
-    name: "Point 1, X 100, Y 300",
-    exact: true,
-  });
-  await point.focus();
-  await page.keyboard.press("Shift+ArrowRight");
-  await expect(page.getByLabel("X", { exact: true })).toHaveValue("110");
-  await page.getByLabel("X", { exact: true }).fill("9000");
-  await expect(page.getByLabel("X", { exact: true })).toHaveValue("1279");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.getByRole("status")).toHaveText("Saved");
-  await page.getByRole("button", { name: "Farming", exact: true }).click();
-  await page
-    .getByRole("button", { name: "Farming settings", exact: true })
-    .click();
-  await page.getByLabel("Attack limit", { exact: true }).fill("8");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.getByRole("status")).toHaveText("Saved");
-  await page
-    .getByRole("button", { name: "Back to farming", exact: true })
-    .click();
-  await page.getByRole("button", { name: "Deployment", exact: true }).click();
-  await expect(page.getByLabel("X", { exact: true })).toHaveValue("1279");
-  await page.getByRole("button", { name: "Reset", exact: true }).click();
-  await expect(page.getByLabel("X", { exact: true })).toHaveValue("100");
-  await page
-    .getByRole("button", { name: "Builder stage 2", exact: true })
-    .click();
-  await page
-    .getByRole("combobox", { name: "Points", exact: true })
-    .selectOption("points");
-  await expect(page.getByLabel("X", { exact: true })).toHaveValue("300");
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
-  await page.setViewportSize({ width: 390, height: 844 });
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth,
-    ),
-  ).toBe(true);
-});
-
 test("Stop remains available while Pause is waiting for the worker", async ({
   page,
 }) => {
@@ -704,37 +665,6 @@ test("Stop remains available while Pause is waiting for the worker", async ({
   ).toBeDisabled();
   await page.getByRole("button", { name: "Stop", exact: true }).click();
   await expect(page.getByText("Stopped", { exact: true })).toBeVisible();
-});
-
-test("deployment never relabels an older frame after a scout screen changes", async ({
-  page,
-}) => {
-  await mock(page, { holdNextFrame: true, screen: "home_scout" });
-  await page.goto("/");
-  await page.getByRole("button", { name: "Deployment", exact: true }).click();
-  const reference = page.getByRole("img", {
-    name: "Deployment reference screenshot",
-  });
-  await expect(reference).toBeVisible();
-  await page.evaluate(() => {
-    const snapshot = (
-      window as unknown as {
-        fixtureSnapshot: {
-          detection: { screens: string };
-          revision: number;
-          frame_sequence: number;
-        };
-      }
-    ).fixtureSnapshot;
-    snapshot.detection.screens = "builder_stage2";
-    snapshot.frame_sequence = 2;
-    snapshot.revision++;
-  });
-  await page
-    .getByRole("button", { name: "Builder stage 2", exact: true })
-    .click();
-  await expect(reference).toHaveCount(0);
-  await expect(page.getByText("No matching scout screenshot")).toBeVisible();
 });
 
 test("emulator search uses the entered folder and selection requires Save", async ({

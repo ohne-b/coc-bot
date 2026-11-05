@@ -130,18 +130,17 @@ impl Options {
                 ));
             }
             layout.validate(resolution)?;
-            if (*screen == Screen::HomeScout) != layout.points.is_empty() {
-                return Err(Error::Calibration(
-                    "Layout belongs to a different village".into(),
-                ));
-            }
-            if *screen == Screen::HomeScout
-                && ((self.strategy == Strategy::Ring && layout.ring.is_empty())
-                    || (self.earthquake && layout.quake.is_empty()))
-            {
-                return Err(Error::Calibration(
-                    "The selected strategy needs calibrated deployment points".into(),
-                ));
+            if let Some(recipe) = &layout.recipe {
+                use crate::vision::army::recipe::UnitKind;
+                let builder = *screen != Screen::HomeScout;
+                if recipe.steps.iter().any(|step| {
+                    (builder && matches!(step.kind, UnitKind::Spell | UnitKind::Siege))
+                        || (!builder && step.kind == UnitKind::Troop && step.ability)
+                }) {
+                    return Err(Error::Calibration(
+                        "Deployment action is unavailable in this village".into(),
+                    ));
+                }
             }
         }
         Ok(())

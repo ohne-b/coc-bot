@@ -115,11 +115,28 @@ Offline attack regressions cover Home and both Builder stages. Wall replays cove
 villages from list scanning through confirmation, reserve refusal and rejection of unchanged
 post-confirmation balances. Their HUD positions reuse captured pixels; successful spending
 accounting uses an explicitly simulated prior balance, not a captured live upgrade.
-Live gameplay parity remains unverified.
+Full live gameplay parity remains unverified. Live checks have exercised complete Home
+and two-stage Builder attacks, corner placements and overflowing army reads. Broader army, scenery and
+timing coverage remains necessary. Automatic and custom deployment share one executor.
+Ordered actions follow army slots and categories,
+split quantities across border positions, and schedule spells and abilities separately. The
+whole army bar is read through measured overlapping scrolls. Changed units in the same slot
+and category are accepted; fresh portraits bind the current card during each attack.
+Camera preparation establishes a usable zoom, certifies pan limits and measures the range.
+OpenCV feature registration tracks subsequent movement within that battle. Geometry remains
+calibrated per village at 1280×720; scenery-specific template packs are not required. Game
+controls are excluded from placements. Unverified movement, missing units or unconfirmed input
+stop the plan without replay. Results and surrender limits take precedence over preparation.
+The editor uses a fixed planning map and named actions instead of screenshot portraits. Read
+army is an explicit, cancellable operation; Create plan previews the automatic sequence without
+saving or starting gameplay. Custom plans replace automatic spell/ability scheduling. Settings
+store only the action recipe; obsolete pixel-layout fields are ignored without resetting device
+preferences or history. Army-bar and camera calibration stay in the shared screen profile.
 Captured English result layouts require two independent guards and exactly one match. Absent currencies remain
 unavailable; a separately displayed bonus is added only with explicit inclusion semantics.
-The captured Home victory has unverified bonus inclusion, so its aggregate earnings remain
-unavailable. Home silver stars and uncaptured recovery screens are also unavailable rather
+The captured Home victory adds the separately displayed league bonus to stolen loot.
+If a bonus cannot be read, the displayed loot remains a labeled lower bound.
+Home silver stars and uncaptured recovery screens are unavailable rather
 than inferred. Native numeric regressions consume `crates/core/tests/fixtures/english-readings.json`, including
 the HUD balance whose leading digits the Python baseline drops. The Rust reader preserves
 that captured value without lowering confidence thresholds. Rust tests also verify fixture

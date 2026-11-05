@@ -11,53 +11,20 @@ use crate::{
     calibration::{Region, Resolution},
     device::Point,
 };
+pub mod automatic;
+pub mod recipe;
+pub mod roster;
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
 pub struct Layout {
-    pub bar: Region,
     #[serde(default)]
-    pub deploy: Option<Point>,
-    #[serde(default)]
-    pub hold: u32,
-    #[serde(default)]
-    pub points: Vec<Point>,
-    #[serde(default)]
-    pub spells: Vec<Point>,
-    #[serde(default)]
-    pub ring: Vec<Point>,
-    #[serde(default)]
-    pub spell_spread: Vec<Point>,
-    #[serde(default)]
-    pub quake: Vec<Point>,
+    pub recipe: Option<recipe::Recipe>,
 }
 
 impl Layout {
     pub fn validate(&self, resolution: Resolution) -> Result<()> {
-        self.bar.validate(resolution)?;
-        if let Some(point) = self.deploy {
-            point.validate(resolution)?;
-        }
-        if self.bar.3 < 20
-            || self.hold > 60
-            || (self.points.is_empty() && (self.spells.is_empty() || self.hold == 0))
-        {
-            return Err(Error::Calibration(
-                "Invalid army bar or deployment layout".into(),
-            ));
-        }
-        for points in [
-            &self.points,
-            &self.spells,
-            &self.ring,
-            &self.spell_spread,
-            &self.quake,
-        ] {
-            if points.len() > 32 {
-                return Err(Error::Calibration("Too many deployment points".into()));
-            }
-            for point in points {
-                point.validate(resolution)?;
-            }
+        if let Some(recipe) = &self.recipe {
+            recipe.validate(resolution)?;
         }
         Ok(())
     }
@@ -74,6 +41,8 @@ pub enum Kind {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Card {
+    pub region: Region,
+    pub count_region: Option<Region>,
     pub slot: Point,
     pub kind: Kind,
     pub group: usize,
@@ -82,26 +51,16 @@ pub struct Card {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Deployment {
-    Drop {
-        slot: Point,
+    Wait(u32),
+    PreciseAbility {
+        card: recipe::BoundCard,
+    },
+    PreciseDrop {
+        card: recipe::BoundCard,
         point: Point,
         count: u32,
-    },
-    Ability {
-        slots: Vec<Point>,
-        wait_ms: u32,
-    },
-    Hold {
-        slot: Point,
-        seconds: u32,
-    },
-    Spread {
-        slot: Point,
-        points: Vec<Point>,
-        count: u32,
-        burst: u32,
-        fingers: bool,
-        spaced: bool,
+        interval_ms: u32,
+        initial_count: u32,
     },
 }
 
@@ -131,7 +90,7 @@ fn share(image: &Mat, region: Region, predicate: impl Fn(Vec3b) -> bool) -> Resu
     Ok(count as f64 / (u64::from(w) * u64::from(h)) as f64)
 }
 
-pub fn cards(image: &Mat, bar: Region, camps: bool, digits: &Digits) -> Result<Vec<Card>> {
+pub(super) fn card_regions(image: &Mat, bar: Region, builder: bool) -> Result<Vec<Region>> {
     bar.validate(resolution(image)?)?;
     let Region(x, y, width, height) = bar;
     if height < 20 {
@@ -162,13 +121,132 @@ pub fn cards(image: &Mat, bar: Region, camps: bool, digits: &Digits) -> Result<V
             start.get_or_insert(column);
         } else if let Some(left) = start.take() {
             let w = column - left;
-            if (65..=98).contains(&w)
-                && share(&colour, Region(x + left, y, w, height), |p| {
-                    p[1] > 100 && p[2] > 80
-                })? >= 0.43
+            let region = Region(x + left, y, w, height);
+            if (8..=110).contains(&w)
+                && (share(&colour, region, |p| p[1] > 100 && p[2] > 80)? >= 0.43
+                    || (builder
+                        && (builder_card_header(&colour, region)?
+                            || card_rails(&colour, region)?
+                            || builder_camp_frame(image, &colour, region)?)))
             {
-                spans.push((x + left, x + column));
+                spans.push(Region(x + left, y, w, height));
             }
+        }
+    }
+    if !builder {
+        // Portrait colours do not define card boundaries: pale troops still have the same frame.
+        for frame in home_card_frames(&colour, bar)? {
+            spans.retain(|r| r.0 + r.2 <= frame.0 || r.0 >= frame.0 + frame.2);
+            spans.push(frame);
+        }
+        spans.sort_by_key(|r| r.0);
+    }
+    Ok(spans)
+}
+
+fn home_card_frame(colour: &Mat, Region(x, y, width, height): Region) -> Result<bool> {
+    if !(82..=90).contains(&width) || y < 2 || y + height + 2 >= colour.rows() as u32 {
+        return Ok(false);
+    }
+    let frame = |p: Vec3b| (80..=170).contains(&p[0]) && p[1] > 80 && p[2] > 80;
+    Ok(
+        (share(colour, Region(x + 3, y - 2, width - 6, 1), frame)? >= 0.95
+            || card_rails(colour, Region(x, y, width, height))?)
+            && share(colour, Region(x, y + height + 2, width, 1), frame)? >= 0.95,
+    )
+}
+
+fn home_card_frames(colour: &Mat, bar: Region) -> Result<Vec<Region>> {
+    let Region(x, y, width, height) = bar;
+    if y < 2 || y + height + 2 >= colour.rows() as u32 {
+        return Ok(Vec::new());
+    }
+    let mut frames = Vec::new();
+    let mut start = None;
+    for column in x..=x + width {
+        let blue = if column == x + width {
+            false
+        } else {
+            let p = *colour.at_2d::<Vec3b>((y + height + 2) as i32, column as i32)?;
+            (80..=170).contains(&p[0]) && p[1] > 80 && p[2] > 80
+        };
+        if blue {
+            start.get_or_insert(column);
+        } else if let Some(left) = start.take() {
+            let region = Region(left, y, column - left, height);
+            if (82..=90).contains(&region.2) {
+                frames.push(region);
+            }
+        }
+    }
+    Ok(frames)
+}
+
+fn builder_card_header(colour: &Mat, Region(x, y, width, height): Region) -> Result<bool> {
+    if !(65..=110).contains(&width) || height < 80 {
+        return Ok(false);
+    }
+    let blue = |p: Vec3b| (80..=170).contains(&p[0]) && p[1] > 100 && p[2] > 80;
+    Ok(share(colour, Region(x, y, width, 28), blue)? >= 0.7)
+}
+
+fn card_rails(colour: &Mat, Region(x, y, width, height): Region) -> Result<bool> {
+    if !(65..=110).contains(&width) || height < 80 {
+        return Ok(false);
+    }
+    let blue = |p: Vec3b| (80..=170).contains(&p[0]) && p[1] > 100 && p[2] > 80;
+    // Camp headers and side rails remain when the green swap button disappears in battle.
+    let rail = |p: Vec3b| blue(p) || (p[1] < 60 && p[2] > 200);
+    let left = share(colour, Region(x + 1, y + height / 4, 2, height / 2), rail)?;
+    let right = share(
+        colour,
+        Region(x + width - 3, y + height / 4, 2, height / 2),
+        rail,
+    )?;
+    Ok(left >= 0.6 && right >= 0.6)
+}
+
+fn builder_camp_frame(image: &Mat, colour: &Mat, Region(x, y, w, h): Region) -> Result<bool> {
+    if !(82..=94).contains(&w) || !(80..=128).contains(&h) {
+        return Ok(false);
+    }
+    if share(image, Region(x + 2, y + 2, 24, 18), |p| {
+        p.iter().all(|v| *v > 215)
+    })? * 432.
+        < 30.
+    {
+        return Ok(false);
+    }
+    let rail = |p: Vec3b| p[2] > 80 && (p[1] < 60 || (80..=170).contains(&p[0]));
+    for dx in [1, w - 3] {
+        if share(colour, Region(x + dx, y + h / 4, 2, h / 2), rail)? < 0.6 {
+            return Ok(false);
+        }
+    }
+    let mut separator = false;
+    for dy in 27..=33 {
+        separator |= share(colour, Region(x + 4, y + dy, w - 8, 1), |p| p[2] > 80)? >= 0.95;
+    }
+    let mut footer = false;
+    for dy in h - 3..h {
+        footer |= share(colour, Region(x + 4, y + dy, w - 8, 1), rail)? >= 0.8;
+    }
+    Ok(separator && footer)
+}
+
+pub fn cards(image: &Mat, bar: Region, camps: bool, digits: &Digits) -> Result<Vec<Card>> {
+    let Region(_, y, _, height) = bar;
+    let colour = hsv(image)?;
+    let mut spans = Vec::new();
+    for region in card_regions(image, bar, camps)? {
+        if region.2 >= 65
+            && (share(&colour, region, |p| p[1] > 100 && p[2] > 80)? >= 0.43
+                || (!camps && home_card_frame(&colour, region)?)
+                || (camps
+                    && ((builder_card_header(&colour, region)? && card_rails(&colour, region)?)
+                        || builder_camp_frame(image, &colour, region)?)))
+        {
+            spans.push((region.0, region.0 + region.2));
         }
     }
     if spans.len() > 20 {
@@ -182,8 +260,15 @@ pub fn cards(image: &Mat, bar: Region, camps: bool, digits: &Digits) -> Result<V
             group += 1;
         }
         previous = Some(right);
+        let slot = Point((left + right) / 2, y + height / 2);
+        let is_selected = !camps && selected(image, slot)?;
         let white = |p: Vec3b| p[0] > 215 && p[1] > 215 && p[2] > 215;
-        let label_white = share(image, Region(right - 40, y + 2, 38, 18), white)? * 684.0;
+        let label_y = if is_selected {
+            y.saturating_sub(4)
+        } else {
+            y + 2
+        };
+        let label_white = share(image, Region(right - 40, label_y, 38, 18), white)? * 684.0;
         let kind = if camps {
             let magenta = share(&colour, Region(right - 40, y + 2, 36, 16), |p| {
                 (135..=165).contains(&p[0]) && p[1] > 100 && p[2] > 120
@@ -221,171 +306,49 @@ pub fn cards(image: &Mat, bar: Region, camps: bool, digits: &Digits) -> Result<V
             }
         };
         let top = if camps { Some(y) } else { y.checked_sub(10) };
-        let count = top
-            .and_then(|top| crop(image, Region(left + 25, top, right - left - 27, 26)).ok())
+        let count_region = top.map(|top| {
+            if is_selected {
+                Region(slot.0.saturating_sub(16), top, 55, 26)
+            } else {
+                Region(left + 25, top, right - left - 27, 26)
+            }
+        });
+        let count = count_region
+            .and_then(|Region(x, y, w, h)| {
+                let region = if is_selected {
+                    let top = y.saturating_sub(16);
+                    Region(x, top, w + 6, h + y - top)
+                } else {
+                    Region(x, y, w, h)
+                };
+                crop(image, region).ok()
+            })
             .and_then(|label| digits.card_count(&label, camps).ok());
+        let count = if camps && empty(image, slot)? {
+            let mut deviation = core::Scalar::default();
+            core::mean_std_dev(
+                &crop(image, Region(left + 10, y + 40, right - left - 20, 40))?,
+                &mut core::no_array(),
+                &mut deviation,
+                &core::no_array(),
+            )?;
+            if deviation.0[..3].iter().all(|value| *value <= 5.) {
+                continue;
+            }
+            Some(0)
+        } else {
+            count
+        };
         found.push(Card {
-            slot: Point((left + right) / 2, y + height / 2),
+            region: Region(left, y, right - left, height),
+            count_region,
+            slot,
             kind,
             group,
             count,
         });
     }
     Ok(found)
-}
-
-pub fn plan(
-    cards: &[Card],
-    layout: &Layout,
-    deploy: Point,
-    ring: bool,
-    quake: bool,
-    stack: bool,
-) -> Result<Vec<Deployment>> {
-    if cards.is_empty() {
-        return Err(Error::Unreadable);
-    }
-    let mut steps = Vec::new();
-    if !layout.points.is_empty() {
-        let mut camps = Vec::new();
-        let fallback = cards.iter().filter_map(|c| c.count).max().unwrap_or(1);
-        for card in cards {
-            if card.kind == Kind::Hero {
-                steps.push(Deployment::Drop {
-                    slot: card.slot,
-                    point: deploy,
-                    count: 1,
-                });
-                steps.push(Deployment::Ability {
-                    slots: vec![card.slot],
-                    wait_ms: 0,
-                });
-            } else {
-                let point = if stack {
-                    deploy
-                } else {
-                    layout.points[camps.len() % layout.points.len()]
-                };
-                let count = if card.kind == Kind::Sized {
-                    card.count.unwrap_or(fallback)
-                } else {
-                    1
-                };
-                camps.push(Deployment::Drop {
-                    slot: card.slot,
-                    point,
-                    count,
-                });
-            }
-        }
-        if !camps.is_empty() {
-            let slots = camps
-                .iter()
-                .filter_map(|step| match step {
-                    Deployment::Drop { slot, .. } => Some(*slot),
-                    _ => None,
-                })
-                .collect();
-            steps.extend(camps);
-            steps.push(Deployment::Ability {
-                slots,
-                wait_ms: 5000,
-            });
-        }
-        return Ok(steps);
-    }
-    if layout.spells.is_empty()
-        || (ring && layout.ring.is_empty())
-        || (quake && layout.quake.is_empty())
-    {
-        return Err(Error::Calibration(
-            "The selected deployment strategy has no points".into(),
-        ));
-    }
-    let last = cards
-        .iter()
-        .filter(|c| c.kind == Kind::Counted)
-        .map(|c| c.group)
-        .max()
-        .unwrap_or(0);
-    let mut troops = Vec::new();
-    let mut siege = Vec::new();
-    let mut heroes = Vec::new();
-    let mut spells = Vec::new();
-    for card in cards {
-        match card.kind {
-            Kind::Counted if card.group > 0 && card.group < last => siege.push(card),
-            Kind::Counted if card.group == 0 => troops.push(card),
-            Kind::Counted => spells.push(card),
-            Kind::Siege => siege.push(card),
-            Kind::Warden => heroes.insert(0, card),
-            _ => heroes.push(card),
-        }
-    }
-    let drop = |card: &Card| Deployment::Drop {
-        slot: card.slot,
-        point: deploy,
-        count: 1,
-    };
-    if ring {
-        steps.extend(heroes.iter().map(|c| drop(c)));
-        if !heroes.is_empty() {
-            steps.push(Deployment::Ability {
-                slots: heroes.iter().map(|c| c.slot).collect(),
-                wait_ms: 0,
-            });
-        }
-    } else {
-        steps.extend(troops.iter().map(|c| Deployment::Hold {
-            slot: c.slot,
-            seconds: layout.hold,
-        }));
-    }
-    steps.extend(siege.iter().map(|c| drop(c)));
-    if !ring {
-        for hero in heroes {
-            steps.push(drop(hero));
-            steps.push(Deployment::Ability {
-                slots: vec![hero.slot],
-                wait_ms: 0,
-            });
-        }
-    }
-    for (index, card) in spells.iter().enumerate() {
-        let mut points = if quake {
-            layout.quake.iter().flat_map(|p| [*p; 4]).collect()
-        } else if ring && !layout.spell_spread.is_empty() {
-            layout.spell_spread.clone()
-        } else {
-            layout.spells.clone()
-        };
-        if !quake {
-            let offset = index * 3 % points.len();
-            points.rotate_left(offset);
-        }
-        let count = if ring || quake { card.count } else { None };
-        steps.push(Deployment::Spread {
-            slot: card.slot,
-            points,
-            count: count.unwrap_or(30),
-            burst: count.unwrap_or(if quake { 1 } else { 4 }),
-            fingers: ring,
-            spaced: false,
-        });
-    }
-    if ring {
-        for card in troops {
-            steps.push(Deployment::Spread {
-                slot: card.slot,
-                points: layout.ring.clone(),
-                count: card.count.unwrap_or(60),
-                burst: 20,
-                fingers: true,
-                spaced: true,
-            });
-        }
-    }
-    Ok(steps)
 }
 
 pub fn empty(image: &Mat, slot: Point) -> Result<bool> {
@@ -399,19 +362,116 @@ pub fn empty(image: &Mat, slot: Point) -> Result<bool> {
     Ok(core::mean(&colour, &core::no_array())?[1] < 20.0)
 }
 
-pub fn hero_ready(image: &Mat, slot: Point) -> Result<bool> {
+pub fn selected(image: &Mat, slot: Point) -> Result<bool> {
+    slot.validate(resolution(image)?)?;
+    let white = |x: u32, y: u32| -> Result<bool> {
+        Ok(image
+            .at_2d::<Vec3b>(y as i32, x as i32)?
+            .iter()
+            .all(|c| *c > 215))
+    };
+    if slot.0 < 55 || slot.0 + 55 >= image.cols() as u32 || image.rows() < 720 {
+        return Ok(false);
+    }
+    let mut shaded = false;
+    let mut bright_side = false;
+    for side in [-1_i32, 1] {
+        let mut border = false;
+        let mut neutral_border = false;
+        for offset in 38..=55 {
+            let x = (slot.0 as i32 + side * offset) as u32;
+            let mut count = 0;
+            let mut neutral = 0;
+            for y in 625..685 {
+                count += u32::from(white(x, y)?);
+                let pixel = image.at_2d::<Vec3b>(y as i32, x as i32)?;
+                let low = *pixel.iter().min().unwrap();
+                let high = *pixel.iter().max().unwrap();
+                neutral += u32::from(low >= 185 && high - low <= 10);
+            }
+            border |= count >= 45;
+            neutral_border |= neutral >= 45;
+        }
+        if !border && !neutral_border {
+            return Ok(false);
+        }
+        shaded |= !border;
+        bright_side |= border;
+    }
+    if shaded {
+        // The selected frame has a shaded rail; require its raised top and opposite bright rail too.
+        if !bright_side {
+            return Ok(false);
+        }
+        let mut raised_top = false;
+        for y in 576..596 {
+            let mut count = 0;
+            for x in slot.0 - 32..slot.0 + 32 {
+                count += u32::from(white(x, y)?);
+            }
+            raised_top |= count >= 50;
+        }
+        if !raised_top {
+            return Ok(false);
+        }
+    }
+    for y in 700..719 {
+        let mut count = 0;
+        for x in slot.0 - 32..slot.0 + 32 {
+            count += u32::from(white(x, y)?);
+        }
+        if count >= 50 {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+pub fn hero_charge(image: &Mat, slot: Point) -> Result<u8> {
     let colour = hsv(image)?;
     let top = slot.1.checked_sub(89).ok_or(Error::Unreadable)?;
     let left = slot.0.checked_sub(36).ok_or(Error::Unreadable)?;
+    let mut charge = 0;
     for (offset, width) in [(0, 20), (22, 19), (43, 30)] {
         if share(&colour, Region(left + offset, top, width, 8), |p| {
             (140..=165).contains(&p[0]) && p[1] > 100 && p[2] > 150
         })? < 0.5
         {
-            return Ok(false);
+            return Ok(charge);
+        }
+        charge += 1;
+    }
+    Ok(charge)
+}
+
+pub fn hero_deployed(image: &Mat, slot: Point) -> Result<bool> {
+    hero_health(image, slot, 85)
+}
+
+pub(super) fn hero_waiting_health(image: &Mat, slot: Point) -> Result<bool> {
+    hero_health(image, slot, 58)
+}
+
+fn hero_health(image: &Mat, slot: Point, top: u32) -> Result<bool> {
+    let colour = hsv(image)?;
+    let x = slot.0.checked_sub(32).ok_or(Error::Unreadable)?;
+    // Deployment raises a framed health bar with visible green, yellow or red fill.
+    for y in slot.1.checked_sub(top).ok_or(Error::Unreadable)?..slot.1 - (top - 20) {
+        let rail = |row| share(image, Region(x, row, 64, 1), |p| p.iter().all(|v| *v < 60));
+        if rail(y)? > 0.9
+            && rail(y + 11)? > 0.9
+            && share(image, Region(x, y + 3, 64, 7), |p| {
+                *p.iter().max().unwrap() > 20
+            })? > 0.85
+            // Dark scenery behind the army bar is not a depleted health bar.
+            && share(&colour, Region(x, y + 3, 64, 7), |p| {
+                p[0] <= 85 && p[1] > 110 && p[2] > 90
+            })? > 0.01
+        {
+            return Ok(true);
         }
     }
-    Ok(true)
+    Ok(false)
 }
 
 pub fn stars(image: &Mat, regions: &[Region]) -> Result<u8> {

@@ -61,7 +61,8 @@ function Overview({
   const [error, setError] = useState<string>();
   const running = snapshot.session?.state === "running";
   const paused = snapshot.session?.state === "paused";
-  const active = running || paused;
+  const scanning = snapshot.army_scanning === true;
+  const active = running || paused || scanning;
   const stats = snapshot.statistics?.find((item) => item.village === village);
   const currentScreen =
     snapshot.detection.status === "known" ? snapshot.detection.screens : null;
@@ -132,7 +133,7 @@ function Overview({
           </Help>
           {active ? (
             <>
-              {snapshot.session?.mode !== "observe" && (
+              {!scanning && snapshot.session?.mode !== "observe" && (
                 <IconButton
                   path={paused ? mdiPlay : mdiPause}
                   label={paused ? "Resume" : "Pause"}
@@ -142,7 +143,7 @@ function Overview({
               )}
               <IconButton
                 path={mdiStop}
-                label="Stop"
+                label={scanning ? "Cancel army read" : "Stop"}
                 disabled={stopping}
                 onClick={() => void control("stop")}
               />
@@ -282,10 +283,6 @@ function Overview({
               <dt>Attacks</dt>
               <dd>{number(stats?.attacks)}</dd>
             </div>
-            <div>
-              <dt>Wall upgrades</dt>
-              <dd>{number(stats?.wall_upgrades)}</dd>
-            </div>
           </dl>
           <section className="session-loot">
             <div className="section-heading">
@@ -294,7 +291,9 @@ function Overview({
                 Only confirmed result readings count as earned loot. Rates use
                 active time, including searching and recovery, excluding pauses.
                 Wall spending is separate. Unreadable results remain
-                unavailable.
+                unavailable. A ≥ prefix means the displayed result loot is known
+                but part of the bonus could not be verified; the amount and rate
+                are lower bounds.
               </Help>
             </div>
             <dl className="summary-row">
@@ -308,8 +307,14 @@ function Overview({
                 <div key={key}>
                   <dt>{key === "dark" ? "Dark Elixir" : title(key)}</dt>
                   <dd>
+                    {stats?.[key as "gold" | "elixir" | "dark"].is_lower_bound
+                      ? "≥ "
+                      : ""}
                     {number(stats?.[key as "gold" | "elixir" | "dark"].amount)}
                     <span className="stat-rate">
+                      {stats?.[key as "gold" | "elixir" | "dark"].is_lower_bound
+                        ? "≥ "
+                        : ""}
                       {number(
                         stats?.[key as "gold" | "elixir" | "dark"].per_hour,
                       )}
@@ -324,9 +329,13 @@ function Overview({
             (stats?.wall_upgrades ?? 0) > 0) && (
             <section className="session-loot" aria-label="Wall spending">
               <div className="section-heading">
-                <h2>Wall spending</h2>
+                <h2>Walls</h2>
               </div>
               <dl className="summary-row">
+                <div>
+                  <dt>Upgraded</dt>
+                  <dd>{number(stats?.wall_upgrades)}</dd>
+                </div>
                 <div>
                   <dt>Gold spent</dt>
                   <dd>{number(stats?.wall_gold)}</dd>
@@ -357,6 +366,7 @@ export default function App() {
   const { snapshot, error } = useSnapshot();
   const active =
     updating ||
+    snapshot?.army_scanning === true ||
     snapshot?.session?.state === "running" ||
     snapshot?.session?.state === "paused";
   const nav = [
@@ -433,18 +443,21 @@ export default function App() {
               <Settings settings={snapshot.settings} running={active} />
             ) : page === "history" ? (
               <History sessionId={snapshot.session?.id} />
-            ) : page === "deployment" ? (
-              <Deployment
-                snapshot={snapshot}
-                offline={Boolean(error) || updating}
-              />
-            ) : (
+            ) : page === "deployment" ? null : (
               <Overview
                 snapshot={snapshot}
                 offline={Boolean(error) || updating}
                 preferences={preferences}
                 onPreferencesChange={setPreferences}
               />
+            )}
+            {snapshot && (
+              <div hidden={page !== "deployment"}>
+                <Deployment
+                  snapshot={snapshot}
+                  offline={Boolean(error) || updating}
+                />
+              </div>
             )}
           </div>
         </div>

@@ -22,6 +22,7 @@ fn command(script: &str) -> Invocation {
             .map(Into::into)
             .to_vec(),
         input: vec![],
+        acknowledge_input: false,
         output_limit: 4096,
         // Cold PowerShell startup on Windows CI can exceed ten seconds.
         timeout: Duration::from_secs(30),
@@ -33,8 +34,14 @@ async fn preserves_binary_stdio_and_reports_process_failure() {
     let mut invocation = command(
         "$inputStream = [Console]::OpenStandardInput(); $outputStream = [Console]::OpenStandardOutput(); $inputStream.CopyTo($outputStream)",
     );
+    let bytes = [0, 255, 13, 10, 0, 128]
+        .into_iter()
+        .cycle()
+        .take(128 * 1024)
+        .collect::<Vec<_>>();
+    invocation.output_limit = bytes.len();
     invocation.input = vec![WriteFrame {
-        bytes: vec![0, 255, 13, 10, 0, 128],
+        bytes: bytes.clone(),
         wait: Duration::ZERO,
     }];
     assert_eq!(
@@ -42,7 +49,7 @@ async fn preserves_binary_stdio_and_reports_process_failure() {
             .run(invocation, &CancellationToken::new())
             .await
             .unwrap(),
-        vec![0, 255, 13, 10, 0, 128]
+        bytes
     );
     assert!(matches!(
         Process
@@ -98,6 +105,7 @@ async fn cancellation_reaps_the_owned_process() {
             pid_file.clone().into_os_string(),
         ],
         input: vec![],
+        acknowledge_input: false,
         output_limit: 4096,
         timeout: Duration::from_secs(60),
     };
@@ -134,6 +142,7 @@ async fn cancellation_reaps_the_owned_process() {
             pid.to_string().into(),
         ],
         input: vec![],
+        acknowledge_input: false,
         output_limit: 4096,
         timeout: Duration::from_secs(30),
     };
@@ -161,4 +170,163 @@ async fn cancelled_or_unbounded_work_never_spawns() {
         Process.run(invocation, &CancellationToken::new()).await,
         Err(Error::Device(_))
     ));
+}
+
+#[tokio::test]
+async fn acknowledged_frames_start_their_hold_after_the_child_applies_them() {
+    let mut invocation = command(concat!(
+        "$reader = [IO.StreamReader]::new([Console]::OpenStandardInput()); ",
+        "$writer = [Console]::OpenStandardOutput(); Start-Sleep -Milliseconds 350; ",
+        "$clock = [Diagnostics.Stopwatch]::StartNew(); $times = @(); ",
+        "for ($i = 0; $i -lt 3; $i++) { ",
+        "if ($reader.ReadLine() -ne [string]$i) { exit 2 }; ",
+        "$times += $clock.ElapsedMilliseconds; ",
+        "Start-Sleep -Milliseconds 180; $writer.WriteByte(65); $writer.Flush(); }; ",
+        "[Console]::Write(($times -join ','))"
+    ));
+    invocation.acknowledge_input = true;
+    invocation.input = (0..3)
+        .map(|i| WriteFrame {
+            bytes: format!("{i}\n").into_bytes(),
+            wait: Duration::from_millis(120),
+        })
+        .collect();
+    let output = Process
+        .run(invocation, &CancellationToken::new())
+        .await
+        .unwrap();
+    let times = std::str::from_utf8(&output)
+        .unwrap()
+        .split(',')
+        .map(|v| v.parse::<u64>().unwrap())
+        .collect::<Vec<_>>();
+    assert_eq!(times.len(), 3);
+    for pair in times.windows(2) {
+        assert!(
+            pair[1] - pair[0] >= 280,
+            "child delays and holds must not be compressed: {times:?}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn acknowledged_streams_reject_missing_wrong_and_excess_output() {
+    for (script, limit, output_limit) in [
+        (
+            "$null = [Console]::In.ReadLine(); [Console]::Write('X'); Start-Sleep -Seconds 60",
+            4096,
+            false,
+        ),
+        ("$null = [Console]::In.ReadLine(); exit 0", 4096, false),
+        (
+            "$null = [Console]::In.ReadLine(); [Console]::Write('AAA'); Start-Sleep -Seconds 60",
+            1,
+            true,
+        ),
+        (
+            "$null = [Console]::In.ReadLine(); [Console]::Error.Write('x' * 65537); Start-Sleep -Seconds 60",
+            4096,
+            true,
+        ),
+    ] {
+        let mut invocation = command(script);
+        invocation.acknowledge_input = true;
+        invocation.output_limit = limit;
+        invocation.input = vec![WriteFrame {
+            bytes: b"frame\n".to_vec(),
+            wait: Duration::ZERO,
+        }];
+        let result = Process.run(invocation, &CancellationToken::new()).await;
+        assert!(
+            if output_limit {
+                matches!(result, Err(Error::OutputLimit))
+            } else {
+                matches!(result, Err(Error::Device(_)))
+            },
+            "{result:?}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn cancelling_an_acknowledged_frame_never_queues_the_next_one() {
+    for acknowledged in [false, true] {
+        let folder = tempfile::tempdir().unwrap();
+        let script = folder.path().join("ack.ps1");
+        let prefix = folder.path().join("child");
+        std::fs::write(
+            &script,
+            concat!(
+                "param($path, $ack)\n",
+                "$reader = [IO.StreamReader]::new([Console]::OpenStandardInput())\n",
+                "$writer = [Console]::OpenStandardOutput()\n",
+                "$null = $reader.ReadLine()\n",
+                "[IO.File]::WriteAllText($path + '.pid', [string]$PID)\n",
+                "if ($ack -eq 'yes') { $writer.WriteByte(65); $writer.Flush() }\n",
+                "[IO.File]::WriteAllText($path + '.ready', 'ready')\n",
+                "$next = $reader.ReadLine()\n",
+                "if ($null -ne $next) { [IO.File]::WriteAllText($path + '.extra', $next) }\n",
+                "Start-Sleep -Seconds 120\n"
+            ),
+        )
+        .unwrap();
+        let mut invocation = command("");
+        invocation.args = vec![
+            "-NoProfile".into(),
+            "-NonInteractive".into(),
+            "-File".into(),
+            script.into_os_string(),
+            prefix.clone().into_os_string(),
+            if acknowledged { "yes" } else { "no" }.into(),
+        ];
+        invocation.acknowledge_input = true;
+        invocation.input = vec![
+            WriteFrame {
+                bytes: b"first\n".to_vec(),
+                wait: if acknowledged {
+                    Duration::from_secs(5)
+                } else {
+                    Duration::ZERO
+                },
+            },
+            WriteFrame {
+                bytes: b"second\n".to_vec(),
+                wait: Duration::ZERO,
+            },
+        ];
+        let token = CancellationToken::new();
+        let child_token = token.clone();
+        let task = tokio::spawn(async move { Process.run(invocation, &child_token).await });
+        let deadline = Instant::now() + Duration::from_secs(30);
+        while !prefix.with_extension("ready").exists() {
+            assert!(Instant::now() < deadline, "Fake ACK child did not start");
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        token.cancel();
+        assert!(matches!(
+            tokio::time::timeout(Duration::from_secs(5), task)
+                .await
+                .unwrap()
+                .unwrap(),
+            Err(Error::Cancelled)
+        ));
+        assert!(
+            !prefix.with_extension("extra").exists(),
+            "the next input frame was queued"
+        );
+        let pid: u32 = std::fs::read_to_string(prefix.with_extension("pid"))
+            .unwrap()
+            .parse()
+            .unwrap();
+        Process
+            .run(
+                command(&format!(
+                    "if (Get-Process -Id {pid} -ErrorAction SilentlyContinue) {{ exit 1 }}"
+                )),
+                &CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+    }
 }

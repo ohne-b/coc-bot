@@ -19,6 +19,10 @@ export async function mock(
     discovery?: "multiple" | "empty" | "error";
     extendedFolder?: boolean;
     rejectDeviceSave?: boolean;
+    armyCount?: number;
+    holdArmyRead?: boolean;
+    holdPreview?: boolean;
+    armyReadError?: boolean;
   } = {},
 ) {
   const frame = readFileSync(
@@ -35,6 +39,31 @@ export async function mock(
         active_ms: 365_000,
       };
       const snapshot = {
+        army_scanning: false,
+        army_complete: true,
+        army_screen:
+          options.screen?.includes("scout") ||
+          options.screen === "builder_stage2"
+            ? options.screen
+            : null,
+        army_observed_at_ms: Date.now(),
+        army: [
+          {
+            slot: 1,
+            kind: "troop",
+            count: 15,
+          },
+          {
+            slot: 2,
+            kind: "hero",
+            count: null,
+          },
+          {
+            slot: 3,
+            kind: "spell",
+            count: 3,
+          },
+        ],
         revision: 1,
         settings: {
           device: {
@@ -104,41 +133,17 @@ export async function mock(
         progress: null,
         statistics: [],
         default_layouts: {
-          home_scout: {
-            bar: [0, 598, 1280, 106],
-            deploy: [100, 300],
-            hold: 10,
-            points: [],
-            spells: [[400, 300]],
-            ring: [
-              [100, 100],
-              [1100, 100],
-            ],
-            spell_spread: [[600, 300]],
-            quake: [[600, 400]],
-          },
-          builder_scout: {
-            bar: [0, 588, 1280, 120],
-            deploy: [100, 300],
-            hold: 0,
-            points: [[200, 200]],
-            spells: [],
-            ring: [],
-            spell_spread: [],
-            quake: [],
-          },
-          builder_stage2: {
-            bar: [0, 588, 1280, 120],
-            deploy: [100, 300],
-            hold: 0,
-            points: [[300, 300]],
-            spells: [],
-            ring: [],
-            spell_spread: [],
-            quake: [],
-          },
+          home_scout: { recipe: null },
+          builder_scout: { recipe: null },
+          builder_stage2: { recipe: null },
         },
       };
+      if (options.armyCount)
+        snapshot.army = Array.from({ length: options.armyCount }, (_, i) => ({
+          slot: i + 1,
+          kind: i === options.armyCount! - 1 ? "spell" : "troop",
+          count: i === options.armyCount! - 1 ? 3 : 15,
+        }));
       const total = {
         amount: null,
         measured_attacks: 0,
@@ -258,6 +263,50 @@ export async function mock(
             }
             if (options.error) throw "Unable to read the history database";
             if (command === "snapshot") return structuredClone(snapshot);
+            if (command === "preview_deployment") {
+              if (
+                snapshot.army_screen !== args.screen ||
+                !snapshot.army_complete
+              )
+                throw "Read this stage's army before creating a plan";
+              const recipe = {
+                steps: snapshot.army.map((unit) => ({
+                  slot: unit.slot,
+                  kind: unit.kind,
+                  label: `${unit.kind} ${unit.slot}`,
+                  portrait: [],
+                  count: unit.count ?? 1,
+                  point: [1000, 500],
+                  delay_ms: 0,
+                  interval_ms: 500,
+                  ability: false,
+                  supports_ability: unit.kind === "hero",
+                })),
+              };
+              if (options.holdPreview)
+                await new Promise<void>((resolve, reject) =>
+                  Object.assign(window, {
+                    resolvePreview: resolve,
+                    rejectPreview: reject,
+                  }),
+                );
+              return recipe;
+            }
+            if (command === "scan_army") {
+              if (options.armyReadError)
+                throw "Open an attack's scout screen before reading the army";
+              snapshot.army_scanning = true;
+              snapshot.revision++;
+              if (options.holdArmyRead)
+                await new Promise<void>((resolve) =>
+                  Object.assign(window, { resolveArmyRead: resolve }),
+                );
+              snapshot.army_complete = true;
+              snapshot.army_scanning = false;
+              snapshot.army_observed_at_ms = Date.now();
+              snapshot.revision++;
+              return;
+            }
             if (command === "screenshot") {
               if (options.holdNextFrame && Number(args.sequence) > 1)
                 await new Promise(() => {});
@@ -286,6 +335,10 @@ export async function mock(
               return;
             }
             if (command === "stop") {
+              snapshot.army_scanning = false;
+              (
+                window as unknown as { resolveArmyRead?: () => void }
+              ).resolveArmyRead?.();
               snapshot.session.state = "stopped";
               snapshot.revision++;
               return;

@@ -1,6 +1,5 @@
-use std::{sync::Arc, time::Duration};
-
-use base64::{Engine as _, prelude::BASE64_STANDARD};
+use opencv::core::Mat;
+use std::{fmt::Write as _, sync::Arc, time::Duration};
 use tokio_util::sync::CancellationToken;
 
 use super::{
@@ -83,7 +82,19 @@ impl TouchDevice {
 
 #[derive(Clone, Debug)]
 pub enum Gesture {
+    Drag {
+        from: Point,
+        to: Point,
+    },
+    Pan {
+        from: Point,
+        to: Point,
+    },
     Taps(Vec<Point>),
+    TimedTaps {
+        points: Vec<Point>,
+        spacing: Duration,
+    },
     Hold {
         points: Vec<Point>,
         duration: Duration,
@@ -99,6 +110,73 @@ impl Gesture {
     fn frames(&self, resolution: Resolution) -> Result<(Vec<WriteFrame>, usize)> {
         let mut frames = Vec::new();
         let fingers = match self {
+            Self::Drag { from, to } => {
+                from.validate(resolution)?;
+                to.validate(resolution)?;
+                frames.push(down(&[*from], Duration::from_millis(25)));
+                let steps = if from.0.abs_diff(to.0).max(from.1.abs_diff(to.1)) > 160 {
+                    24
+                } else {
+                    12
+                };
+                for step in 1..=steps {
+                    let interpolate = |a: u32, b: u32| {
+                        // Slow the final samples so lifting does not fling the army bar.
+                        (i64::from(a)
+                            + (i64::from(b) - i64::from(a)) * step * (2 * steps - step)
+                                / (steps * steps)) as i32
+                    };
+                    frames.push(WriteFrame {
+                        bytes: encode(&[
+                            (3, 47, 0),
+                            (3, 53, interpolate(from.0, to.0)),
+                            (3, 54, interpolate(from.1, to.1)),
+                            (0, 0, 0),
+                        ]),
+                        // Let scrolling settle under the held finger before lifting it.
+                        wait: Duration::from_millis(if step == steps { 150 } else { 25 }),
+                    });
+                }
+                frames.push(release(1, Duration::ZERO));
+                1
+            }
+            Self::Pan { from, to } => {
+                let pair = |center: Point| -> Result<[Point; 2]> {
+                    let points = [
+                        Point(center.0.checked_sub(50).ok_or(Error::InputGuard)?, center.1),
+                        Point(center.0.checked_add(50).ok_or(Error::InputGuard)?, center.1),
+                    ];
+                    for point in points {
+                        point.validate(resolution)?;
+                    }
+                    Ok(points)
+                };
+                pair(*to)?;
+                frames.push(down(&pair(*from)?, Duration::from_millis(30)));
+                for step in 1..=12 {
+                    let interpolate = |a: u32, b: u32| {
+                        (i64::from(a) + (i64::from(b) - i64::from(a)) * step * (24 - step) / 144)
+                            as u32
+                    };
+                    let center = Point(interpolate(from.0, to.0), interpolate(from.1, to.1));
+                    let mut events = Vec::new();
+                    for (slot, point) in pair(center)?.iter().enumerate() {
+                        events.extend([
+                            (3, 47, slot as i32),
+                            (3, 53, point.0 as i32),
+                            (3, 54, point.1 as i32),
+                        ]);
+                    }
+                    events.push((0, 0, 0));
+                    frames.push(WriteFrame {
+                        bytes: encode(&events),
+                        // Let the camera settle with both fingers held before releasing.
+                        wait: Duration::from_millis(if step == 12 { 150 } else { 25 }),
+                    });
+                }
+                frames.push(release(2, Duration::ZERO));
+                2
+            }
             Self::Taps(points) => {
                 if points.is_empty() || points.len() > 32 {
                     return Err(Error::Device("A tap burst requires 1 to 32 points".into()));
@@ -107,6 +185,31 @@ impl Gesture {
                     point.validate(resolution)?;
                     frames.push(down(&[point], Duration::from_millis(30)));
                     frames.push(release(1, Duration::from_millis(30)));
+                }
+                1
+            }
+            Self::TimedTaps { points, spacing } => {
+                let press = Duration::from_millis(30);
+                if points.is_empty()
+                    || points.len() > 8
+                    || !(Duration::from_millis(100)..=Duration::from_millis(1000)).contains(spacing)
+                    || *spacing * (points.len() as u32 - 1) + press > Duration::from_millis(500)
+                {
+                    return Err(Error::Device(
+                        "Timed taps require 1 to 8 points, 100 to 1000 ms spacing and at most 500 ms total".into(),
+                    ));
+                }
+                for (index, &point) in points.iter().enumerate() {
+                    point.validate(resolution)?;
+                    frames.push(down(&[point], press));
+                    frames.push(release(
+                        1,
+                        if index + 1 == points.len() {
+                            Duration::ZERO
+                        } else {
+                            *spacing - press
+                        },
+                    ));
                 }
                 1
             }
@@ -181,6 +284,19 @@ fn encode(events: &[(u16, u16, i32)]) -> Vec<u8> {
     bytes
 }
 
+fn shell_events(bytes: &[u8]) -> String {
+    let mut encoded = String::with_capacity(bytes.len() * 5 + bytes.len() / 24);
+    for (index, event) in bytes.chunks(24).enumerate() {
+        if index != 0 {
+            encoded.push(' ');
+        }
+        for byte in event {
+            write!(encoded, "\\0{byte:03o}").expect("writing to a String cannot fail");
+        }
+    }
+    encoded
+}
+
 fn down(points: &[Point], wait: Duration) -> WriteFrame {
     let mut events = Vec::new();
     for (slot, point) in points.iter().enumerate() {
@@ -234,20 +350,48 @@ impl<T: Transport> Adb<T> {
         cancel: &CancellationToken,
     ) -> Result<()> {
         self.require_live(cancel)?;
-        let (frames, fingers) = gesture.frames(self.config.resolution)?;
+        gesture.frames(self.config.resolution)?;
+        self.gesture_checked(detector, expected, |_| Ok((gesture, ())), cancel)
+            .await
+    }
+
+    /// Resolve the complete bounded gesture against the exact frame authorizing input.
+    pub async fn gesture_checked<R>(
+        &mut self,
+        detector: Arc<Detector>,
+        expected: &[Screen],
+        resolve: impl FnOnce(&Mat) -> Result<(Gesture, R)>,
+        cancel: &CancellationToken,
+    ) -> Result<R> {
+        self.require_live(cancel)?;
         let touch = self
             .touch_device(cancel)
             .await?
             .ok_or_else(|| Error::Device("No matching multitouch device was found".into()))?;
+        let frame = self.guard(detector, expected, cancel).await?;
+        let (gesture, value) = resolve(&frame.image)?;
+        let (frames, fingers) = gesture.frames(self.config.resolution)?;
         if fingers > touch.slots {
             return Err(Error::Device(
                 "The touchscreen has too few touch slots".into(),
             ));
         }
-        self.guard(detector, expected, cancel).await?;
+        if frame.captured_at.elapsed() > super::MAX_FRAME_AGE {
+            return Err(Error::InputGuard);
+        }
+        self.require_live(cancel)?;
+        let release_frame = format!(
+            "'{}'",
+            shell_events(&release(fingers, Duration::ZERO).bytes)
+        );
         let replay = concat!(
-            "'set -o pipefail || exit; while IFS= read -r frame; do printf %s \"$frame\" | ",
-            "toybox base64 -d | toybox dd ibs=4096 obs=24 of=\"$1\" status=none || exit; done'"
+            "'device=$1; cleanup=$2; exec 3>\"$device\" || exit 1; cr=$(print -n \"\\0015\"); ",
+            "write_events() { for event in $1; do ",
+            "print -n -- \"$event\" >&3 || return 1; done; }; ",
+            "release() { write_events \"$cleanup\" || exit 1; }; ",
+            "trap release EXIT; trap \"exit 1\" HUP INT TERM PIPE; ",
+            "while IFS= read -r frame; do frame=${frame%\"$cr\"}; ",
+            "write_events \"$frame\" || exit 1; print -nr -- A || exit 1; done'"
         );
         let invocation = |input: Vec<WriteFrame>, timeout| {
             Invocation {
@@ -262,17 +406,19 @@ impl<T: Transport> Adb<T> {
                     replay,
                     "touch",
                     &touch.node,
+                    &release_frame,
                 ]
                 .map(Into::into)
                 .to_vec(),
-                // Windows adb shell translates binary stdin; send each complete frame as ASCII.
+                // ASCII avoids Windows ADB control-byte translation; builtin print emits one event per write.
                 input: input
                     .into_iter()
                     .map(|frame| WriteFrame {
-                        bytes: format!("{}\n", BASE64_STANDARD.encode(frame.bytes)).into_bytes(),
+                        bytes: format!("{}\n", shell_events(&frame.bytes)).into_bytes(),
                         wait: frame.wait,
                     })
                     .collect(),
+                acknowledge_input: true,
                 output_limit: 4096,
                 timeout,
             }
@@ -302,13 +448,219 @@ impl<T: Transport> Adb<T> {
                 ));
             }
         }
-        result.map(|_| ())
+        result.map_err(super::dispatched_error).map(|_| value)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn shell_encoding_preserves_all_byte_values_and_event_boundaries() {
+        let bytes: Vec<_> = (0..3).flat_map(|_| 0_u8..=255).collect();
+        let encoded = shell_events(&bytes);
+        let events: Vec<_> = encoded.split(' ').collect();
+        assert_eq!(events.len(), bytes.len() / 24);
+        let decoded: Vec<_> = events
+            .into_iter()
+            .flat_map(|event| {
+                assert_eq!(event.len(), 120);
+                event.as_bytes().chunks_exact(5).map(|escaped| {
+                    assert_eq!(&escaped[..2], b"\\0");
+                    assert!(escaped[2..].iter().all(|c| (b'0'..=b'7').contains(c)));
+                    u8::from_str_radix(std::str::from_utf8(&escaped[2..]).unwrap(), 8).unwrap()
+                })
+            })
+            .collect();
+        assert_eq!(decoded, bytes);
+        assert!(encoded.starts_with("\\0000\\0001\\0002"));
+        assert!(encoded.ends_with("\\0375\\0376\\0377"));
+    }
+
+    #[test]
+    fn drag_holds_its_exact_endpoint_before_releasing_one_finger() {
+        let (frames, fingers) = Gesture::Drag {
+            from: Point(640, 650),
+            to: Point(608, 638),
+        }
+        .frames(Resolution(1280, 720))
+        .unwrap();
+        assert_eq!(fingers, 1);
+        assert_eq!(frames.len(), 14);
+        assert_eq!(
+            frames[0].bytes,
+            down(&[Point(640, 650)], Duration::ZERO).bytes
+        );
+        for (index, (x, y)) in [635, 631, 626, 623, 619, 616, 614, 612, 610, 609, 609, 608]
+            .into_iter()
+            .zip([649, 647, 645, 644, 643, 641, 641, 640, 639, 639, 639, 638])
+            .enumerate()
+        {
+            assert_eq!(
+                frames[index + 1].bytes,
+                encode(&[(3, 47, 0), (3, 53, x), (3, 54, y), (0, 0, 0),])
+            );
+        }
+        assert!(
+            frames[..12]
+                .iter()
+                .all(|frame| frame.wait == Duration::from_millis(25))
+        );
+        assert_eq!(frames[12].wait, Duration::from_millis(150));
+        assert_eq!(frames[13].bytes, release(1, Duration::ZERO).bytes);
+        assert_eq!(frames[13].wait, Duration::ZERO);
+        assert_eq!(
+            frames.iter().map(|frame| frame.wait).sum::<Duration>(),
+            Duration::from_millis(450)
+        );
+        assert!(
+            Gesture::Drag {
+                from: Point(1280, 0),
+                to: Point(608, 638)
+            }
+            .frames(Resolution(1280, 720))
+            .is_err()
+        );
+        assert!(
+            Gesture::Drag {
+                from: Point(640, 650),
+                to: Point(0, 720)
+            }
+            .frames(Resolution(1280, 720))
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn long_drags_slow_down_without_extending_their_endpoint() {
+        let (frames, fingers) = Gesture::Drag {
+            from: Point(820, 651),
+            to: Point(540, 651),
+        }
+        .frames(Resolution(1280, 720))
+        .unwrap();
+        assert_eq!(fingers, 1);
+        assert_eq!(frames.len(), 26);
+        assert_eq!(
+            frames.iter().map(|frame| frame.wait).sum::<Duration>(),
+            Duration::from_millis(750)
+        );
+        assert_eq!(
+            frames[24].bytes,
+            encode(&[(3, 47, 0), (3, 53, 540), (3, 54, 651), (0, 0, 0)])
+        );
+        assert_eq!(frames[24].wait, Duration::from_millis(150));
+        assert_eq!(frames[25].bytes, release(1, Duration::ZERO).bytes);
+    }
+
+    #[test]
+    fn timed_taps_preserve_spacing_release_and_burst_bounds() {
+        let (frames, fingers) = Gesture::TimedTaps {
+            points: vec![Point(10, 20); 5],
+            spacing: Duration::from_millis(100),
+        }
+        .frames(Resolution(1280, 720))
+        .unwrap();
+        assert_eq!(fingers, 1);
+        assert_eq!(frames.len(), 10);
+        assert_eq!(
+            frames.iter().map(|frame| frame.wait).sum::<Duration>(),
+            Duration::from_millis(430)
+        );
+        for (index, pair) in frames.chunks_exact(2).enumerate() {
+            assert_eq!(pair[0].wait, Duration::from_millis(30));
+            assert_eq!(
+                pair[1].wait,
+                if index == 4 {
+                    Duration::ZERO
+                } else {
+                    Duration::from_millis(70)
+                }
+            );
+            assert_eq!(pair[1].bytes, release(1, Duration::ZERO).bytes);
+        }
+        for (count, spacing) in [(0, 100), (9, 100), (6, 100), (2, 500), (1, 99), (1, 1001)] {
+            assert!(
+                Gesture::TimedTaps {
+                    points: vec![Point(10, 20); count],
+                    spacing: Duration::from_millis(spacing),
+                }
+                .frames(Resolution(1280, 720))
+                .is_err()
+            );
+        }
+        assert!(
+            Gesture::TimedTaps {
+                points: vec![Point(1280, 0)],
+                spacing: Duration::from_millis(100),
+            }
+            .frames(Resolution(1280, 720))
+            .is_err()
+        );
+        let (frames, _) = Gesture::TimedTaps {
+            points: vec![Point(10, 20)],
+            spacing: Duration::from_millis(1000),
+        }
+        .frames(Resolution(1280, 720))
+        .unwrap();
+        assert_eq!(
+            frames.iter().map(|frame| frame.wait).sum::<Duration>(),
+            Duration::from_millis(30)
+        );
+    }
+
+    #[test]
+    fn camera_pan_holds_both_fingers_at_the_endpoint_before_releasing() {
+        let (frames, fingers) = Gesture::Pan {
+            from: Point(640, 320),
+            to: Point(440, 160),
+        }
+        .frames(Resolution(1280, 720))
+        .unwrap();
+        assert_eq!(fingers, 2);
+        assert_eq!(frames.len(), 14);
+        let events = |frame: &WriteFrame| {
+            frame
+                .bytes
+                .chunks_exact(24)
+                .map(|b| {
+                    (
+                        u16::from_le_bytes(b[16..18].try_into().unwrap()),
+                        u16::from_le_bytes(b[18..20].try_into().unwrap()),
+                        i32::from_le_bytes(b[20..24].try_into().unwrap()),
+                    )
+                })
+                .collect::<Vec<_>>()
+        };
+        assert!(events(&frames[0]).contains(&(3, 57, 2)));
+        assert_eq!(frames[0].wait, Duration::from_millis(30));
+        for frame in &frames[1..12] {
+            assert_eq!(frame.wait, Duration::from_millis(25));
+            assert!(!events(frame).contains(&(3, 57, -1)));
+        }
+        let final_move = events(&frames[12]);
+        assert!(final_move.contains(&(3, 53, 390)) && final_move.contains(&(3, 53, 490)));
+        assert_eq!(final_move.iter().filter(|e| **e == (3, 54, 160)).count(), 2);
+        assert!(!final_move.contains(&(3, 57, -1)));
+        assert_eq!(frames[12].wait, Duration::from_millis(150));
+        assert_eq!(frames[13].wait, Duration::ZERO);
+        assert_eq!(
+            events(&frames[13])
+                .iter()
+                .filter(|e| **e == (3, 57, -1))
+                .count(),
+            2
+        );
+        assert!(
+            Gesture::Pan {
+                from: Point(40, 320),
+                to: Point(640, 320)
+            }
+            .frames(Resolution(1280, 720))
+            .is_err()
+        );
+    }
 
     #[test]
     fn events_use_64_bit_headers_and_release_every_finger() {

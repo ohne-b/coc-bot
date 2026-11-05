@@ -13,7 +13,9 @@ function Totals({ stats }: { stats: Statistics }) {
         <Help label="Loot">
           Only confirmed battle results count as loot. Rates include active
           search and recovery time, excluding pauses. The measured count shows
-          how many results could be read. Wall spending is tracked separately.
+          how many results could be read. Wall spending is tracked separately. A
+          ≥ prefix marks a lower bound when result loot is readable but bonus
+          could not be fully verified.
         </Help>
       </div>
       <div className="table-scroll">
@@ -38,8 +40,14 @@ function Totals({ stats }: { stats: Statistics }) {
               return (
                 <tr key={key}>
                   <th>{key === "dark" ? "Dark Elixir" : title(key)}</th>
-                  <td>{number(value.amount)}</td>
-                  <td>{number(value.per_hour)}/h</td>
+                  <td>
+                    {value.is_lower_bound ? "≥ " : ""}
+                    {number(value.amount)}
+                  </td>
+                  <td>
+                    {value.is_lower_bound ? "≥ " : ""}
+                    {number(value.per_hour)}/h
+                  </td>
                   <td>
                     {value.measured_attacks}/{stats.attacks}
                   </td>

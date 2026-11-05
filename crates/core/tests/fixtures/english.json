@@ -1,4 +1,12 @@
 {
+  "home_elixir_unreadable": {
+    "file": "english-home-elixir-unreadable.png",
+    "state": "home"
+  },
+  "home_elixir_readable": {
+    "file": "english-home-elixir-readable.png",
+    "state": "home"
+  },
   "home": {
     "file": "english-home.png",
     "state": "home"
@@ -6,6 +14,15 @@
   "builder": {
     "file": "english-builder.png",
     "state": "builder"
+  },
+  "ldplayer_top_up": {
+    "file": "english-ldplayer-top-up.png",
+    "state": "ldplayer_top_up",
+    "retained_regions": [[490, 124, 301, 24], [963, 124, 22, 23], [582, 583, 122, 34]]
+  },
+  "daily_reward_claim": {
+    "file": "english-daily_reward_claim.png",
+    "state": "daily_reward"
   },
   "builder_visible_cart": {
     "file": "english-builder-visible-cart.png",
@@ -85,7 +102,7 @@
   },
   "builder_progress": {
     "file": "english-builder_progress.png",
-    "state": "builder_battle2"
+    "state": "builder_battle"
   },
   "builder_fourth_current": {
     "file": "english-builder_fourth_current.png",
@@ -222,5 +239,21 @@
   "daily_reward": {
     "file": "english-daily_reward.png",
     "state": "daily_reward"
+  },
+  "builder_first-star": {
+    "file": "battlefield-builder-first-star.png",
+    "state": "builder_battle"
+  },
+  "builder_first-complete": {
+    "file": "battlefield-builder-first-complete.png",
+    "state": "builder_battle"
+  },
+  "builder_second-active": {
+    "file": "battlefield-builder-second-active.png",
+    "state": "builder_battle"
+  },
+  "builder_countdown_cave": {
+    "file": "battlefield-builder-countdown-cave.png",
+    "state": "builder_stage2"
   }
 }
