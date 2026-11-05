@@ -982,6 +982,853 @@
           65
         ]
       ]
+    },
+    {
+      "file": "army-builder-scout.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-builder-battle.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-builder-selected.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-overflow-left.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-overflow-spring.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-overflow-settled.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-overflow-middle-1.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-overflow-middle-2.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-overflow-middle-3.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-overflow-right.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-siege-warning-low.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-siege-warning-high.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-builder-hero-waiting.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-builder-hero-selected.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-edge-spring-before.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-edge-spring-after.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-arrow-occluded.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-arrow-clear.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-overlap-before.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-overlap-after.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-final-edge-before.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-final-edge-after.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-return-start.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-return-0.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-return-1.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-return-2.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-locate-before.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-locate-reached.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-locate-settled.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-locate-right-before.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-locate-right-reached.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-locate-right-settled.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-builder-hero-flash-before.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-builder-hero-flash-clear.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-builder-hero-flash.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-builder-charge-before.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-builder-activation-early.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-builder-activation-consumed.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-builder-charge-empty.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-builder-charge-one.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-builder-charge-two.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-builder-head-obscured.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-inertia-before.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-inertia-reached.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-inertia-moving.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-inertia-settled.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-builder-stage2-survivors.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-siege-settle-128.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-siege-settle-129.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-siege-settle-130.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-siege-settle-131.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-siege-settle-132.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-siege-settle-133.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-siege-settle-134.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-siege-settle-bound.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-siege-overflow-selected.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-short-scroll-before.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-short-scroll-moved.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-short-scroll-settled.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-scroll48-left-before.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-scroll48-left-moved.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-scroll48-left-settled.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-scroll48-right-before.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-scroll48-right-moved.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-scroll48-right-settled.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-siege-drift-bound.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-siege-drift-current.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-ignored-return-before.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-ignored-return-probe.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-ignored-return-stalled.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-return64-before.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-return64-probe.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-return64-moving.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-return64-settled.png",
+      "retained_regions": [
+        [
+          0,
+          545,
+          1280,
+          175
+        ]
+      ]
+    },
+    {
+      "file": "army-home-spent-scan.png",
+      "retained_regions": [
+        [
+          0,
+          530,
+          1280,
+          190
+        ]
+      ]
+    },
+    {
+      "file": "army-home-spent-before.png",
+      "retained_regions": [
+        [
+          0,
+          530,
+          1280,
+          190
+        ]
+      ]
+    },
+    {
+      "file": "army-home-spent-after.png",
+      "retained_regions": [
+        [
+          0,
+          530,
+          1280,
+          190
+        ]
+      ]
     }
   ],
   "resolution": [
