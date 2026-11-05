@@ -368,9 +368,9 @@ function Editor({
           <Help label="Read army">
             Open this stage's scout screen in LDPlayer and stop the bot, then
             read the army. This checks the whole deployment bar, including slots
-            that require scrolling. It does not launch an attack or deploy
-            units. Names are your labels; the bot follows army positions across
-            the whole bar.{" "}
+            that require scrolling. It does not deploy units; the game's scout
+            timer keeps running. Names are your labels; the bot follows army
+            positions across the whole bar.{" "}
             {armyAt
               ? `Last read: ${new Date(armyAt).toLocaleTimeString(undefined, { hour12: false })}. ${armyComplete ? "The whole army was read." : "Only the visible army was read."}`
               : "No army has been read for this stage."}
