@@ -1862,6 +1862,28 @@
           130
         ]
       ]
+    },
+    {
+      "file": "army-home-archer-before.png",
+      "retained_regions": [
+        [
+          0,
+          580,
+          1280,
+          140
+        ]
+      ]
+    },
+    {
+      "file": "army-home-archer-selected.png",
+      "retained_regions": [
+        [
+          0,
+          580,
+          1280,
+          140
+        ]
+      ]
     }
   ],
   "resolution": [

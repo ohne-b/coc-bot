@@ -260,8 +260,15 @@ pub fn cards(image: &Mat, bar: Region, camps: bool, digits: &Digits) -> Result<V
             group += 1;
         }
         previous = Some(right);
+        let slot = Point((left + right) / 2, y + height / 2);
+        let is_selected = !camps && selected(image, slot)?;
         let white = |p: Vec3b| p[0] > 215 && p[1] > 215 && p[2] > 215;
-        let label_white = share(image, Region(right - 40, y + 2, 38, 18), white)? * 684.0;
+        let label_y = if is_selected {
+            y.saturating_sub(4)
+        } else {
+            y + 2
+        };
+        let label_white = share(image, Region(right - 40, label_y, 38, 18), white)? * 684.0;
         let kind = if camps {
             let magenta = share(&colour, Region(right - 40, y + 2, 36, 16), |p| {
                 (135..=165).contains(&p[0]) && p[1] > 100 && p[2] > 120
@@ -299,8 +306,6 @@ pub fn cards(image: &Mat, bar: Region, camps: bool, digits: &Digits) -> Result<V
             }
         };
         let top = if camps { Some(y) } else { y.checked_sub(10) };
-        let slot = Point((left + right) / 2, y + height / 2);
-        let is_selected = !camps && selected(image, slot)?;
         let count_region = top.map(|top| {
             if is_selected {
                 Region(slot.0.saturating_sub(16), top, 55, 26)
@@ -368,17 +373,45 @@ pub fn selected(image: &Mat, slot: Point) -> Result<bool> {
     if slot.0 < 55 || slot.0 + 55 >= image.cols() as u32 || image.rows() < 720 {
         return Ok(false);
     }
+    let mut shaded = false;
+    let mut bright_side = false;
     for side in [-1_i32, 1] {
         let mut border = false;
+        let mut neutral_border = false;
         for offset in 38..=55 {
             let x = (slot.0 as i32 + side * offset) as u32;
             let mut count = 0;
+            let mut neutral = 0;
             for y in 625..685 {
                 count += u32::from(white(x, y)?);
+                let pixel = image.at_2d::<Vec3b>(y as i32, x as i32)?;
+                let low = *pixel.iter().min().unwrap();
+                let high = *pixel.iter().max().unwrap();
+                neutral += u32::from(low >= 185 && high - low <= 10);
             }
             border |= count >= 45;
+            neutral_border |= neutral >= 45;
         }
-        if !border {
+        if !border && !neutral_border {
+            return Ok(false);
+        }
+        shaded |= !border;
+        bright_side |= border;
+    }
+    if shaded {
+        // The selected frame has a shaded rail; require its raised top and opposite bright rail too.
+        if !bright_side {
+            return Ok(false);
+        }
+        let mut raised_top = false;
+        for y in 576..596 {
+            let mut count = 0;
+            for x in slot.0 - 32..slot.0 + 32 {
+                count += u32::from(white(x, y)?);
+            }
+            raised_top |= count >= 50;
+        }
+        if !raised_top {
             return Ok(false);
         }
     }

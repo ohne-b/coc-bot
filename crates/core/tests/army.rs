@@ -415,6 +415,12 @@ fn plans_follow_slots_while_live_cards_reject_identity_changes() {
     let current = army::cards(&selected, bar, false, &digits()).unwrap();
     assert_eq!(original.len(), 10);
     assert_eq!(current.len(), 10);
+    assert_eq!(
+        original.iter().map(|card| card.kind).collect::<Vec<_>>(),
+        current.iter().map(|card| card.kind).collect::<Vec<_>>()
+    );
+    assert!(current.iter().any(|card| card.kind == Kind::Hero));
+    assert!(current.iter().any(|card| card.kind == Kind::Warden));
     for (i, c) in original.iter().enumerate() {
         assert_eq!(
             army::selected(&selected, c.slot).unwrap(),
@@ -457,6 +463,78 @@ fn plans_follow_slots_while_live_cards_reject_identity_changes() {
             }
         }
     }
+}
+
+#[test]
+fn captured_selected_archer_requires_its_complete_raised_frame_and_fresh_identity() {
+    use army::recipe::BoundCard;
+    use opencv::imgproc;
+    let before = fixture("army-home-archer-before.png");
+    let selected = fixture("army-home-archer-selected.png");
+    let digits = digits();
+    let bar: Region =
+        serde_json::from_value(config()["screens"]["home_scout"]["army_bar"].clone()).unwrap();
+    let cards = army::cards(&before, bar, false, &digits).unwrap();
+    let selected_cards = army::cards(&selected, bar, false, &digits).unwrap();
+    assert_eq!(cards[0].slot, Point(59, 651));
+    assert_eq!(cards[0].kind, Kind::Counted);
+    assert_eq!(selected_cards[0].kind, Kind::Counted);
+    assert_eq!(selected_cards[0].count, Some(1));
+    assert_eq!(
+        cards
+            .iter()
+            .map(|card| (card.kind, card.count))
+            .collect::<Vec<_>>(),
+        selected_cards
+            .iter()
+            .map(|card| (card.kind, card.count))
+            .collect::<Vec<_>>()
+    );
+    for (i, card) in cards.iter().enumerate() {
+        assert!(!army::selected(&before, card.slot).unwrap());
+        assert_eq!(army::selected(&selected, card.slot).unwrap(), i == 0);
+        let bound = BoundCard::new(card, &before, false).unwrap();
+        assert_eq!(bound.remaining(&selected, &digits).unwrap(), card.count);
+    }
+    let bound = BoundCard::new(&cards[0], &before, false).unwrap();
+    for x in 56..=62 {
+        assert!(
+            army::selected(&selected, Point(x, 651)).unwrap(),
+            "center {x}"
+        );
+    }
+    let mut wrong = bound.clone();
+    wrong.portrait = BoundCard::new(&cards[1], &before, false).unwrap().portrait;
+    assert_eq!(wrong.remaining(&selected, &digits).unwrap(), None);
+
+    for missing in [
+        Rect::new(8, 620, 15, 70),
+        Rect::new(100, 620, 12, 70),
+        Rect::new(20, 576, 80, 20),
+        Rect::new(20, 700, 80, 19),
+    ] {
+        let mut obscured = selected.clone();
+        Mat::roi_mut(&mut obscured, missing)
+            .unwrap()
+            .set_to(&Scalar::all(0.), &core::no_array())
+            .unwrap();
+        assert!(
+            !army::selected(&obscured, cards[0].slot).unwrap(),
+            "{missing:?}"
+        );
+    }
+    let mut no_bright_side = selected.clone();
+    Mat::roi_mut(&mut no_bright_side, Rect::new(104, 620, 4, 70))
+        .unwrap()
+        .set_to(&Scalar::all(195.), &core::no_array())
+        .unwrap();
+    assert!(!army::selected(&no_bright_side, cards[0].slot).unwrap());
+    let mut gray = Mat::default();
+    imgproc::cvt_color_def(&before, &mut gray, imgproc::COLOR_BGR2GRAY).unwrap();
+    let mut exhausted = Mat::default();
+    imgproc::cvt_color_def(&gray, &mut exhausted, imgproc::COLOR_GRAY2BGR).unwrap();
+    assert!(!army::selected(&exhausted, cards[0].slot).unwrap());
+    assert_eq!(bound.remaining(&exhausted, &digits).unwrap(), Some(0));
 }
 
 #[test]
