@@ -968,12 +968,29 @@ impl<T: Transport + Clone> Worker<T> {
         if let Some((village, name)) = village
             && let Some(regions) = self.profile.capacity.get(name)
         {
+            let mut tooltip_row = None;
+            for region in regions.values() {
+                if region.label.locate(&capture.image)?.is_some() {
+                    tooltip_row =
+                        Some(tooltip_row.map_or(region.bar.1, |row: u32| row.min(region.bar.1)));
+                }
+            }
             for (resource, key) in [
                 (Resource::Gold, "gold"),
                 (Resource::Elixir, "elixir"),
                 (Resource::Dark, "dark"),
             ] {
                 if let Some(region) = regions.get(key) {
+                    // A storage tooltip covers lower HUD rows with its maximum and treasury text.
+                    if tooltip_row.is_some_and(|row| region.bar.1 > row) {
+                        observations.push(ResourceObservation {
+                            village,
+                            resource,
+                            checked_at_ms: at,
+                            reading: Reading::Unavailable,
+                        });
+                        continue;
+                    }
                     let capacity = if region.label.locate(&capture.image)?.is_some() {
                         self.digits
                             .number(&crop(&capture.image, region.maximum)?, 0.65)

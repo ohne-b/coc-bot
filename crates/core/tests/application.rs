@@ -287,6 +287,28 @@ async fn contextual_tooltips_publish_the_captured_balance_and_capacity_for_the_c
                 "{}",
                 case["id"]
             );
+            let resource_order = [
+                coc_bot_core::telemetry::Resource::Gold,
+                coc_bot_core::telemetry::Resource::Elixir,
+                coc_bot_core::telemetry::Resource::Dark,
+            ];
+            let owner = resource_order.iter().position(|r| *r == resource).unwrap();
+            for hidden in snapshot.resources.iter().filter(|r| {
+                resource_order
+                    .iter()
+                    .position(|resource| *resource == r.latest.resource)
+                    .unwrap()
+                    > owner
+            }) {
+                assert_eq!(
+                    hidden.latest.reading,
+                    coc_bot_core::telemetry::Reading::Unavailable,
+                    "{}: {:?} is covered by the tooltip",
+                    case["id"],
+                    hidden.latest.resource
+                );
+                assert!(hidden.last_known.is_none());
+            }
             checked += 1;
         }
         app.shutdown().await.unwrap();
