@@ -797,7 +797,9 @@ impl Engine {
         let input_detector = detector.clone();
         let completed = &self.builder_complete;
         let guard = |image: &Mat| -> Result<()> {
-            if input_detector.detect(image)? == Detection::Known(Screen::BuilderBattle)
+            // ADB already checks the fresh screen; only Builder needs a second stage check.
+            if source != Some(Screen::HomeScout)
+                && input_detector.detect(image)? == Detection::Known(Screen::BuilderBattle)
                 && !builder_stage_ready(profile, digits, source, image, completed)?
             {
                 return Err(Error::InputGuard);
@@ -2087,6 +2089,57 @@ mod tests {
             vec![Screen::BuilderStage2, Screen::BuilderBattle]
         );
         assert!(deploy_screens(Screen::Home).is_empty());
+    }
+
+    #[tokio::test]
+    async fn home_camera_input_rejects_a_changed_fresh_screen() {
+        let profile = Profile::load(&root()).unwrap();
+        let digits = Digits::load(&root(), Path::new("calibration/digits")).unwrap();
+        let detector = Arc::new(
+            Detector::load(
+                &Calibration::load(&root().join("config.json")).unwrap(),
+                &root(),
+            )
+            .unwrap(),
+        );
+        let vision = GameVision {
+            profile: &profile,
+            digits: &digits,
+            detector,
+        };
+        let (_, scout) = Fake::new("english-home_scout.png");
+        for file in [
+            "battlefield-builder-first-star.png",
+            "english-home_result.png",
+            "english-home.png",
+        ] {
+            let (fake, _) = Fake::new(file);
+            let temp = tempfile::tempdir().unwrap();
+            let mut adb = fake.adb(temp.path());
+            let mut engine =
+                Engine::new(Options::default(), SessionMode::Farming, &profile).unwrap();
+            engine.stage = Stage::Normalize {
+                screen: Screen::HomeScout,
+                routine: Default::default(),
+            };
+            assert!(matches!(
+                engine
+                    .tick(
+                        &vision,
+                        &mut adb,
+                        &FrameView {
+                            image: &scout,
+                            detection: &Detection::Known(Screen::HomeScout),
+                            elapsed_ms: 1000,
+                            captured_at_ms: 1000,
+                        },
+                        &CancellationToken::new(),
+                    )
+                    .await,
+                Err(Error::InputGuard)
+            ));
+            assert!(fake.taps.lock().unwrap().is_empty());
+        }
     }
 
     #[tokio::test]
