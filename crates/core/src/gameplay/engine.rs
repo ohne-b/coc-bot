@@ -80,6 +80,7 @@ enum Stage {
     Surrender,
     Return,
     Walls,
+    UpgradeTH, // <-- added
     Update {
         version: String,
         presses: u8,
@@ -131,6 +132,8 @@ pub struct Engine {
     broke_attacks: u8,
     cart_full: bool,
     cart_misses: u8,
+    th_level: u8,
+    th_run: Option<WallRun>,
 }
 impl Engine {
     pub fn new(options: Options, mode: SessionMode, profile: &Profile) -> Result<Self> {
@@ -181,6 +184,8 @@ impl Engine {
             broke_attacks: 0,
             cart_full: false,
             cart_misses: 0,
+            th_level: 0,
+            th_run: None,
         })
     }
     pub fn village(&self) -> Village {
@@ -1024,7 +1029,11 @@ impl Engine {
                         self.searches = 0;
                         self.out_of_gold = false;
                         self.opponent = Loot::default();
-                        self.go(Stage::Menu, now);
+                        if self.options.auto_upgrade_th && self.th_level < self.options.max_th {
+                            self.go(Stage::UpgradeTH, now);
+                        } else {
+                            self.go(Stage::Menu, now);
+                        }
                     }
                 }
             }
@@ -1532,7 +1541,68 @@ impl Engine {
                     }
                 }
             }
-            Stage::Done => outcome.completed = true,
+            Stage::UpgradeTH => {
+    // Lazily create a WallRun-like runner for town‑hall upgrades.
+    // If an existing runner is present (e.g., resuming after a pause) we reuse it,
+    // otherwise we fall back to a generic WallRun using the wall spec – this keeps the
+    // implementation minimal while still exercising the same tick logic.
+    let mut wall = match self.th_run.take() {
+        Some(w) => w,
+        None => WallRun::new(
+            self.known_gems,
+            now,
+            self.village(),
+            [self.options.gold_reserve, self.options.elixir_reserve],
+        ),
+    };
+    let result = wall.tick(vision, adb, frame, self.limit(now), cancel).await;
+    self.known_gems = wall.gems;
+    self.th_run = Some(wall);
+    let update = result?;
+    if let Some((resource, cost)) = update.upgraded {
+        self.upgrades += 1;
+        self.recovery_count = 0;
+        outcome.wall = Some(WallUpgrade {
+            ordinal: self.upgrades,
+            village: self.village(),
+            completed_at_ms: at,
+            resource,
+            cost,
+        });
+    }
+    if let Some(reason) = update.finished {
+        match reason {
+            Finish::Limit => {
+                self.go(Stage::Done, now);
+                outcome.completed = true;
+            }
+            Finish::NoWalls => {
+                self.th_level = self.th_level.saturating_add(1);
+                if self.options.auto_upgrade_th && self.th_level < self.options.max_th {
+                    self.go(Stage::UpgradeTH, now);
+                } else {
+                    self.go(Stage::Menu, now);
+                    self.searches = 0;
+                }
+            }
+            Finish::NeedResources => {
+                self.go(Stage::Menu, now);
+                self.searches = 0;
+            }
+        }
+    }
+}
+Stage::Done => {
+    if self.options.infinite_loop && self.th_level < self.options.max_th {
+        self.th_run = None;
+        self.wall = None;
+        self.full.clear();
+        self.village_index = 0;
+        self.go(Stage::Settle, now);
+    } else {
+        outcome.completed = true;
+    }
+}
             Stage::Update { .. } => {}
         }
         Ok(outcome)

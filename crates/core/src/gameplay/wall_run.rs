@@ -66,6 +66,7 @@ pub struct WallRun {
     excluded: Vec<Resource>,
     wait_until: u64,
     since: u64,
+    spec: Option<super::walls::Spec>,
 }
 impl WallRun {
     #[cfg(test)]
@@ -94,6 +95,30 @@ impl WallRun {
             excluded: vec![],
             wait_until: now,
             since: now,
+            spec: None,
+        }
+    }
+    /// Build a WallRun that drives a non-wall building list (e.g. Town Hall).
+    pub fn new_building(
+        gems: Option<u32>,
+        now: u64,
+        village: Village,
+        reserves: [u32; 2],
+        spec: super::walls::Spec,
+    ) -> Self {
+        Self {
+            village,
+            reserves,
+            phase: Phase::Begin,
+            shift: 0,
+            gems,
+            previous_gems: None,
+            balances: None,
+            previous_balances: None,
+            excluded: vec![],
+            wait_until: now,
+            since: now,
+            spec: Some(spec),
         }
     }
     pub fn operation(&self) -> &'static str {
@@ -144,9 +169,13 @@ impl WallRun {
         } else {
             Screen::Builder
         };
-        let spec = profile.walls.get(name).ok_or_else(|| {
-            Error::Calibration("Walls are not calibrated for this village".into())
-        })?;
+        let spec = if let Some(spec) = &self.spec {
+            spec
+        } else {
+            profile.walls.get(name).ok_or_else(|| {
+                Error::Calibration("Walls are not calibrated for this village".into())
+            })?
+        };
         if limit
             && !matches!(
                 self.phase,

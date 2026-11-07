@@ -42,6 +42,9 @@ pub struct Options {
     pub gold_reserve: u32,
     pub elixir_reserve: u32,
     pub wall_farm_threshold: u32,
+    pub auto_upgrade_th: bool,
+    pub max_th: u8,
+    pub infinite_loop: bool,
     pub layouts: BTreeMap<Screen, Layout>,
 }
 impl Default for Options {
@@ -71,6 +74,9 @@ impl Default for Options {
             gold_reserve: 1_000_000,
             elixir_reserve: 1_000_000,
             wall_farm_threshold: 20_000_000,
+            auto_upgrade_th: false,
+            max_th: 18,
+            infinite_loop: false,
             layouts: BTreeMap::new(),
         }
     }
@@ -102,6 +108,9 @@ impl Options {
             || self.surrender_stars > 3
             || self.trophy_floor > 20_000
             || self.recoveries > 20
+            || self.max_th < 1
+            || self.max_th > 18
+            || self.wall_farm_threshold > 1_000_000_000
             || [
                 self.minimum_gold,
                 self.minimum_elixir,
