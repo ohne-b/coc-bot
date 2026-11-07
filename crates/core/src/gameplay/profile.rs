@@ -21,6 +21,8 @@ pub struct Profile {
     pub capacity: BTreeMap<String, BTreeMap<String, Capacity>>,
     pub cart_text: Option<Region>,
     pub walls: BTreeMap<String, super::walls::Spec>,
+    #[serde(default)]
+    pub town_halls: BTreeMap<String, super::walls::Spec>,
 }
 #[derive(Deserialize)]
 pub struct ScreenSpec {
